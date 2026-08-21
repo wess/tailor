@@ -17,7 +17,7 @@ it is output Tailor actually produced.
 | [State, bindings and actions](tailorstate.md) | Signals, two-way binding, events, the lint pass |
 | [What gets generated](tailorcodegen.md) | The output, the flavours, export, the file format, the theme |
 | [The MCP server](tailormcp.md) | Driving the same document from an agent |
-| [Zed](tailorzed.md) | Jumping between a component and its code, in both directions |
+| [Zed & other editors](tailorzed.md) | Jumping between a component and its code, in both directions |
 
 ## Getting it
 
@@ -115,10 +115,13 @@ them.
 crates/tailor/
 ├── model/     # the document: catalog, node tree, tokens, state, file format
 ├── codegen/   # document -> idiomatic guise Rust
-├── store/     # project files, recents, editor settings, export
+├── store/     # project files, recents, editor settings, export, the editor bridge
 ├── render/    # document -> live guise components (the canvas)
 ├── app/       # the gpui workbench
 └── mcp/       # an MCP server over the same document model
+
+extensions/zed/  # a Zed context server for tailor-mcp — its own cargo
+                 # workspace, because it targets wasm32-wasip2
 ```
 
 `model`, `codegen`, and `store` are free of gpui and carry the tests: the
@@ -126,9 +129,14 @@ reparent rules, the cycle checks, the undo stack, the generated output, and the
 file round-trip are all plain-data logic, and that is where a builder actually
 goes wrong.
 
-All five crates are `publish = false`. Nothing about Tailor reaches crates.io,
+```sh
+cargo test -p tailor-model -p tailor-codegen -p tailor-store
+```
+
+All six crates are `publish = false`. Nothing about Tailor reaches crates.io,
 and nothing about it is in `guise-ui` — `cargo package -p guise-ui --list` is
-the proof.
+the proof, and it is why the library still depends on nothing but gpui and std
+while Tailor is free to use serde.
 
 ## Adding a component to the catalog
 

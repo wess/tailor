@@ -281,7 +281,7 @@ impl Session {
             ));
         }
         // Remember where it went, the same as the app does — it is what
-        // *Open in Zed* reads to find the file a node is in, and what
+        // *Open in Editor* reads to find the file a node is in, and what
         // `--reveal` reads to go the other way.
         if let Some(path) = self.path.clone() {
             tailor_store::ExportIndex::record(dir, &path);

@@ -24,7 +24,7 @@ pub struct Generated {
     pub notes: Vec<String>,
     /// Where each node ended up: its 1-based line in `source`. This is what
     /// turns "select this component" into "put the cursor here", which is the
-    /// whole of *Open in Zed*.
+    /// whole of *Open in Editor*.
     pub lines: BTreeMap<tailor_model::NodeId, usize>,
 }
 

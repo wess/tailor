@@ -9,7 +9,10 @@
 //! The other half of the integration needs nothing from Zed at all. The server
 //! saves after every change and Tailor watches the file it has open, so a
 //! screen built from here appears on the canvas a moment later; and Tailor's
-//! *Open in Zed* shells the `zed` CLI at the generated line.
+//! *Open in Editor* shells the `zed` CLI at the generated line.
+//!
+//! Note that the designer<->editor jump loop is a separate thing from this
+//! extension and needs none of it: see `docs/tailorzed.md`.
 
 use zed_extension_api::{
     self as zed, settings::ContextServerSettings, Command, ContextServerId, Project, Result,

@@ -1071,8 +1071,8 @@ impl Workbench {
 
             this.update(cx, |this, cx| {
                 if report.ok() {
-                    // Remember it, so *Open in Zed* knows which file on disk a
-                    // node is in without asking again.
+                    // Remember it, so *Open in Editor* knows which file on disk
+                    // a node is in without asking again.
                     let directory = root.to_string_lossy().to_string();
                     if this.project.gen.export_dir.as_deref() != Some(directory.as_str()) {
                         Arc::make_mut(&mut this.project).gen.export_dir = Some(directory);
