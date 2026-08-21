@@ -170,7 +170,7 @@ impl Workbench {
                 )
                 .item_icon(
                     IconName::SquareCode,
-                    "Open in Zed",
+                    "Open in Editor",
                     action(&weak, |this, window, cx| this.open_in_editor(window, cx)),
                 );
 

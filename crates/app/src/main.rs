@@ -108,6 +108,7 @@ actions!(
     OpenLiveWindow,
     ToggleDevTools,
     OpenInEditor,
+    InstallEditorTask,
 );
 
 fn menu(name: &'static str, items: Vec<MenuItem>) -> Menu {
@@ -207,7 +208,8 @@ fn menus() -> Vec<Menu> {
                 MenuItem::action("Open Live Window", OpenLiveWindow),
                 MenuItem::action("Developer Tools", ToggleDevTools),
                 MenuItem::separator(),
-                MenuItem::action("Open in Zed", OpenInEditor),
+                MenuItem::action("Open in Editor", OpenInEditor),
+                MenuItem::action("Set Up Editor Jump…", InstallEditorTask),
                 MenuItem::separator(),
                 MenuItem::action("Library", TogglePalette),
                 MenuItem::action("Outline", ToggleOutline),

@@ -201,6 +201,7 @@ impl Root {
             OpenLiveWindow => open_live_window,
             ToggleDevTools => toggle_devtools,
             OpenInEditor => open_in_editor,
+            InstallEditorTask => install_editor_task,
             OpenSettings => open_settings,
         );
         root

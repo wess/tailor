@@ -199,6 +199,17 @@ impl Row {
     }
 }
 
+/// The editor picker's options, from the table the store keeps. Both halves are
+/// `&'static str` already, so this is a view of it rather than a copy.
+const EDITOR_OPTIONS: &[(&str, &str)] = &[
+    ("zed", "Zed"),
+    ("vscode", "VS Code"),
+    ("sublime", "Sublime"),
+    ("intellij", "IntelliJ"),
+    ("emacs", "Emacs"),
+    ("vim", "Neovim"),
+];
+
 fn general_rows(weak: &WeakEntity<Workbench>, now: &Settings, base: &Settings) -> Vec<Row> {
     vec![
         toggle(
@@ -218,6 +229,17 @@ fn general_rows(weak: &WeakEntity<Workbench>, now: &Settings, base: &Settings) -
             base.live_devtools,
             weak,
             |settings, value| settings.live_devtools = value,
+        ),
+        picker(
+            "editor",
+            "Jump to",
+            "Which editor `Open in Editor` opens, and what `--reveal` pairs with.",
+            EDITOR_OPTIONS,
+            &now.editor,
+            now.editor != base.editor,
+            weak,
+            |settings, value| settings.editor = value.to_string(),
+            |settings| settings.editor = Settings::default().editor,
         ),
         picker(
             "flavour",

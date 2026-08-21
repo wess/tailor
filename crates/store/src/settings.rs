@@ -148,6 +148,9 @@ pub struct Settings {
     /// default: that window exists to show the design at its real size, and
     /// the inspector is the one thing that takes room away from it.
     pub live_devtools: bool,
+    /// Which editor *Open in Editor* jumps to, as a key into [`EDITORS`].
+    #[serde(default = "default_editor")]
+    pub editor: String,
 
     // Panel layout. Open/closed and size both persist: having to re-collapse
     // three panels every launch is the kind of friction that makes a tool feel
@@ -165,6 +168,47 @@ pub struct Settings {
     pub folded: Vec<String>,
 }
 
+/// The editors Tailor knows how to jump into, and the command each takes.
+///
+/// `{file}`, `{line}` and `{column}` are filled in. They are all the same
+/// shape — a path and a position — which is why this is a table and not a
+/// trait: adding an editor is a row.
+pub const EDITORS: &[(&str, &str, &str)] = &[
+    ("zed", "Zed", "zed {file}:{line}:{column}"),
+    ("vscode", "VS Code", "code --goto {file}:{line}:{column}"),
+    ("sublime", "Sublime Text", "subl {file}:{line}:{column}"),
+    (
+        "intellij",
+        "IntelliJ",
+        "idea --line {line} --column {column} {file}",
+    ),
+    ("emacs", "Emacs", "emacsclient +{line}:{column} {file}"),
+    ("vim", "Neovim", "nvim +{line} {file}"),
+];
+
+fn default_editor() -> String {
+    "zed".into()
+}
+
+/// The command line for an editor key, or Zed's if the key is unknown.
+pub fn editor_command(key: &str) -> &'static str {
+    EDITORS
+        .iter()
+        .find(|(name, _, _)| *name == key)
+        .or_else(|| EDITORS.first())
+        .map(|(_, _, command)| *command)
+        .unwrap_or("zed {file}:{line}:{column}")
+}
+
+/// What to call it in a menu.
+pub fn editor_title(key: &str) -> &'static str {
+    EDITORS
+        .iter()
+        .find(|(name, _, _)| *name == key)
+        .map(|(_, title, _)| *title)
+        .unwrap_or("your editor")
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -180,6 +224,7 @@ impl Default for Settings {
             flavor: Flavor::Plain,
             autosave: false,
             live_devtools: false,
+            editor: default_editor(),
             palette_open: true,
             outline_open: true,
             inspector_open: true,
@@ -365,5 +410,26 @@ mod tests {
         assert!(CanvasMode::Preview.interactive());
         assert!(!CanvasMode::Design.interactive());
         assert!(!CanvasMode::Split.interactive());
+    }
+}
+
+#[cfg(test)]
+mod editor_tests {
+    use super::*;
+
+    /// The picker in the app mirrors this table. A row without a usable command
+    /// is a menu item that silently does nothing.
+    #[test]
+    fn every_editor_has_a_command_and_the_default_resolves() {
+        for (key, title, command) in EDITORS {
+            assert!(!title.is_empty(), "{key} has no title");
+            assert!(command.contains("{file}"), "{key} never names the file");
+            assert!(command.contains("{line}"), "{key} never names the line");
+            assert_eq!(editor_command(key), *command);
+            assert_eq!(editor_title(key), *title);
+        }
+        // An unknown key falls back rather than opening nothing at all.
+        assert_eq!(editor_command("nano"), EDITORS[0].2);
+        assert_eq!(editor_command(&Settings::default().editor), EDITORS[0].2);
     }
 }

@@ -118,6 +118,101 @@ impl Focus {
     }
 }
 
+/// The task an editor runs to reveal a component, and where it goes.
+///
+/// Only Zed for now: it is the one whose task format takes the cursor as
+/// variables, which is what makes the binding a paste rather than a script.
+pub mod task {
+    use std::path::PathBuf;
+
+    pub const LABEL: &str = "Reveal in Tailor";
+
+    pub fn zed_tasks_file() -> PathBuf {
+        dirs::home_dir()
+            .unwrap_or_default()
+            .join(".config/zed/tasks.json")
+    }
+
+    /// The task, as Zed's `tasks.json` wants it.
+    pub fn zed_task(binary: &str) -> serde_json::Value {
+        serde_json::json!({
+            "label": LABEL,
+            "command": binary,
+            "args": ["--reveal", "$ZED_FILE:$ZED_ROW"],
+            // Never: the jump's whole point is that Tailor comes forward, and
+            // a terminal panel opening behind it on every keystroke is noise.
+            // Zed takes `always`, `no_focus` or `never` here and nothing else.
+            "reveal": "never",
+            "hide": "on_success",
+            "shell": "system",
+        })
+    }
+
+    /// What the outcome of installing was, so the caller can say something
+    /// true rather than "done".
+    #[derive(Debug, PartialEq)]
+    pub enum Installed {
+        Added,
+        AlreadyThere,
+    }
+
+    /// Add the task to Zed's global task file, leaving everything else in it
+    /// alone.
+    ///
+    /// Never clobbers: a file that will not parse is an error rather than
+    /// something to overwrite, and a task with this label already in it is left
+    /// as it is. Somebody may have edited theirs.
+    pub fn install_zed(binary: &str) -> Result<Installed, String> {
+        let path = zed_tasks_file();
+        let existing = std::fs::read_to_string(&path).unwrap_or_default();
+
+        let mut tasks: Vec<serde_json::Value> = if existing.trim().is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_str(&strip_comments(&existing)).map_err(|err| {
+                format!(
+                    "{} does not parse as JSON ({err}). Add the task by hand \
+                     rather than have this overwrite it.",
+                    path.display()
+                )
+            })?
+        };
+
+        if tasks
+            .iter()
+            .any(|task| task.get("label").and_then(|l| l.as_str()) == Some(LABEL))
+        {
+            return Ok(Installed::AlreadyThere);
+        }
+
+        tasks.push(zed_task(binary));
+        let text = serde_json::to_string_pretty(&tasks).map_err(|err| err.to_string())?;
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+        }
+        std::fs::write(&path, text + "\n").map_err(|err| err.to_string())?;
+        Ok(Installed::Added)
+    }
+
+    /// Zed's config files allow `//` comments; `serde_json` does not. Only
+    /// whole-line comments are stripped, so a `//` inside a string survives.
+    pub(crate) fn strip_comments(text: &str) -> String {
+        text.lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// The keybinding to paste. Not written for you: claiming a key in
+    /// somebody's keymap is not a thing to do quietly.
+    pub const KEYBINDING: &str = r#"{
+  "context": "Editor",
+  "bindings": {
+    "alt-cmd-r": ["task::Spawn", { "task_name": "Reveal in Tailor" }]
+  }
+}"#;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,5 +237,49 @@ mod tests {
             Some(PathBuf::from("/work/outer.tailor"))
         );
         assert_eq!(index.project_for(Path::new("/elsewhere/x.rs")), None);
+    }
+}
+
+#[cfg(test)]
+mod task_tests {
+    use super::task::*;
+
+    #[test]
+    fn an_existing_task_file_keeps_its_other_tasks() {
+        // The shape Zed writes, comments and all.
+        let existing = r#"// my tasks
+[
+  { "label": "Build", "command": "cargo", "args": ["build"] }
+]"#;
+        let stripped: Vec<serde_json::Value> =
+            serde_json::from_str(&super::task::strip_comments(existing)).unwrap();
+        assert_eq!(stripped.len(), 1);
+        assert_eq!(stripped[0]["label"], "Build");
+    }
+
+    /// Zed rejects the whole task file over one bad enum, and says so only in
+    /// its log — so the values it accepts are worth pinning.
+    #[test]
+    fn the_task_uses_values_zed_accepts() {
+        let task = zed_task("tailordev");
+        assert!(
+            ["always", "no_focus", "never"].contains(&task["reveal"].as_str().unwrap_or_default()),
+            "reveal was {:?}",
+            task["reveal"]
+        );
+        assert!(
+            ["always", "never", "on_success"].contains(&task["hide"].as_str().unwrap_or_default()),
+            "hide was {:?}",
+            task["hide"]
+        );
+    }
+
+    #[test]
+    fn the_task_carries_the_cursor() {
+        let task = zed_task("/Applications/Tailor.app/Contents/MacOS/tailor");
+        assert_eq!(task["label"], LABEL);
+        assert_eq!(task["args"][0], "--reveal");
+        assert_eq!(task["args"][1], "$ZED_FILE:$ZED_ROW");
+        assert!(KEYBINDING.contains(LABEL));
     }
 }

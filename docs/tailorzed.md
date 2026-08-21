@@ -32,8 +32,19 @@ tailordev --reveal src/ui/people.rs:106
 # Roster · People · node 11 — selecting it in Tailor
 ```
 
-A Zed **task** hands it the cursor. In `.zed/tasks.json`, either in the exported
-project or in `~/.config/zed/tasks.json` for every project:
+**View → Set Up Editor Jump…** writes the task for you, into
+`~/.config/zed/tasks.json` so it works in every project, and copies the
+keybinding to your clipboard. It never overwrites: a task file that will not
+parse is an error rather than something to replace, and a task already carrying
+this label is left as it is.
+
+Two things it deliberately does not do. It does not touch your **keymap** —
+claiming a key in somebody else's keymap is not a thing to do quietly, so the
+binding is a paste. And if Zed was already running when the file was *created*,
+it will not notice until you open and save `tasks.json` once, or restart.
+
+By hand, if you would rather — in `.zed/tasks.json` in the exported project, or
+`~/.config/zed/tasks.json` for every project:
 
 ```jsonc
 [
@@ -41,7 +52,7 @@ project or in `~/.config/zed/tasks.json` for every project:
     "label": "Reveal in Tailor",
     "command": "tailordev",
     "args": ["--reveal", "$ZED_FILE:$ZED_ROW"],
-    "reveal": "on_error",
+    "reveal": "never",
     "hide": "on_success",
     "shell": "system"
   }
@@ -59,9 +70,15 @@ And a key for it, in `keymap.json`:
 }
 ```
 
-`command` has to be findable: use the app's own copy —
-`/Applications/Tailor.app/Contents/MacOS/tailor` — if `tailordev` is not on your
+`command` has to be findable. *Set Up Editor Jump…* writes the absolute path of
+the Tailor that wrote it, so it points at the one you are running; by hand, use
+`/Applications/Tailor.app/Contents/MacOS/tailor` if `tailordev` is not on your
 `$PATH`.
+
+`reveal` takes `always`, `no_focus` or `never` and nothing else — Zed rejects the
+whole file over one bad value and says so only in its log. `never` is right here:
+Tailor coming forward *is* the feedback, and a terminal panel opening behind it
+on every jump is noise.
 
 ### How it finds the project
 
@@ -176,14 +193,27 @@ component instead of on it.
 MCP. That is why *Open in Zed* does not ask you every time, and why exporting
 somewhere new silently starts sending you there instead.
 
-### If you use a different editor
+### Other editors
 
-`open_in_editor` shells the `zed` CLI, which takes `path:line:column`. Most
-editors have the same thing (`code -g`, `subl`, `idea --line`), so this is a
-small change rather than a design problem — but Tailor only ships the Zed one
-today.
+**Settings → General → Jump to** picks which one. Every editor here has the same
+shape of CLI — a path and a position — which is why this is a table and not a
+plugin per editor:
 
-The CLI is not always on a GUI app's `$PATH` — a bundle launched from Finder
-inherits a minimal one — so Tailor falls back to
-`/Applications/Zed.app/Contents/MacOS/cli`, which is where every macOS install
-puts it.
+| | Command |
+| --- | --- |
+| Zed | `zed {file}:{line}:{column}` |
+| VS Code | `code --goto {file}:{line}:{column}` |
+| Sublime Text | `subl {file}:{line}:{column}` |
+| IntelliJ | `idea --line {line} --column {column} {file}` |
+| Emacs | `emacsclient +{line}:{column} {file}` |
+| Neovim | `nvim +{line} {file}` |
+
+A GUI app launched from Finder inherits a minimal `$PATH`, so an editor's CLI is
+often not on it. Zed gets one special case — `/Applications/Zed.app/Contents/MacOS/cli`,
+where every macOS install puts it — because it is the default. For the others,
+put the CLI on your `$PATH`.
+
+The reverse direction is Zed-only for now, because Zed's task format is the one
+that hands a command the cursor position as variables. Any editor that can run a
+shell command with the current file and row can call
+`tailordev --reveal <file>:<row>`; it just needs writing per editor.

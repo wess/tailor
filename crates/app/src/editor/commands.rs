@@ -1103,11 +1103,12 @@ impl Workbench {
         .detach();
     }
 
-    /// Open the selected node's generated line in Zed.
+    /// Open the selected node's generated line in your editor.
     ///
-    /// Zed extensions cannot draw, so the editor cannot host Tailor — but its
-    /// CLI takes `path:line:column`, which is the whole of the jump. The line
-    /// comes from the map the generator builds while it writes the file.
+    /// No editor can host Tailor — Zed's extensions cannot draw, and the others
+    /// are further away still. But every one of them has a CLI that takes a
+    /// path and a position, which is the whole of the jump. The line comes from
+    /// the map the generator builds while it writes the file.
     pub fn open_in_editor(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.selection.first().copied() else {
             self.toasts.info("Select a component first", cx);
@@ -1141,10 +1142,66 @@ impl Workbench {
             return;
         }
 
-        match open_in_zed(&path, line) {
-            Ok(()) => self
-                .toasts
-                .info(format!("{}:{line} in Zed", generated.path), cx),
+        let editor = self.settings.editor.clone();
+        match open_in_editor(&editor, &path, line) {
+            Ok(()) => self.toasts.info(
+                format!(
+                    "{}:{line} in {}",
+                    generated.path,
+                    tailor_store::editor_title(&editor)
+                ),
+                cx,
+            ),
+            Err(err) => self.toasts.failed(err, cx),
+        }
+    }
+
+    /// Add the *Reveal in Tailor* task to the editor's config, so the code →
+    /// component direction is a keystroke instead of a paste.
+    ///
+    /// Only the task is written. The keybinding goes to the clipboard instead:
+    /// claiming a key in somebody's keymap is not a thing to do quietly, and a
+    /// conflict would be ours.
+    pub fn install_editor_task(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.settings.editor != "zed" {
+            self.toasts.info(
+                format!(
+                    "Only Zed's tasks take the cursor as variables — for {} \
+                     the docs have the command to bind by hand.",
+                    tailor_store::editor_title(&self.settings.editor)
+                ),
+                cx,
+            );
+            return;
+        }
+
+        // The path this binary is at, so the task points at the Tailor you are
+        // running rather than one that may not be installed.
+        let binary = std::env::current_exe()
+            .map(|path| path.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "tailordev".to_string());
+
+        match tailor_store::bridge::task::install_zed(&binary) {
+            Ok(tailor_store::bridge::task::Installed::Added) => {
+                cx.write_to_clipboard(ClipboardItem::new_string(
+                    tailor_store::bridge::task::KEYBINDING.to_string(),
+                ));
+                self.toasts
+                    .done("Added \"Reveal in Tailor\" to Zed's tasks", cx);
+                self.toasts.info(
+                    "Keybinding copied — paste it into Zed's keymap.json. If Zed was \
+                     already running, open and save its tasks.json once so it \
+                     notices the new file.",
+                    cx,
+                );
+            }
+            Ok(tailor_store::bridge::task::Installed::AlreadyThere) => {
+                cx.write_to_clipboard(ClipboardItem::new_string(
+                    tailor_store::bridge::task::KEYBINDING.to_string(),
+                ));
+                self.toasts
+                    .info("Zed already has the task — keybinding copied", cx);
+            }
             Err(err) => self.toasts.failed(err, cx),
         }
     }
@@ -1264,27 +1321,43 @@ fn graft(doc: &mut Document, tree: &Tree, parent: NodeId) -> Option<NodeId> {
     Some(id)
 }
 
-/// Hand a file and a line to Zed.
-///
-/// The `zed` CLI takes `path:line:column`, so the jump is one spawn. It is not
-/// always on a GUI app's `$PATH` — a bundle launched from Finder inherits a
-/// minimal one — so the app's own copy is the fallback, and it is where the CLI
-/// lives on every macOS install.
-fn open_in_zed(path: &std::path::Path, line: usize) -> Result<(), String> {
-    const BUNDLED_CLI: &str = "/Applications/Zed.app/Contents/MacOS/cli";
+/// Fill an editor's command line in: `{file}`, `{line}`, `{column}`.
+pub fn editor_argv(template: &str, path: &std::path::Path, line: usize) -> Vec<String> {
+    template
+        .split_whitespace()
+        .map(|word| {
+            word.replace("{file}", &path.display().to_string())
+                .replace("{line}", &line.to_string())
+                .replace("{column}", "1")
+        })
+        .collect()
+}
 
-    let target = format!("{}:{line}:1", path.display());
-    let mut candidates: Vec<&str> = vec!["zed"];
-    if std::path::Path::new(BUNDLED_CLI).exists() {
-        candidates.push(BUNDLED_CLI);
+/// Hand a file and a line to whichever editor is configured.
+///
+/// A GUI app launched from Finder inherits a minimal `$PATH`, so an editor's
+/// CLI is often not on it. Zed's own copy is where every macOS install puts it,
+/// and it is worth the one special case because it is the default.
+fn open_in_editor(editor: &str, path: &std::path::Path, line: usize) -> Result<(), String> {
+    const ZED_CLI: &str = "/Applications/Zed.app/Contents/MacOS/cli";
+
+    let argv = editor_argv(tailor_store::editor_command(editor), path, line);
+    let Some((program, args)) = argv.split_first() else {
+        return Err("That editor has no command line".into());
+    };
+
+    let mut candidates: Vec<String> = vec![program.clone()];
+    if editor == "zed" && std::path::Path::new(ZED_CLI).exists() {
+        candidates.push(ZED_CLI.to_string());
     }
 
-    let mut last = String::from("could not find the `zed` CLI");
+    let title = tailor_store::editor_title(editor);
+    let mut last = format!("`{program}` is not on this app's PATH");
     for candidate in candidates {
-        match std::process::Command::new(candidate).arg(&target).spawn() {
+        match std::process::Command::new(&candidate).args(args).spawn() {
             Ok(_) => return Ok(()),
             Err(err) => last = format!("{candidate}: {err}"),
         }
     }
-    Err(format!("Could not open Zed — {last}"))
+    Err(format!("Could not open {title} — {last}"))
 }

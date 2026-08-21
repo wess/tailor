@@ -17,4 +17,4 @@ pub use export::{export, ExportReport};
 pub use paths::{config_dir, default_project_dir, with_extension, EXTENSION};
 pub use project::{open, save, SaveError};
 pub use recents::{Recent, Recents};
-pub use settings::{CanvasMode, Panel, Settings};
+pub use settings::{editor_command, editor_title, CanvasMode, Panel, Settings, EDITORS};
