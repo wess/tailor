@@ -1078,6 +1078,11 @@ impl Workbench {
                         Arc::make_mut(&mut this.project).gen.export_dir = Some(directory);
                         this.dirty = true;
                     }
+                    // And the other direction: which project owns these files,
+                    // so an editor can ask for the component behind a line.
+                    if let Some(path) = this.path.clone() {
+                        tailor_store::ExportIndex::record(&root, &path);
+                    }
                     this.toasts.done(
                         format!("Exported {} to {}", report.summary(), root.display()),
                         cx,

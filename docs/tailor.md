@@ -17,7 +17,7 @@ it is output Tailor actually produced.
 | [State, bindings and actions](tailorstate.md) | Signals, two-way binding, events, the lint pass |
 | [What gets generated](tailorcodegen.md) | The output, the flavours, export, the file format, the theme |
 | [The MCP server](tailormcp.md) | Driving the same document from an agent |
-| [Zed integration](tailorzed.md) | The Zed extension, and jumping to generated code |
+| [Zed](tailorzed.md) | Jumping between a component and its code, in both directions |
 
 ## Getting it
 
@@ -86,7 +86,8 @@ on whatever happened to be selected:
 | The live window | Inspect element, show or hide the inspector |
 
 A node's menu also has **Open in Zed**, which puts your cursor on the line that
-node generated — see [Zed integration](tailorzed.md).
+node generated. The reverse — cursor on a line, component selected in Tailor —
+is a Zed task away. See [Zed](tailorzed.md).
 
 Nothing in any of them is a command that exists only there. **Rename…** on a tab
 opens the document and puts the cursor in the name field the inspector already

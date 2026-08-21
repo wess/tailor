@@ -1,20 +1,88 @@
 # Tailor and Zed
 
-Two halves, in opposite directions. Zed's agent can build a design; Tailor can
-put your cursor on the line a component generated.
+What Interface Builder gives you inside Xcode is a loop: click a control, land
+on its code; sit on a line of code, find the control. Tailor and Zed do that
+across two apps.
 
-## What is not possible, first
+- **Component → code.** Select something in Tailor, **View → Open in Zed**
+  (⌥⌘O). Zed opens the generated file with the cursor on that component's line.
+- **Code → component.** Put the cursor on a line of generated Rust in Zed and
+  run **Reveal in Tailor**. Tailor comes forward with that component selected,
+  on the canvas and in the outline.
 
-Zed extensions are WebAssembly and the capability list is closed: languages,
-debuggers, themes, icon themes, snippets, and MCP servers. **There is no UI
-API.** A Tailor canvas inside a Zed pane is not hard, it is absent — nothing in
-the extension surface can draw.
+Neither direction needs an extension, an agent, or a network. There is a
+[Zed extension](#the-extension-optional) as well, but it is for a different
+job — driving Tailor from Zed's agent — and it is not part of this loop.
 
-So this is not a Tailor panel in Zed. It is the two seams that do exist, and
-between them they cover the thing you actually want, which is not having to
-find the generated file by hand.
+## What is not possible
 
-## The extension
+A Tailor canvas inside a Zed pane. Zed extensions are WebAssembly and the
+capability list is closed: languages, debuggers, themes, icon themes, snippets
+and MCP servers. **There is no UI API** — nothing in the extension surface can
+draw, so this is absent rather than difficult. Two windows and a fast jump
+between them is the shape that is actually available.
+
+## Reveal in Tailor
+
+The code → component direction. Tailor's binary resolves a file and a line back
+to the node that made it:
+
+```sh
+tailordev --reveal src/ui/people.rs:106
+# Roster · People · node 11 — selecting it in Tailor
+```
+
+A Zed **task** hands it the cursor. In `.zed/tasks.json`, either in the exported
+project or in `~/.config/zed/tasks.json` for every project:
+
+```jsonc
+[
+  {
+    "label": "Reveal in Tailor",
+    "command": "tailordev",
+    "args": ["--reveal", "$ZED_FILE:$ZED_ROW"],
+    "reveal": "on_error",
+    "hide": "on_success",
+    "shell": "system"
+  }
+]
+```
+
+And a key for it, in `keymap.json`:
+
+```jsonc
+{
+  "context": "Editor",
+  "bindings": {
+    "alt-cmd-r": ["task::Spawn", { "task_name": "Reveal in Tailor" }]
+  }
+}
+```
+
+`command` has to be findable: use the app's own copy —
+`/Applications/Tailor.app/Contents/MacOS/tailor` — if `tailordev` is not on your
+`$PATH`.
+
+### How it finds the project
+
+Exporting records which project wrote which directory, in Tailor's own config
+rather than in your source tree — generated code stays code, with no dotfiles or
+absolute local paths committed beside it. `--reveal` looks up the innermost
+export directory that contains the file, opens that project, matches the file
+name to a document, and takes the node whose expression starts at or above the
+cursor.
+
+Then it leaves a request that an open Tailor window picks up on the poll it
+already runs for the project file. A window with a different project open leaves
+the request alone, so the right window answers it.
+
+If nothing is open, `--reveal` still prints what it resolved and exits without
+error — the task tells you what it found either way.
+
+## The extension (optional)
+
+This part is not the loop above. It is for building a design *from* Zed's agent
+panel, and you can skip it entirely.
 
 `extensions/zed/` registers `tailor-mcp` as a context server. The whole of it is
 a manifest —
@@ -67,7 +135,7 @@ processes — the file is the integration.
 
 ## Open in Zed
 
-The other direction, and it needs no extension at all.
+The component → code direction, and it needs no extension either.
 
 Select a component, then **View → Open in Zed** (⌥⌘O), or *Open in Zed* on the
 right-click menu. Zed opens the generated file with the cursor on that

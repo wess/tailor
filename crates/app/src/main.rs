@@ -270,8 +270,119 @@ fn keys() -> Vec<KeyBinding> {
     ]
 }
 
+/// Split `path`, `path:line` or `path:line:column` — the shape every editor's
+/// CLI uses — into a path and a row. Peels at most two trailing numeric
+/// segments, so a directory called `12` in the path is safe.
+fn split_target(target: &str) -> (String, usize) {
+    let mut file = target;
+    let mut line = 1usize;
+    for _ in 0..2 {
+        let Some((head, tail)) = file.rsplit_once(':') else {
+            break;
+        };
+        let Ok(number) = tail.parse::<usize>() else {
+            break;
+        };
+        // With both a row and a column, the row is peeled second and wins.
+        line = number;
+        file = head;
+    }
+    (file.to_string(), line)
+}
+
+/// Resolve `<file>:<line>` to a node and leave a request an open window picks
+/// up. Editors hand a path and a row; everything else is looked up here.
+fn reveal(target: &str) -> Result<String, String> {
+    let (file, line) = split_target(target);
+
+    let path = std::fs::canonicalize(&file).unwrap_or_else(|_| std::path::PathBuf::from(&file));
+    let index = tailor_store::ExportIndex::load();
+    let project_path = index.project_for(&path).ok_or_else(|| {
+        format!(
+            "no Tailor project has exported {}. Export one first — that is what \
+             records where its files go.",
+            path.display()
+        )
+    })?;
+    let project = tailor_store::open(&project_path)
+        .map_err(|err| format!("{}: {err}", project_path.display()))?;
+
+    // Which document is this file? The exporter names files after the document,
+    // so the stem is the answer.
+    let stem = path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let doc = project
+        .docs
+        .iter()
+        .find(|doc| tailor_model::snake_case(&doc.name) == stem)
+        .ok_or_else(|| format!("no document in {} generates {stem}.rs", project.name))?;
+
+    // The node whose expression starts at or above the cursor — the innermost
+    // thing that line belongs to.
+    let generated = tailor_codegen::document(&project, doc);
+    let node = generated
+        .lines
+        .iter()
+        .filter(|(_, at)| **at <= line)
+        .max_by_key(|(_, at)| **at)
+        .map(|(id, _)| *id)
+        .ok_or_else(|| format!("nothing on or above line {line} came from a component"))?;
+
+    tailor_store::Focus::write(&project_path, &doc.id, node.0)?;
+    Ok(format!(
+        "{} · {} · node {} — selecting it in Tailor",
+        project.name, doc.name, node.0
+    ))
+}
+
+#[cfg(test)]
+mod reveal_tests {
+    use super::split_target;
+
+    #[test]
+    fn a_target_may_carry_a_row_a_column_or_neither() {
+        assert_eq!(
+            split_target("src/ui/people.rs:106:1"),
+            ("src/ui/people.rs".to_string(), 106)
+        );
+        assert_eq!(
+            split_target("src/ui/people.rs:106"),
+            ("src/ui/people.rs".to_string(), 106)
+        );
+        assert_eq!(
+            split_target("src/ui/people.rs"),
+            ("src/ui/people.rs".to_string(), 1)
+        );
+        // Only trailing *numbers* are peeled, so a path is never eaten.
+        assert_eq!(
+            split_target("/work/12/people.rs"),
+            ("/work/12/people.rs".to_string(), 1)
+        );
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    // `tailordev --reveal src/ui/people.rs:106` goes the other way from *Open in
+    // Zed*: it asks an open window to select whatever made that line. This is
+    // what an editor binds a key to, so the pair behaves like a designer docked
+    // to an editor rather than two apps sharing a folder.
+    if args.first().map(|arg| arg == "--reveal").unwrap_or(false) {
+        match args.get(1) {
+            Some(target) => match reveal(target) {
+                Ok(message) => println!("{message}"),
+                Err(err) => {
+                    eprintln!("{err}");
+                    std::process::exit(1);
+                }
+            },
+            None => eprintln!("usage: tailordev --reveal <file.rs>[:<line>]"),
+        }
+        return;
+    }
 
     // `tailor --template dashboard out.tailor` writes a project and exits, so a
     // script can scaffold one without opening a window.

@@ -62,18 +62,59 @@ impl Workbench {
                     })
                     .await;
 
-                let Some((stamp, loaded)) = found else {
-                    continue;
-                };
-                if this
-                    .update(cx, |this, cx| this.file_changed(stamp, loaded, cx))
-                    .is_err()
-                {
-                    break;
+                if let Some((stamp, loaded)) = found {
+                    if this
+                        .update(cx, |this, cx| this.file_changed(stamp, loaded, cx))
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+
+                // An editor asking for a component, on the same poll. Reading a
+                // small file that is usually absent is cheaper than a second
+                // timer, and it is the same "the file is the integration" this
+                // window already runs on.
+                let asked = cx
+                    .background_executor()
+                    .spawn(async move { tailor_store::Focus::read() })
+                    .await;
+                if let Some(focus) = asked {
+                    if this
+                        .update(cx, |this, cx| this.take_focus(focus, cx))
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
             }
         })
         .detach();
+    }
+
+    /// An editor asked for a component. Select it, and come forward — the
+    /// request came from somewhere else, so this window is behind something.
+    ///
+    /// A request for a project this window does not have open is left alone
+    /// rather than consumed: another window may be the one it is for.
+    fn take_focus(&mut self, focus: tailor_store::Focus, cx: &mut Context<Self>) {
+        if self.path.as_deref() != Some(focus.project.as_path()) {
+            return;
+        }
+        let _ = tailor_store::Focus::take();
+
+        let id = tailor_model::NodeId(focus.node);
+        if self.doc_id != focus.document {
+            self.open_document(&focus.document, cx);
+        }
+        if self.doc().map(|doc| doc.node(id).is_some()) != Some(true) {
+            return;
+        }
+        self.select_only(id, cx);
+        // The request came from another app, so this window is behind
+        // something. Selecting where nobody can see it is not revealing it.
+        cx.activate(true);
+        cx.notify();
     }
 
     /// Note the file's current time as ours, so our own writes never look like

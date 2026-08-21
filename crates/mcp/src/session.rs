@@ -281,7 +281,11 @@ impl Session {
             ));
         }
         // Remember where it went, the same as the app does — it is what
-        // *Open in Zed* reads to find the file a node is in.
+        // *Open in Zed* reads to find the file a node is in, and what
+        // `--reveal` reads to go the other way.
+        if let Some(path) = self.path.clone() {
+            tailor_store::ExportIndex::record(dir, &path);
+        }
         let directory = dir.to_string_lossy().to_string();
         if self.project_mut()?.gen.export_dir.as_deref() != Some(directory.as_str()) {
             self.project_mut()?.gen.export_dir = Some(directory);
