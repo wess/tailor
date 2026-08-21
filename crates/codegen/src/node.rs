@@ -50,6 +50,11 @@ const ENTITY_BINDS: &[(&str, &str)] = &[
     ("rangeslider", "value"),
 ];
 
+/// The line a node's expression is tagged with while the file is being built,
+/// so the finished text can be mapped back to the design. Stripped before
+/// anything is written — see [`crate::file::document`].
+pub const MARK: &str = "//__tailor:";
+
 /// What a region closure calls its weak handle back to the view. `cx.listener`
 /// borrows the context, and a region closure is `'static`, so a handler inside
 /// one goes through this instead.
@@ -232,6 +237,15 @@ impl<'a> Emitter<'a> {
     /// The expression for a node, as lines. Line 0 is the constructor; the rest
     /// are chained calls, already indented one level relative to it.
     pub fn emit(&mut self, id: NodeId, placement: Placement) -> Vec<String> {
+        let mut lines = self.emit_inner(id, placement);
+        // Tag the expression with the node it came from. The tag is a comment
+        // on its own line, so removing it later cannot disturb anything around
+        // it — and removing it is how the line number is learned.
+        lines.insert(0, format!("{MARK}{}", id.0));
+        lines
+    }
+
+    fn emit_inner(&mut self, id: NodeId, placement: Placement) -> Vec<String> {
         let Some(node) = self.doc.node(id) else {
             return vec!["div()".into()];
         };
@@ -810,13 +824,43 @@ pub fn child_call(inner: Vec<String>) -> Vec<String> {
 }
 
 fn prefixed_call(method: &str, inner: Vec<String>) -> Vec<String> {
+    // A node's tag rides in front of its expression. Take it off before
+    // deciding whether that expression fits on one line, then put it back in
+    // front of the call — the tag has to name the line the expression lands on,
+    // and after collapsing that line is the `.child(..)` itself.
+    let (mark, inner) = split_mark(inner);
     if inner.len() == 1 && inner[0].len() + method.len() + 8 <= 96 {
-        return vec![format!(".{method}({})", inner[0])];
+        // Collapsed: the call and the expression are the same line, so the tag
+        // goes in front of it.
+        let mut out = vec![format!(".{method}({})", inner[0])];
+        if let Some(mark) = mark {
+            out.insert(0, mark);
+        }
+        return out;
     }
+    // Expanded: the tag goes *inside*, so it names the constructor rather than
+    // the `.child(` that wraps it. Landing on `.child(` is landing next to the
+    // component instead of on it.
     let mut out = vec![format!(".{method}(")];
+    if let Some(mark) = mark {
+        out.push(mark);
+    }
     out.extend(indent(&inner));
     out.push(")".into());
     out
+}
+
+/// Split a leading node tag off a fragment, if it has one.
+fn split_mark(mut lines: Vec<String>) -> (Option<String>, Vec<String>) {
+    if lines
+        .first()
+        .map(|line| line.trim_start().starts_with(MARK))
+        .unwrap_or(false)
+    {
+        let mark = lines.remove(0);
+        return (Some(mark), lines);
+    }
+    (None, lines)
 }
 
 /// Turn indented lines into nested `TreeNode` constructors.

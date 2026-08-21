@@ -5,7 +5,7 @@
 //! `Render` entity, and everything else can be the `RenderOnce` builder you
 //! would have written by hand.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use tailor_model::{DocKind, Document, Project};
 
@@ -22,6 +22,10 @@ pub struct Generated {
     pub source: String,
     /// Anything the user should know about what came out.
     pub notes: Vec<String>,
+    /// Where each node ended up: its 1-based line in `source`. This is what
+    /// turns "select this component" into "put the cursor here", which is the
+    /// whole of *Open in Zed*.
+    pub lines: BTreeMap<tailor_model::NodeId, usize>,
 }
 
 /// Generate the file for one document.
@@ -212,11 +216,42 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
     source.close("}");
     source.close("}");
 
+    let (source, lines) = strip_marks(source.finish());
+
     Generated {
         path: format!("{}.rs", tailor_model::snake_case(&doc.name)),
-        source: source.finish(),
+        source,
         notes,
+        lines,
     }
+}
+
+/// Take the node tags back out, learning each node's line on the way. A tag
+/// sits on its own line, so the line it is removed from is the line its
+/// expression now starts on — and every later tag shifts up by the number of
+/// tags already gone.
+fn strip_marks(source: String) -> (String, BTreeMap<tailor_model::NodeId, usize>) {
+    let mut lines = BTreeMap::new();
+    let mut out = String::with_capacity(source.len());
+    let mut number = 0usize;
+
+    for line in source.lines() {
+        match line.trim_start().strip_prefix(crate::node::MARK) {
+            Some(id) => {
+                if let Ok(id) = id.trim().parse::<u32>() {
+                    // The expression is whatever comes next, which will be
+                    // written as the line after the ones already kept.
+                    lines.insert(tailor_model::NodeId(id), number + 1);
+                }
+            }
+            None => {
+                out.push_str(line);
+                out.push('\n');
+                number += 1;
+            }
+        }
+    }
+    (out, lines)
 }
 
 /// Does the line use this identifier as a word, rather than inside a string or
@@ -307,6 +342,7 @@ pub fn module(project: &Project) -> Generated {
         path: "mod.rs".into(),
         source: source.finish(),
         notes: Vec::new(),
+        lines: BTreeMap::new(),
     }
 }
 
@@ -461,6 +497,47 @@ mod tests {
             .and_then(|rest| rest.split(".navbar(").next())
             .unwrap_or_default();
         assert!(!header.contains("cx.listener("), "{header}");
+    }
+
+    /// The line map is what turns "select this component" into "put the cursor
+    /// here", so a line that does not hold the node's expression is worse than
+    /// no map at all.
+    #[test]
+    fn every_node_maps_to_the_line_its_expression_is_on() {
+        let mut project = project_with(DocKind::Screen);
+        let root = project.docs[0].root;
+
+        let mut button = project.docs[0].create("button");
+        button.set_prop("label", PropValue::Text("Save".into()));
+        let button_id = project.docs[0].insert(root, DEFAULT_SLOT, 0, button);
+
+        let mut title = project.docs[0].create("title");
+        title.set_prop("content", PropValue::Text("Sign in".into()));
+        let title_id = project.docs[0].insert(root, DEFAULT_SLOT, 0, title);
+
+        let file = document(&project, &project.docs[0]);
+        let lines: Vec<&str> = file.source.lines().collect();
+
+        // No tag survives into the file.
+        assert!(!file.source.contains(crate::node::MARK), "{}", file.source);
+
+        for (id, expected) in [(button_id, "Button::new"), (title_id, "Title::new")] {
+            let line = file
+                .lines
+                .get(&id)
+                .copied()
+                .unwrap_or_else(|| panic!("node {id:?} is not in the map: {:?}", file.lines));
+            let text = lines
+                .get(line - 1)
+                .unwrap_or_else(|| panic!("line {line} is past the end of the file"));
+            assert!(
+                text.contains(expected),
+                "node {id:?} maps to line {line} ({text:?}), which is not its expression"
+            );
+        }
+
+        // The root is in there too, and it is the first thing in `render`.
+        assert!(file.lines.contains_key(&root), "{:?}", file.lines);
     }
 
     #[test]

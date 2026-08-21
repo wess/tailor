@@ -103,6 +103,11 @@ pub struct GenSettings {
     /// export is a crate you can run rather than a folder you have to wire up.
     #[serde(default = "yes")]
     pub emit_app: bool,
+    /// Where the last export went, so *Open in Zed* knows which file on disk a
+    /// node corresponds to without asking every time. Absolute, and absent
+    /// until something has actually been exported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub export_dir: Option<String>,
 }
 
 fn default_module() -> String {
@@ -119,6 +124,7 @@ impl Default for GenSettings {
             flavor: Flavor::default(),
             module: default_module(),
             emit_app: true,
+            export_dir: None,
         }
     }
 }

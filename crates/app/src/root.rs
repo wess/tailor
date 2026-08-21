@@ -200,6 +200,7 @@ impl Root {
             ToggleOrientation => toggle_orientation,
             OpenLiveWindow => open_live_window,
             ToggleDevTools => toggle_devtools,
+            OpenInEditor => open_in_editor,
             OpenSettings => open_settings,
         );
         root

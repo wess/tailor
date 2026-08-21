@@ -109,6 +109,7 @@ mod tests {
                 path: "../escaped.rs".into(),
                 source: "// no".into(),
                 notes: Vec::new(),
+                lines: Default::default(),
             }],
         );
         assert!(!report.ok());

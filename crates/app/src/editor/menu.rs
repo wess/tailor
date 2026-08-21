@@ -157,15 +157,22 @@ impl Workbench {
                     );
             }
 
-            menu = menu.divider().item_icon(
-                IconName::Package,
-                if count > 1 {
-                    "Extract to a component…"
-                } else {
-                    "Extract to a component"
-                },
-                action(&weak, |this, _window, cx| this.extract_component(cx)),
-            );
+            menu = menu
+                .divider()
+                .item_icon(
+                    IconName::Package,
+                    if count > 1 {
+                        "Extract to a component…"
+                    } else {
+                        "Extract to a component"
+                    },
+                    action(&weak, |this, _window, cx| this.extract_component(cx)),
+                )
+                .item_icon(
+                    IconName::SquareCode,
+                    "Open in Zed",
+                    action(&weak, |this, window, cx| this.open_in_editor(window, cx)),
+                );
 
             menu = menu
                 .divider()

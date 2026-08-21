@@ -5,6 +5,7 @@
 //! you designed against, and `Cargo.toml` pins the same guise and gpui this
 //! repo builds. Nothing here imports Tailor.
 
+use std::collections::BTreeMap;
 use tailor_model::{DocKind, Project, Scheme};
 
 use crate::file::Generated;
@@ -72,6 +73,7 @@ pub fn main_rs(project: &Project) -> Generated {
         path: "main.rs".into(),
         source: source.finish(),
         notes: Vec::new(),
+        lines: BTreeMap::new(),
     }
 }
 
@@ -103,6 +105,7 @@ pub fn theme_rs(project: &Project) -> Generated {
         path: "theme.rs".into(),
         source: source.finish(),
         notes: Vec::new(),
+        lines: BTreeMap::new(),
     }
 }
 
@@ -130,6 +133,7 @@ pub fn cargo_toml(project: &Project) -> Generated {
         path: "Cargo.toml".into(),
         source,
         notes: Vec::new(),
+        lines: BTreeMap::new(),
     }
 }
 

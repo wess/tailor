@@ -107,6 +107,7 @@ actions!(
     ToggleOrientation,
     OpenLiveWindow,
     ToggleDevTools,
+    OpenInEditor,
 );
 
 fn menu(name: &'static str, items: Vec<MenuItem>) -> Menu {
@@ -206,6 +207,8 @@ fn menus() -> Vec<Menu> {
                 MenuItem::action("Open Live Window", OpenLiveWindow),
                 MenuItem::action("Developer Tools", ToggleDevTools),
                 MenuItem::separator(),
+                MenuItem::action("Open in Zed", OpenInEditor),
+                MenuItem::separator(),
                 MenuItem::action("Library", TogglePalette),
                 MenuItem::action("Outline", ToggleOutline),
                 MenuItem::action("Inspector", ToggleInspector),
@@ -247,6 +250,7 @@ fn keys() -> Vec<KeyBinding> {
         KeyBinding::new("cmd-4", ModePreview, None),
         KeyBinding::new("cmd-shift-l", OpenLiveWindow, None),
         KeyBinding::new("alt-cmd-i", ToggleDevTools, None),
+        KeyBinding::new("alt-cmd-o", OpenInEditor, None),
         KeyBinding::new("cmd-alt-1", TogglePalette, None),
         KeyBinding::new("cmd-alt-2", ToggleOutline, None),
         KeyBinding::new("cmd-alt-3", ToggleInspector, None),

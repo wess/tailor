@@ -266,7 +266,7 @@ impl Session {
         Ok(json!({ "path": file.path, "notes": file.notes, "source": file.source }))
     }
 
-    pub fn export(&self, dir: &Path) -> Answer {
+    pub fn export(&mut self, dir: &Path) -> Answer {
         let project = self.project()?;
         let report = tailor_store::export(dir, project);
         if !report.ok() {
@@ -279,6 +279,13 @@ impl Session {
                     .collect::<Vec<_>>()
                     .join("; ")
             ));
+        }
+        // Remember where it went, the same as the app does — it is what
+        // *Open in Zed* reads to find the file a node is in.
+        let directory = dir.to_string_lossy().to_string();
+        if self.project_mut()?.gen.export_dir.as_deref() != Some(directory.as_str()) {
+            self.project_mut()?.gen.export_dir = Some(directory);
+            self.save()?;
         }
         Ok(json!({
             "summary": report.summary(),

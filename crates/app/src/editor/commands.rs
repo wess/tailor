@@ -1071,6 +1071,13 @@ impl Workbench {
 
             this.update(cx, |this, cx| {
                 if report.ok() {
+                    // Remember it, so *Open in Zed* knows which file on disk a
+                    // node is in without asking again.
+                    let directory = root.to_string_lossy().to_string();
+                    if this.project.gen.export_dir.as_deref() != Some(directory.as_str()) {
+                        Arc::make_mut(&mut this.project).gen.export_dir = Some(directory);
+                        this.dirty = true;
+                    }
                     this.toasts.done(
                         format!("Exported {} to {}", report.summary(), root.display()),
                         cx,
@@ -1089,6 +1096,52 @@ impl Workbench {
             .ok();
         })
         .detach();
+    }
+
+    /// Open the selected node's generated line in Zed.
+    ///
+    /// Zed extensions cannot draw, so the editor cannot host Tailor — but its
+    /// CLI takes `path:line:column`, which is the whole of the jump. The line
+    /// comes from the map the generator builds while it writes the file.
+    pub fn open_in_editor(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.selection.first().copied() else {
+            self.toasts.info("Select a component first", cx);
+            return;
+        };
+        let Some(directory) = self.project.gen.export_dir.clone() else {
+            self.toasts.info(
+                "Export the project first — that is what creates the file",
+                cx,
+            );
+            return;
+        };
+        let Some(doc) = self.doc() else { return };
+
+        let generated = tailor_codegen::document(&self.project, doc);
+        let Some(line) = generated.lines.get(&id).copied() else {
+            self.toasts
+                .info("That node does not appear in the generated file", cx);
+            return;
+        };
+        let path = PathBuf::from(&directory)
+            .join("src")
+            .join(&self.project.gen.module)
+            .join(&generated.path);
+
+        if !path.exists() {
+            self.toasts.failed(
+                format!("{} is not there — export again?", path.display()),
+                cx,
+            );
+            return;
+        }
+
+        match open_in_zed(&path, line) {
+            Ok(()) => self
+                .toasts
+                .info(format!("{}:{line} in Zed", generated.path), cx),
+            Err(err) => self.toasts.failed(err, cx),
+        }
     }
 
     pub fn copy_code(&mut self, cx: &mut Context<Self>) {
@@ -1204,4 +1257,29 @@ fn graft(doc: &mut Document, tree: &Tree, parent: NodeId) -> Option<NodeId> {
         }
     }
     Some(id)
+}
+
+/// Hand a file and a line to Zed.
+///
+/// The `zed` CLI takes `path:line:column`, so the jump is one spawn. It is not
+/// always on a GUI app's `$PATH` — a bundle launched from Finder inherits a
+/// minimal one — so the app's own copy is the fallback, and it is where the CLI
+/// lives on every macOS install.
+fn open_in_zed(path: &std::path::Path, line: usize) -> Result<(), String> {
+    const BUNDLED_CLI: &str = "/Applications/Zed.app/Contents/MacOS/cli";
+
+    let target = format!("{}:{line}:1", path.display());
+    let mut candidates: Vec<&str> = vec!["zed"];
+    if std::path::Path::new(BUNDLED_CLI).exists() {
+        candidates.push(BUNDLED_CLI);
+    }
+
+    let mut last = String::from("could not find the `zed` CLI");
+    for candidate in candidates {
+        match std::process::Command::new(candidate).arg(&target).spawn() {
+            Ok(_) => return Ok(()),
+            Err(err) => last = format!("{candidate}: {err}"),
+        }
+    }
+    Err(format!("Could not open Zed — {last}"))
 }
