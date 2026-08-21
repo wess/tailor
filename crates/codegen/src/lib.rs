@@ -148,6 +148,36 @@ mod tests {
         assert!(file.source.contains("Text::new(self.query.get(cx))"));
     }
 
+    /// A controlled builder binds in the chain. Reading the signal without
+    /// writing back is not a binding — the switch would show the value and then
+    /// refuse to change it.
+    #[test]
+    fn a_bound_controlled_builder_binds_both_ways() {
+        let mut project = kitchen_sink();
+        let doc = &mut project.docs[0];
+        doc.state.push(tailor_model::StateVar::new(
+            "ready",
+            tailor_model::VarType::Bool,
+        ));
+        let switch = doc.create("switch");
+        let id = doc.insert(doc.root, DEFAULT_SLOT, 0, switch);
+        doc.node_mut(id)
+            .unwrap()
+            .set_prop("checked", PropValue::Binding("ready".into()));
+
+        let file = preview(&project, &project.docs[0]);
+        assert!(
+            file.source.contains(".bind(self.ready.binding())"),
+            "{}",
+            file.source
+        );
+        assert!(
+            !file.source.contains(".checked(self.ready"),
+            "{}",
+            file.source
+        );
+    }
+
     #[test]
     fn an_absolute_frame_pins_its_children() {
         let mut project = Project::new("Demo");

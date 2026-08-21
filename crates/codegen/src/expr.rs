@@ -91,8 +91,30 @@ pub fn color_arg(hoist: &mut Hoist, rust_enum: &str, color: &ColorSpec) -> Strin
 
 /// A prop value as the argument its setter takes.
 pub fn value(hoist: &mut Hoist, spec: &PropSpec, value: &PropValue, doc: &Document) -> String {
+    value_in(hoist, spec, value, doc, "self.")
+}
+
+/// [`value`], for an expression built somewhere `self` does not exist — the
+/// body of `new`, where a state variable is still a local and not yet a field.
+pub fn value_with(
+    hoist: &mut Hoist,
+    spec: &PropSpec,
+    value: &PropValue,
+    doc: &Document,
+    prefix: &str,
+) -> String {
+    value_in(hoist, spec, value, doc, prefix)
+}
+
+fn value_in(
+    hoist: &mut Hoist,
+    spec: &PropSpec,
+    value: &PropValue,
+    doc: &Document,
+    prefix: &str,
+) -> String {
     if let Some(var) = value.as_binding() {
-        return binding(spec, var, doc);
+        return binding(spec, var, doc, prefix);
     }
     match (spec.ty, value) {
         (PropType::Color, PropValue::Color(color)) => color_arg(hoist, spec.rust_enum, color),
@@ -112,9 +134,10 @@ pub fn value(hoist: &mut Hoist, spec: &PropSpec, value: &PropValue, doc: &Docume
 }
 
 /// A prop that reads a state variable. `Signal<T>` hands back an owned value,
-/// which is what every setter here wants.
-fn binding(spec: &PropSpec, var: &str, doc: &Document) -> String {
-    let read = format!("self.{}.get(cx)", tailor_model::snake_case(var));
+/// which is what every setter here wants. `prefix` is `self.` in `render` and
+/// empty in `new`, where the signal is a local.
+fn binding(spec: &PropSpec, var: &str, doc: &Document, prefix: &str) -> String {
+    let read = format!("{prefix}{}.get(cx)", tailor_model::snake_case(var));
     let ty = doc.var(var).map(|v| v.ty);
     match (spec.ty, ty) {
         // A text setter takes `impl Into<SharedString>`; a `String` qualifies.

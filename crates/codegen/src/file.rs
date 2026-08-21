@@ -49,6 +49,7 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
         .flat_map(|(id, _)| emitter.emit_init(*id))
         .collect();
     let subscriptions = emitter.emit_subscriptions();
+    let binds = emitter.binds.clone();
     let extra_imports = emitter.imports.clone();
     let mut notes = emitter.notes.clone();
 
@@ -126,7 +127,20 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
             source.open(format!(
                 "pub fn new({param}: &mut Context<Self>) -> Self {{"
             ));
+            // State first, as locals. A field that reads a signal reads it
+            // while building — there is no `self` yet — and a two-way binding
+            // needs both sides to exist before it can be made.
+            for var in &doc.state {
+                source.line(format!(
+                    "let {} = {};",
+                    tailor_model::snake_case(&var.name),
+                    var.initializer()
+                ));
+            }
             source.block(inits.clone());
+            for line in &binds {
+                source.line(line);
+            }
             for line in &subscriptions {
                 source.line(line);
             }
@@ -138,11 +152,7 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
                     source.line(format!("{field},"));
                 }
                 for var in &doc.state {
-                    source.line(format!(
-                        "{}: {},",
-                        tailor_model::snake_case(&var.name),
-                        var.initializer()
-                    ));
+                    source.line(format!("{},", tailor_model::snake_case(&var.name)));
                 }
                 source.close("}");
             }
@@ -365,6 +375,92 @@ mod tests {
         assert!(file.source.contains(".full_width(true)"));
         // The default variant is not restated.
         assert!(!file.source.contains(".variant(Variant::Filled)"));
+    }
+
+    /// A bound prop is read from a signal, and `new` has no `self` to read it
+    /// from — the field being built *is* what `self` will be made of. The
+    /// signal has to be a local first, and guise's two-way `bind` has to be a
+    /// call after both sides exist.
+    #[test]
+    fn a_bound_entity_binds_after_construction_and_never_says_self_in_new() {
+        let mut project = project_with(DocKind::Screen);
+        let root = project.docs[0].root;
+        let mut field = project.docs[0].create("textinput");
+        field.set_prop("value", PropValue::Binding("query".into()));
+        project.docs[0].insert(root, DEFAULT_SLOT, 0, field);
+        project.docs[0].state.push(tailor_model::StateVar {
+            name: "query".into(),
+            ty: tailor_model::VarType::Text,
+            initial: String::new(),
+            note: String::new(),
+        });
+
+        let file = document(&project, &project.docs[0]);
+        let new_body = file
+            .source
+            .split("pub fn new(")
+            .nth(1)
+            .and_then(|rest| rest.split("impl Render").next())
+            .expect("a screen generates a constructor");
+
+        assert!(
+            !new_body.contains("self."),
+            "`new` cannot reach `self`:\n{new_body}"
+        );
+        assert!(
+            new_body.contains("let query = Signal::new(cx,"),
+            "the signal has to be a local before the field that binds it:\n{new_body}"
+        );
+        assert!(
+            new_body.contains("TextInput::bind(&text_field, &query, cx);"),
+            "a binding is two-way, not a one-shot read:\n{new_body}"
+        );
+        // And the setter the binding drives is not also emitted, or the two
+        // would fight over the same value.
+        assert!(!new_body.contains(".value("), "{new_body}");
+    }
+
+    /// A container whose region takes a `'static` closure cannot hold a
+    /// `cx.listener`: the context is borrowed for the method body and the
+    /// closure outlives it. The handler goes through a weak handle instead.
+    #[test]
+    fn an_event_inside_a_region_closure_goes_through_a_weak_handle() {
+        let mut project = project_with(DocKind::Screen);
+        let root = project.docs[0].root;
+        let shell = project.docs[0].create("appshell");
+        let shell_id = shell.id;
+        project.docs[0].insert(root, DEFAULT_SLOT, 0, shell);
+
+        let mut button = project.docs[0].create("button");
+        button.set_prop("label", PropValue::Text("Save".into()));
+        button.events.insert("click".into(), "save".into());
+        project.docs[0].insert(shell_id, "header", 0, button);
+        project.docs[0].actions.push(tailor_model::ActionDef {
+            name: "save".into(),
+            note: String::new(),
+            body: String::new(),
+        });
+
+        let file = document(&project, &project.docs[0]);
+        assert!(
+            file.source.contains("let view = cx.entity().downgrade();"),
+            "the closure needs a handle it can own:\n{}",
+            file.source
+        );
+        assert!(
+            file.source
+                .contains("view.update(cx, |this, cx| this.save(cx)).ok();"),
+            "{}",
+            file.source
+        );
+        // The header closure must not carry a borrow of the outer context.
+        let header = file
+            .source
+            .split(".header(")
+            .nth(1)
+            .and_then(|rest| rest.split(".navbar(").next())
+            .unwrap_or_default();
+        assert!(!header.contains("cx.listener("), "{header}");
     }
 
     #[test]

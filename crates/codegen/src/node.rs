@@ -26,6 +26,62 @@ pub enum Owner {
     Plain,
 }
 
+/// The entity components guise gives a two-way `X::bind(&entity, &signal, cx)`,
+/// and the prop that binding drives. Binding any *other* prop on these is a
+/// one-shot read of the signal at construction, which is what the fallback in
+/// `prop_calls` emits.
+///
+/// The controlled builders (`Checkbox`, `Switch`, `Radio`, `Chip`, `Rating`)
+/// take `.bind(signal.binding())` in the builder chain instead, and are handled
+/// where their props are emitted — they have no `new` to bind after.
+const ENTITY_BINDS: &[(&str, &str)] = &[
+    ("textinput", "value"),
+    ("textarea", "value"),
+    ("passwordinput", "value"),
+    ("numberinput", "value"),
+    ("pininput", "value"),
+    ("colorinput", "value"),
+    ("tagsinput", "tags"),
+    ("autocomplete", "value"),
+    ("markdowneditor", "value"),
+    ("select", "selected"),
+    ("segmented", "selected"),
+    ("slider", "value"),
+    ("rangeslider", "value"),
+];
+
+/// What a region closure calls its weak handle back to the view. `cx.listener`
+/// borrows the context, and a region closure is `'static`, so a handler inside
+/// one goes through this instead.
+const VIEW: &str = "view";
+
+/// The prop `X::bind` drives for this kind, if guise has one.
+fn entity_bind_prop(kind: &str) -> Option<&'static str> {
+    ENTITY_BINDS
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map(|(_, prop)| *prop)
+}
+
+/// The controlled builders, which take `.bind(signal.binding())` in the chain.
+/// They hold no state of their own, so there is no entity to bind afterwards —
+/// the binding is a setter like any other, and it is what makes them two-way.
+/// Without it a bound checkbox reads its signal and never writes back, which
+/// looks like a binding right up until you click it.
+const CONTROLLED_BINDS: &[(&str, &str)] = &[
+    ("checkbox", "checked"),
+    ("switch", "checked"),
+    ("chip", "checked"),
+    ("rating", "value"),
+];
+
+fn controlled_bind_prop(kind: &str) -> Option<&'static str> {
+    CONTROLLED_BINDS
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map(|(_, prop)| *prop)
+}
+
 /// Where the expression being built will sit. It decides how an entity-backed
 /// node refers to itself: a field in `render`, a local in `new`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,6 +101,9 @@ pub struct Emitter<'a> {
     pub imports: BTreeSet<String>,
     /// Things worth telling the user about the file that came out.
     pub notes: Vec<String>,
+    /// `X::bind(&field, &signal, cx);` lines, emitted after the entity and the
+    /// signal are both locals in `new`.
+    pub binds: Vec<String>,
     phase: Phase,
     /// One frame per open closure. A closure is `'static`, so anything it
     /// touches has to be cloned in ahead of it; this records what to clone.
@@ -68,6 +127,7 @@ impl<'a> Emitter<'a> {
             owner,
             imports: BTreeSet::new(),
             notes: Vec::new(),
+            binds: Vec::new(),
             phase: Phase::Render,
             captures: Vec::new(),
         }
@@ -114,6 +174,18 @@ impl<'a> Emitter<'a> {
         let mut body = vec![ctor];
         body.extend(indent(&self.prop_calls(node)));
         body.extend(indent(&self.slot_calls(node)));
+
+        // Two-way binding is a call after construction, not a setter: the
+        // entity and the signal both have to exist first.
+        if let Some(key) = entity_bind_prop(&node.kind) {
+            if let Some(var) = node.prop(key).and_then(|value| value.as_binding()) {
+                self.binds.push(format!(
+                    "{}::bind(&{field}, &{}, cx);",
+                    spec.rust,
+                    tailor_model::snake_case(var)
+                ));
+            }
+        }
 
         let captured = self.captures.pop().unwrap_or_default();
         self.phase = previous;
@@ -317,10 +389,32 @@ impl<'a> Emitter<'a> {
             };
             // A binding is never "the default" — it is a live read.
             let bound = value.as_binding().is_some();
+            // The prop a two-way `X::bind` drives is set by that call, not by a
+            // setter here; emitting both would fight over the same value.
+            if bound && entity_bind_prop(&node.kind) == Some(prop.key) {
+                continue;
+            }
+            // In `new` there is no `self` yet — a state variable is still a
+            // local.
+            let prefix = match self.phase {
+                Phase::Render => "self.",
+                Phase::Init => "",
+            };
+            // A controlled builder binds in the chain, and that binding replaces
+            // the setter it drives.
+            if bound && controlled_bind_prop(&node.kind) == Some(prop.key) {
+                if let Some(var) = value.as_binding() {
+                    out.push(format!(
+                        ".bind({prefix}{}.binding())",
+                        tailor_model::snake_case(var)
+                    ));
+                    continue;
+                }
+            }
             match prop.emit {
                 Emit::Method(method) => {
                     if bound || (!expr::is_default(prop, value) && !value.is_empty()) {
-                        let arg = expr::value(self.hoist, prop, value, self.doc);
+                        let arg = expr::value_with(self.hoist, prop, value, self.doc, prefix);
                         out.push(format!(".{method}({arg})"));
                     }
                 }
@@ -517,9 +611,15 @@ impl<'a> Emitter<'a> {
         }
         out.push(format!("{head}{{"));
         for name in &captured {
-            let source = match self.phase {
-                Phase::Render => format!("self.{name}.clone()"),
-                Phase::Init => format!("{name}.clone()"),
+            let source = if name == VIEW {
+                // Weak, not strong: a closure held by a live component tree
+                // must not own the view that renders it.
+                "cx.entity().downgrade()".to_string()
+            } else {
+                match self.phase {
+                    Phase::Render => format!("self.{name}.clone()"),
+                    Phase::Init => format!("{name}.clone()"),
+                }
             };
             out.push(format!("    let {name} = {source};"));
         }
@@ -559,6 +659,26 @@ impl<'a> Emitter<'a> {
                 format!("{}, ", args.join(", "))
             };
             match self.owner {
+                // Inside a region closure there is no `cx` to listen with: the
+                // closure is `'static` and outlives the borrow. A weak handle
+                // is cloned in ahead of it and upgraded when the event fires —
+                // the same shape a hand-written host uses.
+                Owner::Entity if !self.captures.is_empty() => {
+                    if let Some(scope) = self.captures.last_mut() {
+                        scope.insert(VIEW.to_string());
+                    }
+                    // Cloned again per handler: the region closure is `Fn`, so
+                    // a `move` handler inside it would move the shared handle
+                    // out of the closure that owns it.
+                    out.push(format!(".{}({{", event.method));
+                    out.push(format!("    let {VIEW} = {VIEW}.clone();"));
+                    out.push(format!("    move |{params}_window, cx| {{"));
+                    out.push(format!(
+                        "        {VIEW}.update(cx, |this, cx| this.{method}(cx)).ok();"
+                    ));
+                    out.push("    }".into());
+                    out.push("})".into());
+                }
                 Owner::Entity => out.push(format!(
                     ".{}(cx.listener(|this, {params}_window, cx| this.{method}(cx)))",
                     event.method
