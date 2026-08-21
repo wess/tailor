@@ -213,7 +213,7 @@ inspector's sections fold individually and stay folded across selections.
 | Design / Blueprint / Split / Preview | ⌘1 … ⌘4 |
 | Live window | ⇧⌘L |
 | Developer tools | ⌥⌘I |
-| Open in Zed | ⌥⌘O |
+| Open in Editor | ⌥⌘O |
 | Library / Outline / Inspector / Problems | ⌥⌘1 … ⌥⌘4 |
 | Show grid / snap to grid / layout bounds | ⌘' / ⇧⌘' / ⇧⌘B |
 | Nudge / nudge by the grid | Arrows / ⇧Arrows |

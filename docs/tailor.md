@@ -85,9 +85,9 @@ on whatever happened to be selected:
 | A project in Recent, on the start screen | Open, reveal in Finder, copy the path, remove from the list |
 | The live window | Inspect element, show or hide the inspector |
 
-A node's menu also has **Open in Zed**, which puts your cursor on the line that
-node generated. The reverse — cursor on a line, component selected in Tailor —
-is a Zed task away. See [Zed](tailorzed.md).
+A node's menu also has **Open in Editor**, which puts your cursor on the line
+that node generated. The reverse — cursor on a line, component selected in
+Tailor — is a Zed task away. See [Zed](tailorzed.md).
 
 Nothing in any of them is a command that exists only there. **Rename…** on a tab
 opens the document and puts the cursor in the name field the inspector already
@@ -101,7 +101,7 @@ its builder uses.
 
 | Page | What is on it |
 | --- | --- |
-| **General** | Autosave, whether the live window opens with the inspector, what new projects generate as, the start screen's scheme |
+| **General** | Autosave, whether the live window opens with the inspector, which editor **Jump to** opens, what new projects generate as, the start screen's scheme |
 | **Canvas** | Mode, show the grid, grid spacing, snap to grid, snap to objects, nudge distance, new frames are free form, show layout bounds |
 | **Panels** | Panel sizes, and a reset for the whole layout |
 | **About** | Version, and where the settings file lives |

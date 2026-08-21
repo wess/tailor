@@ -4,8 +4,9 @@ What Interface Builder gives you inside Xcode is a loop: click a control, land
 on its code; sit on a line of code, find the control. Tailor and Zed do that
 across two apps.
 
-- **Component → code.** Select something in Tailor, **View → Open in Zed**
-  (⌥⌘O). Zed opens the generated file with the cursor on that component's line.
+- **Component → code.** Select something in Tailor, **View → Open in Editor**
+  (⌥⌘O). Your editor opens the generated file with the cursor on that
+  component's line.
 - **Code → component.** Put the cursor on a line of generated Rust in Zed and
   run **Reveal in Tailor**. Tailor comes forward with that component selected,
   on the canvas and in the outline.
@@ -150,12 +151,12 @@ change and Tailor watches the file it has open, so a screen built from Zed
 appears on the canvas a moment later. Nothing is wired between the two
 processes — the file is the integration.
 
-## Open in Zed
+## Open in Editor
 
 The component → code direction, and it needs no extension either.
 
-Select a component, then **View → Open in Zed** (⌥⌘O), or *Open in Zed* on the
-right-click menu. Zed opens the generated file with the cursor on that
+Select a component, then **View → Open in Editor** (⌥⌘O), or *Open in Editor*
+on the right-click menu. Zed opens the generated file with the cursor on that
 component's line:
 
 ```
@@ -190,7 +191,7 @@ component instead of on it.
 ### Where the file is
 
 `export_dir` on the document, written whenever you export — from the app or over
-MCP. That is why *Open in Zed* does not ask you every time, and why exporting
+MCP. That is why *Open in Editor* does not ask you every time, and why exporting
 somewhere new silently starts sending you there instead.
 
 ### Other editors
