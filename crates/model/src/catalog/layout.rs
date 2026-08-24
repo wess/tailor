@@ -218,10 +218,11 @@ pub static SPECS: &[ComponentSpec] = &[
     ),
     comp!(
         "scrollarea", "Scroll area", "ScrollArea", Layout, "scroll-text",
-        "Scrolls its content past a fixed height.",
+        "Scrolls its content past a fixed height, or past the space it is given.",
         Ctor::Id,
         props: &[
             float("max_height", "Max height", Emit::Method("max_height"), || PropValue::Float(240.0)),
+            boolean("fill", "Fill parent", Emit::Flag("fill"), false),
             boolean("horizontal", "Horizontal", Emit::Method("horizontal"), false),
         ],
         slots: &[CHILDREN],

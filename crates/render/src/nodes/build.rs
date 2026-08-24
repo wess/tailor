@@ -152,11 +152,16 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
                 .children(children(ctx, node, window, cx))
                 .into_any_element()
         }
-        "scrollarea" => ScrollArea::new(id())
-            .max_height(read.f32("max_height"))
-            .horizontal(read.bool("horizontal"))
-            .children(children(ctx, node, window, cx))
-            .into_any_element(),
+        "scrollarea" => {
+            let mut area = ScrollArea::new(id())
+                .max_height(read.f32("max_height"))
+                .horizontal(read.bool("horizontal"));
+            if read.bool("fill") {
+                area = area.fill();
+            }
+            area.children(children(ctx, node, window, cx))
+                .into_any_element()
+        }
         "appshell" => appshell(ctx, node, &read, window, cx),
         "splitpanel" => splitpanel(ctx, node, &read, window, cx),
         "flexrow" | "flexcolumn" => {
