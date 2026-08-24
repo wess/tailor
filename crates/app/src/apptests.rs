@@ -9,10 +9,11 @@ use gpui::{px, TestAppContext, VisualTestContext};
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::props::PropValue;
 use tailor_model::style::Dimension;
+use tailor_model::tokens::{EaseToken, EnterToken};
 use tailor_model::{DocKind, Document, NodeId, Project, Scheme};
 use tailor_render::{DropSpot, Handle};
 
-use crate::editor::Workbench;
+use crate::editor::{Inspector, Workbench};
 use crate::templates;
 use crate::theme;
 use crate::toasts::Toasts;
@@ -895,4 +896,73 @@ fn every_template_opens_and_generates(cx: &mut TestAppContext) {
             );
         });
     }
+}
+
+#[gpui::test]
+fn setting_an_entrance_regenerates_the_code_and_replays_the_canvas(cx: &mut TestAppContext) {
+    let (workbench, cx) = workbench(Project::new("T"), cx);
+    let root = root(&workbench, cx);
+    workbench.update(cx, |this, cx| {
+        this.insert_kind("button", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+    });
+    let button = children(&workbench, cx)[0];
+    settle(cx);
+
+    let epoch = workbench.update(cx, |this, _| this.motion_epoch);
+    workbench.update(cx, |this, cx| {
+        this.edit_motion(button, "Entrance", cx, |motion| {
+            motion.enter = Some(EnterToken::SlideUp);
+            motion.ease = EaseToken::OutBack;
+            motion.duration = 350.0;
+        });
+    });
+    settle(cx);
+
+    workbench.update(cx, |this, _| {
+        // Bumping the epoch is what makes a mounted one-shot play again.
+        assert!(this.motion_epoch > epoch);
+        assert!(this.generated.contains(".animate("), "{}", this.generated);
+        assert!(this
+            .generated
+            .contains("Motion::enter_from(TransitionKind::SlideUp"));
+        assert!(this.generated.contains(".ease(Easing::Out(Curve::Back))"));
+        assert!(this.generated.contains(".duration(350.)"));
+    });
+
+    // The Motion tab has to survive a draw with a live selection — every
+    // control in it is built from the node under the cursor.
+    workbench.update(cx, |this, cx| this.set_inspector(Inspector::Motion, cx));
+    cx.run_until_parked();
+
+    // And it is one undo step, not four.
+    workbench.update_in(cx, |this, window, cx| this.undo(window, cx));
+    settle(cx);
+    workbench.update(cx, |this, _| {
+        assert!(this.doc().unwrap().node(button).unwrap().motion.is_off());
+        assert!(!this.generated.contains(".animate("));
+    });
+}
+
+#[gpui::test]
+fn a_staggered_container_animates_its_children_instead_of_itself(cx: &mut TestAppContext) {
+    let (workbench, cx) = workbench(Project::new("T"), cx);
+    let root = root(&workbench, cx);
+    workbench.update(cx, |this, cx| {
+        this.insert_kind("text", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+        this.insert_kind("text", DropSpot::at(root, DEFAULT_SLOT, 1), cx);
+        this.edit_motion(root, "Stagger", cx, |motion| {
+            motion.enter = Some(EnterToken::Fade);
+            motion.stagger = 80.0;
+        });
+    });
+    settle(cx);
+
+    workbench.update(cx, |this, _| {
+        let doc = this.doc().unwrap();
+        let kids = doc.children_of(doc.root).to_vec();
+        assert_eq!(doc.motion_of(doc.root), None, "the container stays put");
+        assert_eq!(doc.motion_of(kids[0]).unwrap().delay, 0.0);
+        assert_eq!(doc.motion_of(kids[1]).unwrap().delay, 80.0);
+        assert!(this.generated.contains(".delay(80.)"), "{}", this.generated);
+    });
 }

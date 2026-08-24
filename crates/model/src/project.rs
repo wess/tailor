@@ -252,6 +252,12 @@ impl Project {
                         doc.name, node.id
                     ));
                 }
+                if node.motion.has_non_finite() {
+                    return Some(format!(
+                        "{}: node {} has an unwritable animation timing",
+                        doc.name, node.id
+                    ));
+                }
                 for (key, value) in &node.props {
                     if value.has_non_finite() {
                         return Some(format!(

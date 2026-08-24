@@ -13,6 +13,7 @@ pub mod doc;
 pub mod history;
 pub mod id;
 pub mod lint;
+pub mod motion;
 pub mod node;
 pub mod project;
 pub mod props;
@@ -25,6 +26,7 @@ pub use doc::{Canvas, DocKind, Document, PRESETS};
 pub use history::History;
 pub use id::{IdGen, NodeId};
 pub use lint::{Problem, Severity};
+pub use motion::{MotionProps, Resolved as ResolvedMotion};
 pub use node::{EventSpec, Node, COMPONENT_PREFIX, DEFAULT_SLOT};
 pub use project::{Flavor, GenSettings, LoadError, Project, Scheme, ThemeSpec, FORMAT_VERSION};
 pub use props::{Emit, PropSpec, PropType, PropValue, Props};
@@ -32,7 +34,10 @@ pub use state::{ActionDef, StateVar, VarType};
 pub use style::{
     Dimension, Direction, Edges, LayoutMode, Overflow, ShadowToken, StyleProps, TextAlign,
 };
-pub use tokens::{AlignToken, ColorSpec, ColorToken, JustifyToken, SizeToken, VariantToken};
+pub use tokens::{
+    AlignToken, ColorSpec, ColorToken, EaseToken, EnterToken, JustifyToken, LoopToken, SizeToken,
+    VariantToken,
+};
 
 /// Turn a display name into a Rust type name: `main screen` becomes
 /// `MainScreen`. Shared by the generator and by the app's rename validation, so

@@ -7,6 +7,7 @@
 //! layer list, and the generator all speak one mechanism instead of four.
 
 use crate::id::NodeId;
+use crate::motion::MotionProps;
 use crate::props::{PropValue, Props};
 use crate::style::StyleProps;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,9 @@ pub struct Node {
     pub props: Props,
     #[serde(default, skip_serializing_if = "StyleProps::is_default")]
     pub style: StyleProps,
+    /// The entrance this node plays. Off by default; see [`MotionProps`].
+    #[serde(default, skip_serializing_if = "MotionProps::is_default")]
+    pub motion: MotionProps,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub slots: BTreeMap<String, Vec<NodeId>>,
     /// Event key (`click`) to the name of the action it dispatches.
@@ -53,6 +57,7 @@ impl Node {
             name: None,
             props: Props::new(),
             style: StyleProps::default(),
+            motion: MotionProps::default(),
             slots: BTreeMap::new(),
             events: BTreeMap::new(),
             hidden: false,

@@ -9,8 +9,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use tailor_model::catalog::{self, Ctor};
+use tailor_model::motion::Resolved as ResolvedMotion;
 use tailor_model::props::{Emit, PropValue};
 use tailor_model::style::{LayoutMode, StyleProps};
+use tailor_model::tokens::{EnterToken, LoopToken};
 use tailor_model::{Document, Flavor, Node, NodeId, Project};
 
 use crate::expr::{self, Hoist};
@@ -49,6 +51,98 @@ const ENTITY_BINDS: &[(&str, &str)] = &[
     ("slider", "value"),
     ("rangeslider", "value"),
 ];
+
+/// The `.animate(..)` call that plays a node's entrance.
+///
+/// It lands on the node's own box — `Motioned::animate` puts the sampled
+/// values straight onto the element's style, so the generated tree has
+/// exactly the same shape whether a node animates or not.
+fn animate_calls(
+    element_id: &str,
+    motion: ResolvedMotion,
+    pinned: bool,
+    flavor: Flavor,
+) -> Vec<String> {
+    let clip = match flavor {
+        Flavor::Plain => motion_builder(motion, pinned),
+        Flavor::Macros => motion_block(motion, pinned),
+    };
+
+    let mut out = vec![".animate(".to_string()];
+    out.push(format!("    {},", string(element_id)));
+    out.extend(indent(&clip).iter().enumerate().map(|(i, line)| {
+        if i + 1 == clip.len() {
+            format!("{line},")
+        } else {
+            line.clone()
+        }
+    }));
+    out.push(")".into());
+    out
+}
+
+/// The motion as a chained builder.
+fn motion_builder(motion: ResolvedMotion, pinned: bool) -> Vec<String> {
+    let mut clip = if motion.enter == EnterToken::Fade {
+        // Distance means nothing to a fade, and printing it invites the
+        // reader to wonder what it does.
+        vec![format!("Motion::enter({})", motion.enter.path())]
+    } else {
+        vec![format!(
+            "Motion::enter_from({}, {})",
+            motion.enter.path(),
+            float(motion.distance)
+        )]
+    };
+    clip.push(format!("    .duration({})", float(motion.duration)));
+    if motion.delay > 0.0 {
+        clip.push(format!("    .delay({})", float(motion.delay)));
+    }
+    clip.push(format!("    .ease({})", motion.ease.path()));
+    if motion.repeat == LoopToken::Forever {
+        clip.push("    .repeat_forever()".into());
+    }
+    if motion.alternate {
+        clip.push("    .alternate(true)".into());
+    }
+    if pinned {
+        // A pinned node *is* its inset, so the offsets move to margins or the
+        // animation would drag it off its pin.
+        clip.push("    .as_margins()".into());
+    }
+    clip
+}
+
+/// The same motion as a `motion!` block — the macro flavour's half, matching
+/// what `style!` does for the box.
+fn motion_block(motion: ResolvedMotion, pinned: bool) -> Vec<String> {
+    let mut clip = vec!["motion! {".to_string()];
+    if motion.enter == EnterToken::Fade {
+        clip.push(format!("    enter: {};", motion.enter.word()));
+    } else {
+        clip.push(format!(
+            "    enter: {} {};",
+            motion.enter.word(),
+            float(motion.distance)
+        ));
+    }
+    clip.push(format!("    duration: {};", float(motion.duration)));
+    if motion.delay > 0.0 {
+        clip.push(format!("    delay: {};", float(motion.delay)));
+    }
+    clip.push(format!("    ease: {};", motion.ease.words()));
+    if motion.repeat == LoopToken::Forever {
+        clip.push("    repeat: forever;".into());
+    }
+    if motion.alternate {
+        clip.push("    alternate;".into());
+    }
+    if pinned {
+        clip.push("    margins;".into());
+    }
+    clip.push("}".into());
+    clip
+}
 
 /// The line a node's expression is tagged with while the file is being built,
 /// so the finished text can be mapped back to the design. Stripped before
@@ -266,8 +360,14 @@ impl<'a> Emitter<'a> {
             node.kind.as_str(),
             "frame" | "canvas" | "surface" | "spacer"
         );
+        // The animation goes on the box the style system already emits, not
+        // on a wrapper of its own: a wrapper is a new flex item, and a child
+        // that was `w_full` would start measuring against it instead of the
+        // row it was in. So a motion is one more reason to have a box.
+        let motion = self.doc.motion_of(node.id);
         // A pinned child needs a box to pin, even if nothing else styles it.
-        let styled = container || node.style.needs_wrapper() || placement.absolute;
+        let styled =
+            container || node.style.needs_wrapper() || placement.absolute || motion.is_some();
         // An entity was configured when it was built; here it is only a handle.
         let configured_elsewhere = self.fields.contains_key(&node.id);
 
@@ -286,11 +386,20 @@ impl<'a> Emitter<'a> {
             lines.extend(indent(&self.event_calls(node)));
         }
 
-        if styled && !container {
+        let mut lines = if styled && !container {
             self.wrap(lines, &node.style, placement)
         } else {
             lines
+        };
+        if let Some(motion) = motion {
+            lines.extend(indent(&animate_calls(
+                &node.id.element_id(),
+                motion,
+                placement.absolute,
+                self.flavor,
+            )));
         }
+        lines
     }
 
     /// Put a styled `div` around a component that has box styling of its own.

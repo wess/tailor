@@ -47,6 +47,7 @@ impl Workbench {
             outlines: self.settings.show_outlines,
             placing: self.placing,
             depth: 0,
+            motion_epoch: self.motion_epoch,
         };
 
         let weak = cx.entity().downgrade();

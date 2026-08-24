@@ -74,6 +74,10 @@ pub struct RenderCtx {
     /// Depth guard for component references — a screen that places a component
     /// that places the screen would otherwise recurse forever.
     pub depth: usize,
+    /// Bumped to replay every entrance on the canvas. A mounted one-shot has
+    /// already run, and the only way to make gpui play it again is to hand
+    /// the element a new id — so the epoch rides along in that id.
+    pub motion_epoch: usize,
 }
 
 impl RenderCtx {

@@ -178,6 +178,39 @@ It is closed until you ask for it — the recorder behind the Elements tree only
 runs while an inspector is alive, so a closed one costs the document nothing per
 frame. **General → Inspect the live window** makes it open that way every time.
 
+## Motion
+
+The inspector's **Motion** tab gives a node an entrance. Pick one and it plays
+on the canvas, in the live window, and in the generated code — the same
+`Motion` in all three, built from the same settings, because a preview of
+something other than what ships is worse than no preview.
+
+| Setting | What it does |
+| --- | --- |
+| **Entrance** | None, Fade, Slide up / down / left / right. `None` is the default and turning it off is the same gesture as choosing a different one. |
+| **Easing** | Sixteen of guise's curves, from Linear through Overshoot, Elastic, Bounce and Spring. |
+| **Duration**, **Delay** | Milliseconds. |
+| **Distance** | How far a slide travels, in px. Hidden for a fade, which does not travel. |
+| **Stagger children** | Milliseconds between children — see below. Only offered on a node that has some. |
+| **Repeat** | Once, or Loop, with **Alternate** to run every other pass backwards. |
+
+**Stagger moves the animation off the node and onto its children**, one delay
+per index. A container with a 60ms stagger does not animate itself: its first
+child plays at 0, the second at 60, the third at 120. That is what stagger
+means everywhere else, and it keeps a single node from having two animations to
+reason about. A child with its own entrance keeps it and drops out of the wave.
+
+Editing any of it replays the animation on the canvas immediately, and **Play
+again** at the bottom of the tab replays every entrance in the document — a
+mounted animation has already run, and this is what makes it run again.
+
+A loop is honest about what it costs: an endless animation asks the window for
+a frame forever. Use it for a hint, not for a screen.
+
+What generates is one `.animate(..)` on the node's own box — a `Motion` builder
+in the plain flavour, a `motion!` block in the macros one. See [what gets
+generated](tailorcodegen.md#animation).
+
 ## Panels
 
 Five regions, laid out the way Interface Builder and Android Studio's layout
@@ -188,7 +221,7 @@ editor lay theirs out.
 | **Library** (left) | Every component you can place, searchable, grouped by category, plus this project's own components. |
 | **Outline** | The node tree, with slots as their own rows. |
 | **Canvas** (centre) | The artboard. |
-| **Inspector** (right) | Attributes, Size, Style, Connections, Identity. |
+| **Inspector** (right) | Attributes, Size, Style, Motion, Connections, Identity. |
 | **Problems** (bottom) | What will not generate, and what probably was not meant. |
 
 Every panel resizes from the divider beside it and folds away from the chevron

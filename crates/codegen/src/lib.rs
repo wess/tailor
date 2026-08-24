@@ -56,9 +56,11 @@ pub fn preview(project: &Project, doc: &Document) -> Generated {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tailor_model::motion::MotionProps;
     use tailor_model::node::DEFAULT_SLOT;
     use tailor_model::props::PropValue;
     use tailor_model::style::{Dimension, Edges, LayoutMode};
+    use tailor_model::tokens::{EaseToken, EnterToken};
     use tailor_model::{ColorSpec, ColorToken, DocKind, Flavor};
 
     /// A screen with a bit of everything: a styled frame, a stateless
@@ -92,6 +94,108 @@ mod tests {
         doc.insert(root, DEFAULT_SLOT, 2, button);
 
         project
+    }
+
+    #[test]
+    fn a_node_with_a_motion_animates_its_own_box() {
+        let mut project = kitchen_sink();
+        let doc = &mut project.docs[0];
+        let title = doc.children_of(doc.root)[0];
+        doc.node_mut(title).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::SlideUp),
+            ease: EaseToken::OutBack,
+            duration: 420.0,
+            distance: 16.0,
+            ..Default::default()
+        };
+
+        let source = preview(&project, &project.docs[0]).source;
+        assert!(source.contains(".animate("), "{source}");
+        assert!(source.contains(&format!("\"{}\"", title.element_id())));
+        assert!(source.contains("Motion::enter_from(TransitionKind::SlideUp, 16.)"));
+        assert!(source.contains(".duration(420.)"));
+        assert!(source.contains(".ease(Easing::Out(Curve::Back))"));
+        // No delay was set, so none is printed.
+        assert!(!source.contains(".delay("));
+    }
+
+    #[test]
+    fn a_stagger_prints_one_delay_per_child() {
+        let mut project = kitchen_sink();
+        let doc = &mut project.docs[0];
+        let root = doc.root;
+        doc.node_mut(root).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::Fade),
+            stagger: 60.0,
+            ..Default::default()
+        };
+
+        let source = preview(&project, &project.docs[0]).source;
+        // Three children, one wave: 0 / 60 / 120. The container itself does
+        // not animate.
+        assert_eq!(
+            source
+                .matches("Motion::enter(TransitionKind::Fade)")
+                .count(),
+            3
+        );
+        assert!(source.contains(".delay(60.)"));
+        assert!(source.contains(".delay(120.)"));
+    }
+
+    #[test]
+    fn a_pinned_node_animates_its_margins_not_its_inset() {
+        let mut project = kitchen_sink();
+        let doc = &mut project.docs[0];
+        let root = doc.root;
+        // Free-form parent: its children are `absolute()` at an offset, and
+        // an animated inset would drag one off that offset.
+        doc.node_mut(root).unwrap().style.layout = LayoutMode::Absolute;
+        let title = doc.children_of(root)[0];
+        doc.node_mut(title).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::SlideUp),
+            ..Default::default()
+        };
+
+        let source = preview(&project, &project.docs[0]).source;
+        assert!(source.contains(".as_margins()"), "{source}");
+    }
+
+    #[test]
+    fn the_macro_flavour_emits_a_motion_block() {
+        let mut project = kitchen_sink();
+        project.gen.flavor = Flavor::Macros;
+        let doc = &mut project.docs[0];
+        let title = doc.children_of(doc.root)[0];
+        doc.node_mut(title).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::SlideUp),
+            ease: EaseToken::InOutSine,
+            duration: 400.0,
+            delay: 60.0,
+            distance: 16.0,
+            repeat: tailor_model::tokens::LoopToken::Forever,
+            alternate: true,
+            ..Default::default()
+        };
+
+        let source = preview(&project, &project.docs[0]).source;
+        assert!(source.contains("motion! {"), "{source}");
+        assert!(source.contains("enter: slide_up 16.;"));
+        assert!(source.contains("duration: 400.;"));
+        assert!(source.contains("delay: 60.;"));
+        assert!(source.contains("ease: in_out sine;"));
+        assert!(source.contains("repeat: forever;"));
+        assert!(source.contains("alternate;"));
+        // The builder spelling is the other flavour's.
+        assert!(!source.contains("Motion::enter_from"));
+    }
+
+    #[test]
+    fn nothing_animates_unless_it_was_asked_to() {
+        let project = kitchen_sink();
+        let source = preview(&project, &project.docs[0]).source;
+        assert!(!source.contains(".animate("));
+        assert!(!source.contains("Motion::"));
     }
 
     #[test]

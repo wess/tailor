@@ -37,7 +37,7 @@ than one of the two being quietly picked.
 | `component` | One kind in full: props with types and defaults, slots, events, constructor shape |
 | `add_document` | Add a screen or a component |
 | `add_node` | Place a component. Returns the new node's id. |
-| `set_node` | Change props, style, name, hidden, locked. Props are merged, not replaced. |
+| `set_node` | Change props, style, motion, name, hidden, locked. All three objects are merged, not replaced. |
 | `move_node` | Reparent or reorder |
 | `remove_node` | Delete a subtree |
 | `add_state` | A state variable: name, type, initial |
@@ -94,6 +94,24 @@ Style is its own object, and takes numbers or the words a dimension can be:
 ```
 
 A size wants a number, or `"auto"`, `"full"` or `"grow"`.
+
+`motion` is a third object, for the node's entrance:
+
+```jsonc
+{"enter": "slideup", "ease": "out-back", "duration": 320, "delay": 60,
+ "distance": 16, "stagger": 0, "repeat": "once", "alternate": false}
+```
+
+`enter` is `fade`, `slideup`, `slidedown`, `slideleft` or `slideright` — or
+`null`, which is how an entrance is taken away again. `ease` is one of
+`linear`, `out-quad`, `out-cubic`, `out-quint`, `out-expo`, `out-circ`,
+`out-back`, `out-elastic`, `out-bounce`, `in-quad`, `in-cubic`, `in-expo`,
+`in-out-quad`, `in-out-cubic`, `in-out-sine`, `spring`. A word it does not know
+is an error rather than a silent default, so a guessed `"easeOut"` comes back
+saying so.
+
+A non-zero `stagger` animates the node's *children*, one delay per index,
+instead of the node itself. See [the canvas page](tailorcanvas.md#motion).
 
 ## Building a screen
 

@@ -276,6 +276,10 @@ impl Render for LiveView {
             outlines: false,
             placing: false,
             depth: 0,
+            // The live window plays every entrance once, when it opens.
+            // There is nothing to replay against here — reopening it is the
+            // replay.
+            motion_epoch: 0,
         };
 
         let root =

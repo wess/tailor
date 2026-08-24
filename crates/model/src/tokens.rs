@@ -185,6 +185,221 @@ pub fn to_hex(rgba: [f32; 4]) -> String {
     }
 }
 
+token! {
+    /// The entrance a node plays when it appears. Mirrors guise's
+    /// `TransitionKind`, which is what generated code names.
+    EnterToken: "TransitionKind" {
+        Fade => "fade",
+        SlideUp => "slideup",
+        SlideDown => "slidedown",
+        SlideLeft => "slideleft",
+        SlideRight => "slideright",
+    }
+}
+
+impl EnterToken {
+    /// What the inspector calls it.
+    pub fn title(self) -> &'static str {
+        match self {
+            EnterToken::Fade => "Fade",
+            EnterToken::SlideUp => "Slide up",
+            EnterToken::SlideDown => "Slide down",
+            EnterToken::SlideLeft => "Slide left",
+            EnterToken::SlideRight => "Slide right",
+        }
+    }
+
+    /// Whether the `distance` setting does anything for this entrance.
+    pub fn travels(self) -> bool {
+        !matches!(self, EnterToken::Fade)
+    }
+
+    /// The word the `motion!` macro spells it with. Not [`label`](Self::label),
+    /// which is the file format's and predates the macro.
+    pub fn word(self) -> &'static str {
+        match self {
+            EnterToken::Fade => "fade",
+            EnterToken::SlideUp => "slide_up",
+            EnterToken::SlideDown => "slide_down",
+            EnterToken::SlideLeft => "slide_left",
+            EnterToken::SlideRight => "slide_right",
+        }
+    }
+}
+
+/// A curated slice of guise's easing curves — the ones worth a picker row.
+///
+/// Written out by hand rather than through `token!` because the generated
+/// path is not `Enum::Variant`: guise composes a direction with a shape
+/// (`Easing::Out(Curve::Cubic)`), which is exactly the axis a designer wants
+/// to pick along and exactly what a flat token list would flatten away.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EaseToken {
+    Linear,
+    OutQuad,
+    #[default]
+    OutCubic,
+    OutQuint,
+    OutExpo,
+    OutCirc,
+    OutBack,
+    OutElastic,
+    OutBounce,
+    InQuad,
+    InCubic,
+    InExpo,
+    InOutQuad,
+    InOutCubic,
+    InOutSine,
+    Spring,
+}
+
+impl EaseToken {
+    pub const ALL: &'static [EaseToken] = &[
+        EaseToken::Linear,
+        EaseToken::OutQuad,
+        EaseToken::OutCubic,
+        EaseToken::OutQuint,
+        EaseToken::OutExpo,
+        EaseToken::OutCirc,
+        EaseToken::OutBack,
+        EaseToken::OutElastic,
+        EaseToken::OutBounce,
+        EaseToken::InQuad,
+        EaseToken::InCubic,
+        EaseToken::InExpo,
+        EaseToken::InOutQuad,
+        EaseToken::InOutCubic,
+        EaseToken::InOutSine,
+        EaseToken::Spring,
+    ];
+
+    /// The lowercase name used in the file format.
+    pub fn label(self) -> &'static str {
+        match self {
+            EaseToken::Linear => "linear",
+            EaseToken::OutQuad => "out-quad",
+            EaseToken::OutCubic => "out-cubic",
+            EaseToken::OutQuint => "out-quint",
+            EaseToken::OutExpo => "out-expo",
+            EaseToken::OutCirc => "out-circ",
+            EaseToken::OutBack => "out-back",
+            EaseToken::OutElastic => "out-elastic",
+            EaseToken::OutBounce => "out-bounce",
+            EaseToken::InQuad => "in-quad",
+            EaseToken::InCubic => "in-cubic",
+            EaseToken::InExpo => "in-expo",
+            EaseToken::InOutQuad => "in-out-quad",
+            EaseToken::InOutCubic => "in-out-cubic",
+            EaseToken::InOutSine => "in-out-sine",
+            EaseToken::Spring => "spring",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        EaseToken::ALL.iter().copied().find(|e| e.label() == s)
+    }
+
+    /// What the inspector shows.
+    pub fn title(self) -> &'static str {
+        match self {
+            EaseToken::Linear => "Linear",
+            EaseToken::OutQuad => "Ease out",
+            EaseToken::OutCubic => "Ease out (soft)",
+            EaseToken::OutQuint => "Ease out (long)",
+            EaseToken::OutExpo => "Ease out (sharp)",
+            EaseToken::OutCirc => "Ease out (circular)",
+            EaseToken::OutBack => "Overshoot",
+            EaseToken::OutElastic => "Elastic",
+            EaseToken::OutBounce => "Bounce",
+            EaseToken::InQuad => "Ease in",
+            EaseToken::InCubic => "Ease in (soft)",
+            EaseToken::InExpo => "Ease in (sharp)",
+            EaseToken::InOutQuad => "Ease in-out",
+            EaseToken::InOutCubic => "Ease in-out (soft)",
+            EaseToken::InOutSine => "Ease in-out (gentle)",
+            EaseToken::Spring => "Spring",
+        }
+    }
+
+    /// The declaration the `motion!` macro spells it with — a direction and a
+    /// shape, or one of the three words that stand alone.
+    pub fn words(self) -> &'static str {
+        match self {
+            EaseToken::Linear => "linear",
+            EaseToken::OutQuad => "out quad",
+            EaseToken::OutCubic => "out cubic",
+            EaseToken::OutQuint => "out quint",
+            EaseToken::OutExpo => "out expo",
+            EaseToken::OutCirc => "out circ",
+            EaseToken::OutBack => "out back",
+            EaseToken::OutElastic => "out elastic",
+            EaseToken::OutBounce => "out bounce",
+            EaseToken::InQuad => "in quad",
+            EaseToken::InCubic => "in cubic",
+            EaseToken::InExpo => "in expo",
+            EaseToken::InOutQuad => "in_out quad",
+            EaseToken::InOutCubic => "in_out cubic",
+            EaseToken::InOutSine => "in_out sine",
+            EaseToken::Spring => "spring",
+        }
+    }
+
+    /// The Rust this token generates.
+    pub fn path(self) -> &'static str {
+        match self {
+            EaseToken::Linear => "Easing::Linear",
+            EaseToken::OutQuad => "Easing::Out(Curve::Quad)",
+            EaseToken::OutCubic => "Easing::Out(Curve::Cubic)",
+            EaseToken::OutQuint => "Easing::Out(Curve::Quint)",
+            EaseToken::OutExpo => "Easing::Out(Curve::Expo)",
+            EaseToken::OutCirc => "Easing::Out(Curve::Circ)",
+            EaseToken::OutBack => "Easing::Out(Curve::Back)",
+            EaseToken::OutElastic => "Easing::Out(Curve::Elastic)",
+            EaseToken::OutBounce => "Easing::Out(Curve::Bounce)",
+            EaseToken::InQuad => "Easing::In(Curve::Quad)",
+            EaseToken::InCubic => "Easing::In(Curve::Cubic)",
+            EaseToken::InExpo => "Easing::In(Curve::Expo)",
+            EaseToken::InOutQuad => "Easing::InOut(Curve::Quad)",
+            EaseToken::InOutCubic => "Easing::InOut(Curve::Cubic)",
+            EaseToken::InOutSine => "Easing::InOut(Curve::Sine)",
+            EaseToken::Spring => "Easing::Spring(Spring::default())",
+        }
+    }
+}
+
+/// How many times a motion runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LoopToken {
+    #[default]
+    Once,
+    Forever,
+}
+
+impl LoopToken {
+    pub const ALL: &'static [LoopToken] = &[LoopToken::Once, LoopToken::Forever];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            LoopToken::Once => "once",
+            LoopToken::Forever => "forever",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        LoopToken::ALL.iter().copied().find(|l| l.label() == s)
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            LoopToken::Once => "Once",
+            LoopToken::Forever => "Loop",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,6 +413,15 @@ mod tests {
             assert_eq!(ColorToken::parse(color.label()), Some(*color));
         }
         assert_eq!(SizeToken::parse("huge"), None);
+        for ease in EaseToken::ALL {
+            assert_eq!(EaseToken::parse(ease.label()), Some(*ease));
+        }
+        for enter in EnterToken::ALL {
+            assert_eq!(EnterToken::parse(enter.label()), Some(*enter));
+        }
+        for repeat in LoopToken::ALL {
+            assert_eq!(LoopToken::parse(repeat.label()), Some(*repeat));
+        }
     }
 
     #[test]
@@ -205,6 +429,12 @@ mod tests {
         assert_eq!(SizeToken::Md.path(), "Size::Md");
         assert_eq!(VariantToken::Outline.path(), "Variant::Outline");
         assert_eq!(ColorToken::Grape.path(), "ColorName::Grape");
+        assert_eq!(EnterToken::SlideUp.path(), "TransitionKind::SlideUp");
+        assert_eq!(EaseToken::OutBack.path(), "Easing::Out(Curve::Back)");
+        assert_eq!(EaseToken::Linear.path(), "Easing::Linear");
+        assert_eq!(EaseToken::OutBack.words(), "out back");
+        assert_eq!(EaseToken::InOutSine.words(), "in_out sine");
+        assert_eq!(EnterToken::SlideUp.word(), "slide_up");
     }
 
     #[test]

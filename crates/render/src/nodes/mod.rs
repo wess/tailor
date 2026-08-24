@@ -13,9 +13,12 @@ use gpui::prelude::*;
 use gpui::{
     div, px, AnyElement, App, Div, ElementId, Empty, MouseButton, SharedString, Stateful, Window,
 };
+use guise::anim::{Motion, Motioned};
 use tailor_model::catalog;
+use tailor_model::motion::Resolved as ResolvedMotion;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::style::{Dimension, Direction, LayoutMode, StyleProps};
+use tailor_model::tokens::{EnterToken, LoopToken};
 use tailor_model::{Node, NodeId};
 
 use crate::chrome::{self, DragGhost};
@@ -70,12 +73,15 @@ pub fn render_in(
         // A spacer is a gap, not a container: it takes no children and should
         // not offer a drop placeholder that would give it a size.
         if node.kind == "spacer" {
-            return root
-                .flex_grow()
-                .min_h(px(8.))
-                .min_w(px(8.))
-                .children(overlays(ctx, node, cx))
-                .into_any_element();
+            return animate(
+                ctx,
+                node,
+                absolute,
+                root.flex_grow()
+                    .min_h(px(8.))
+                    .min_w(px(8.))
+                    .children(overlays(ctx, node, cx)),
+            );
         }
         if node.kind == "surface" {
             let reader = read::Reader::new(node, doc);
@@ -98,7 +104,56 @@ pub fn render_in(
         root = root.child(build::element(ctx, node, window, cx));
     }
 
-    root.children(overlays(ctx, node, cx)).into_any_element()
+    animate(ctx, node, absolute, root.children(overlays(ctx, node, cx)))
+}
+
+/// Play the node's entrance on its own box.
+///
+/// The same `Motion` the generator prints, built from the same resolved
+/// settings — a canvas that previewed something other than what ships would
+/// be worse than no preview at all. It goes on the wrapper rather than in a
+/// wrapper of its own, so turning an animation on never moves anything.
+fn animate<E: gpui::IntoElement + Styled + 'static>(
+    ctx: &RenderCtx,
+    node: &Node,
+    pinned: bool,
+    element: E,
+) -> AnyElement {
+    let Some(motion) = ctx.doc().and_then(|doc| doc.motion_of(node.id)) else {
+        return element.into_any_element();
+    };
+    element
+        .animate(
+            (
+                SharedString::from(node.id.wrapper_element_id()),
+                ctx.motion_epoch,
+            ),
+            clip_for(motion, pinned),
+        )
+        .into_any_element()
+}
+
+/// A resolved motion as the guise clip that plays it. `pinned` is whether
+/// the parent lays out absolutely — see `Motion::as_margins`.
+pub fn clip_for(motion: ResolvedMotion, pinned: bool) -> Motion {
+    let kind = match motion.enter {
+        EnterToken::Fade => guise::TransitionKind::Fade,
+        EnterToken::SlideUp => guise::TransitionKind::SlideUp,
+        EnterToken::SlideDown => guise::TransitionKind::SlideDown,
+        EnterToken::SlideLeft => guise::TransitionKind::SlideLeft,
+        EnterToken::SlideRight => guise::TransitionKind::SlideRight,
+    };
+    let mut clip = Motion::enter_from(kind, motion.distance)
+        .duration(motion.duration)
+        .delay(motion.delay)
+        .ease(read::easing(motion.ease));
+    if motion.repeat == LoopToken::Forever {
+        clip = clip.repeat_forever();
+    }
+    if pinned {
+        clip = clip.as_margins();
+    }
+    clip.alternate(motion.alternate)
 }
 
 /// The node's own box: its style, its chrome, and its handlers.

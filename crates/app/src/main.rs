@@ -339,32 +339,6 @@ fn reveal(target: &str) -> Result<String, String> {
     ))
 }
 
-#[cfg(test)]
-mod reveal_tests {
-    use super::split_target;
-
-    #[test]
-    fn a_target_may_carry_a_row_a_column_or_neither() {
-        assert_eq!(
-            split_target("src/ui/people.rs:106:1"),
-            ("src/ui/people.rs".to_string(), 106)
-        );
-        assert_eq!(
-            split_target("src/ui/people.rs:106"),
-            ("src/ui/people.rs".to_string(), 106)
-        );
-        assert_eq!(
-            split_target("src/ui/people.rs"),
-            ("src/ui/people.rs".to_string(), 1)
-        );
-        // Only trailing *numbers* are peeled, so a path is never eaten.
-        assert_eq!(
-            split_target("/work/12/people.rs"),
-            ("/work/12/people.rs".to_string(), 1)
-        );
-    }
-}
-
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
@@ -472,4 +446,30 @@ fn main() {
         .unwrap();
         cx.activate(true);
     });
+}
+
+#[cfg(test)]
+mod reveal_tests {
+    use super::split_target;
+
+    #[test]
+    fn a_target_may_carry_a_row_a_column_or_neither() {
+        assert_eq!(
+            split_target("src/ui/people.rs:106:1"),
+            ("src/ui/people.rs".to_string(), 106)
+        );
+        assert_eq!(
+            split_target("src/ui/people.rs:106"),
+            ("src/ui/people.rs".to_string(), 106)
+        );
+        assert_eq!(
+            split_target("src/ui/people.rs"),
+            ("src/ui/people.rs".to_string(), 1)
+        );
+        // Only trailing *numbers* are peeled, so a path is never eaten.
+        assert_eq!(
+            split_target("/work/12/people.rs"),
+            ("/work/12/people.rs".to_string(), 1)
+        );
+    }
 }

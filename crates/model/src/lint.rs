@@ -153,6 +153,28 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
             continue;
         };
 
+        // Animation that will never be seen.
+        if node.motion.enter.is_some() {
+            if node.motion.duration <= 0.0 {
+                report(
+                    Severity::Warning,
+                    Some(id),
+                    format!("{label}'s animation has no duration"),
+                    "Give it a duration, or turn the animation off — at 0ms it \
+                     snaps straight to the end.",
+                );
+            }
+            if node.motion.staggers() && node.all_children().is_empty() {
+                report(
+                    Severity::Warning,
+                    Some(id),
+                    format!("{label} staggers, but it has no children"),
+                    "A stagger animates the children, not the node — clear it \
+                     to animate this node instead.",
+                );
+            }
+        }
+
         // Bindings to variables that are not there any more.
         for (key, value) in &node.props {
             if let Some(var) = value.as_binding() {

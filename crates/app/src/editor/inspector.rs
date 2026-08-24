@@ -15,9 +15,10 @@ use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Context, ElementId, Entity, SharedString, Window};
 use guise::prelude::*;
 use tailor_model::catalog;
+use tailor_model::motion::MotionProps;
 use tailor_model::props::{PropSpec, PropType, PropValue};
 use tailor_model::style::{Dimension, Direction, LayoutMode, Overflow, ShadowToken, TextAlign};
-use tailor_model::tokens::{ColorSpec, ColorToken};
+use tailor_model::tokens::{ColorSpec, ColorToken, EaseToken, EnterToken, LoopToken};
 use tailor_model::{
     ActionDef, AlignToken, DocKind, Flavor, JustifyToken, NodeId, Scheme, SizeToken, StateVar,
     VarType, VariantToken,
@@ -43,6 +44,7 @@ impl Workbench {
                 Inspector::Attributes => self.render_attributes(id, cx),
                 Inspector::Size => self.render_size(id, cx),
                 Inspector::Style => self.render_style(id, cx),
+                Inspector::Motion => self.render_motion(id, cx),
                 Inspector::Connections => self.render_connections(id, cx),
                 Inspector::Identity => self.render_identity(id, cx),
             },
@@ -1035,6 +1037,206 @@ impl Workbench {
         );
 
         self.section("style", "Style", blocks, cx)
+    }
+
+    // --- motion -----------------------------------------------------------
+
+    fn render_motion(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
+        let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
+            return empty("This node is gone", cx);
+        };
+        let motion = node.motion;
+        let has_children = !node.all_children().is_empty();
+        let chrome = theme::colors(cx);
+
+        // "None" is a chip like any other rather than a switch: it is the
+        // default, and turning an animation off should be the same gesture as
+        // choosing a different one.
+        let mut options = vec![("None".to_string(), String::new())];
+        options.extend(
+            EnterToken::ALL
+                .iter()
+                .map(|kind| (kind.title().to_string(), kind.label().to_string())),
+        );
+        let entrance = labelled(
+            "Entrance",
+            chip_row(
+                options,
+                motion
+                    .enter
+                    .map(|kind| kind.label().to_string())
+                    .unwrap_or_default(),
+                cx,
+                move |this, label, cx| {
+                    let enter = EnterToken::parse(&label);
+                    this.edit_motion(id, "Entrance", cx, move |motion| motion.enter = enter);
+                },
+            ),
+            cx,
+        );
+
+        let Some(kind) = motion.enter else {
+            return self.section(
+                "motion",
+                "Motion",
+                vec![
+                    entrance,
+                    note(
+                        "Pick an entrance and this node animates in — on the canvas, \
+                         in the live window, and in the generated code.",
+                        cx,
+                    ),
+                ],
+                cx,
+            );
+        };
+
+        let mut blocks = vec![entrance];
+
+        blocks.push(labelled(
+            "Easing",
+            chip_row(
+                EaseToken::ALL
+                    .iter()
+                    .map(|ease| (ease.title().to_string(), ease.label().to_string())),
+                motion.ease.label().to_string(),
+                cx,
+                move |this, label, cx| {
+                    let ease = EaseToken::parse(&label).unwrap_or_default();
+                    this.edit_motion(id, "Easing", cx, move |motion| motion.ease = ease);
+                },
+            ),
+            cx,
+        ));
+
+        blocks.push(self.motion_number(
+            id,
+            "Duration (ms)",
+            "dur",
+            motion.duration,
+            cx,
+            |motion, value| motion.duration = value.max(0.0),
+        ));
+        blocks.push(self.motion_number(
+            id,
+            "Delay (ms)",
+            "delay",
+            motion.delay,
+            cx,
+            |motion, value| motion.delay = value.max(0.0),
+        ));
+
+        if kind.travels() {
+            blocks.push(self.motion_number(
+                id,
+                "Distance (px)",
+                "dist",
+                motion.distance,
+                cx,
+                |motion, value| motion.distance = value,
+            ));
+        }
+
+        if has_children {
+            blocks.push(self.motion_number(
+                id,
+                "Stagger children (ms)",
+                "stagger",
+                motion.stagger,
+                cx,
+                |motion, value| motion.stagger = value.max(0.0),
+            ));
+            if motion.staggers() {
+                blocks.push(note(
+                    "This node hands its entrance to each child, one delay per \
+                     index — it does not animate itself. A child with its own \
+                     entrance keeps it.",
+                    cx,
+                ));
+            }
+        }
+
+        blocks.push(labelled(
+            "Repeat",
+            chip_row(
+                LoopToken::ALL
+                    .iter()
+                    .map(|mode| (mode.title().to_string(), mode.label().to_string())),
+                motion.repeat.label().to_string(),
+                cx,
+                move |this, label, cx| {
+                    let repeat = LoopToken::parse(&label).unwrap_or_default();
+                    this.edit_motion(id, "Repeat", cx, move |motion| motion.repeat = repeat);
+                },
+            ),
+            cx,
+        ));
+
+        if motion.repeat == LoopToken::Forever {
+            let alternate = motion.alternate;
+            blocks.push(labelled(
+                "Alternate",
+                Switch::new(ElementId::Name(SharedString::from(format!(
+                    "motion-alt-{id}"
+                ))))
+                .checked(alternate)
+                .size(Size::Sm)
+                .on_change(cx.listener(move |this, _: &gpui::ClickEvent, _window, cx| {
+                    this.edit_motion(id, "Alternate", cx, move |motion| {
+                        motion.alternate = !alternate
+                    });
+                }))
+                .into_any_element(),
+                cx,
+            ));
+            blocks.push(note(
+                "A looping animation asks for a frame forever. It is honest \
+                 about what it costs — use it for a hint, not for a screen.",
+                cx,
+            ));
+        }
+
+        blocks.push(
+            div()
+                .id("motion-replay")
+                .flex()
+                .items_center()
+                .justify_center()
+                .gap(px(5.))
+                .py(px(5.))
+                .rounded(px(5.))
+                .bg(chrome.raised)
+                .text_color(chrome.text)
+                .text_size(px(11.))
+                .hover(move |style| style.bg(chrome.accent_soft).text_color(chrome.accent))
+                .child(icon("rotate-ccw"))
+                .child("Play again")
+                .on_click(cx.listener(|this, _, _window, cx| this.replay_motion(cx)))
+                .into_any_element(),
+        );
+
+        self.section("motion", "Motion", blocks, cx)
+    }
+
+    fn motion_number(
+        &mut self,
+        id: NodeId,
+        label: &'static str,
+        key: &'static str,
+        value: f32,
+        cx: &mut Context<Self>,
+        apply: fn(&mut MotionProps, f32),
+    ) -> AnyElement {
+        let field = self.field(
+            format!("{id}/motion/{key}"),
+            trim_float(value as f64),
+            cx,
+            move |this, text, cx| {
+                let parsed = number(&text) as f32;
+                this.edit_motion(id, label, cx, move |motion| apply(motion, parsed));
+            },
+        );
+        labelled(label, field.into_any_element(), cx)
     }
 
     fn style_color_row(

@@ -128,6 +128,26 @@ impl Document {
             .find_map(|node| node.locate(id).map(|(slot, index)| (node.id, slot, index)))
     }
 
+    /// The animation a node actually plays.
+    ///
+    /// Its own, unless it has none and its parent staggers — in which case
+    /// the parent's motion applies here with the index folded into the
+    /// delay. A node's own motion always wins, so one row of a staggered
+    /// list can opt out of the wave without breaking it.
+    pub fn motion_of(&self, id: NodeId) -> Option<crate::motion::Resolved> {
+        let node = self.node(id)?;
+        if let Some(own) = node.motion.own() {
+            return Some(own);
+        }
+        if node.motion.enter.is_some() {
+            // A staggering container hands its motion down instead of
+            // keeping it.
+            return None;
+        }
+        let (parent, _, index) = self.parent_of(id)?;
+        self.node(parent)?.motion.for_child(index)
+    }
+
     /// Add a node to the arena and hook it into a parent's slot. `index` is
     /// clamped, so "drop at the end" can pass `usize::MAX`.
     ///
@@ -436,6 +456,8 @@ pub fn unique(base: &str, taken: impl Fn(&str) -> bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::motion::MotionProps;
+    use crate::tokens::EnterToken;
 
     fn doc_with_two_children() -> (Document, NodeId, NodeId) {
         let mut doc = Document::new("d1", "Screen", DocKind::Screen);
@@ -444,6 +466,52 @@ mod tests {
         let b = doc.create("text");
         let b = doc.insert(doc.root, DEFAULT_SLOT, 1, b);
         (doc, a, b)
+    }
+
+    #[test]
+    fn a_staggering_parent_hands_its_motion_to_each_child() {
+        let (mut doc, a, b) = doc_with_two_children();
+        let root = doc.root;
+        doc.node_mut(root).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::SlideUp),
+            delay: 50.0,
+            stagger: 40.0,
+            ..Default::default()
+        };
+
+        // The container itself stays put; its children ripple.
+        assert_eq!(doc.motion_of(root), None);
+        assert_eq!(doc.motion_of(a).unwrap().delay, 50.0);
+        assert_eq!(doc.motion_of(b).unwrap().delay, 90.0);
+        assert_eq!(doc.motion_of(a).unwrap().enter, EnterToken::SlideUp);
+    }
+
+    #[test]
+    fn a_child_with_its_own_motion_opts_out_of_the_wave() {
+        let (mut doc, a, b) = doc_with_two_children();
+        let root = doc.root;
+        doc.node_mut(root).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::Fade),
+            stagger: 40.0,
+            ..Default::default()
+        };
+        doc.node_mut(b).unwrap().motion = MotionProps {
+            enter: Some(EnterToken::SlideLeft),
+            delay: 500.0,
+            ..Default::default()
+        };
+
+        assert_eq!(doc.motion_of(a).unwrap().enter, EnterToken::Fade);
+        let own = doc.motion_of(b).unwrap();
+        assert_eq!(own.enter, EnterToken::SlideLeft);
+        assert_eq!(own.delay, 500.0);
+    }
+
+    #[test]
+    fn nothing_animates_by_default() {
+        let (doc, a, _) = doc_with_two_children();
+        assert_eq!(doc.motion_of(a), None);
+        assert_eq!(doc.motion_of(doc.root), None);
     }
 
     #[test]

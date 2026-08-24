@@ -11,6 +11,16 @@ use crate::protocol::{json_content, text_content, tool_error};
 use crate::session::{Edit, Placement, Session};
 
 /// Every tool, with its JSON Schema.
+/// What the `motion` object accepts. Spelled out once: an agent that has to
+/// guess the vocabulary writes `"ease": "easeOut"` and gets an error instead
+/// of an animation.
+const MOTION_DOC: &str = "Entrance animation. Keys: `enter` (fade, slideup, slidedown, \
+     slideleft, slideright, or null to turn it off), `ease` (linear, out-quad, out-cubic, \
+     out-quint, out-expo, out-circ, out-back, out-elastic, out-bounce, in-quad, in-cubic, \
+     in-expo, in-out-quad, in-out-cubic, in-out-sine, spring), `duration` and `delay` in ms, \
+     `distance` in px for the slides, `stagger` in ms (non-zero animates this node's children \
+     one after another instead of the node itself), `repeat` (once, forever) and `alternate`.";
+
 pub fn list() -> Value {
     let string = |description: &str| json!({ "type": "string", "description": description });
     let integer = |description: &str| json!({ "type": "integer", "description": description });
@@ -59,17 +69,19 @@ pub fn list() -> Value {
                 "index": integer("Where among the siblings; defaults to last"),
                 "name": string("What to call it in the outline"),
                 "props": json!({ "type": "object", "description": "Component props by key" }),
-                "style": json!({ "type": "object", "description": "Box and layout style" })
+                "style": json!({ "type": "object", "description": "Box and layout style" }),
+                "motion": json!({ "type": "object", "description": MOTION_DOC })
             }), &["kind"]),
         tool("set_node",
-            "Change a node: its props, its style, its name, whether it is hidden or locked. \
-             Props are merged, not replaced.",
+            "Change a node: its props, its style, its entrance animation, its name, whether it \
+             is hidden or locked. Props, style and motion are merged, not replaced.",
             json!({
                 "document": doc(),
                 "node": integer("Node id"),
                 "name": string("New outline name"),
                 "props": json!({ "type": "object" }),
                 "style": json!({ "type": "object" }),
+                "motion": json!({ "type": "object", "description": MOTION_DOC }),
                 "hidden": json!({ "type": "boolean" }),
                 "locked": json!({ "type": "boolean" })
             }), &["node"]),
@@ -193,6 +205,7 @@ pub fn call(session: &mut Session, name: &str, args: &Value) -> Value {
                     name: text("name"),
                     props: object("props"),
                     style: object("style"),
+                    motion: object("motion"),
                 },
             ),
             None => Err("`kind` is required".into()),
@@ -205,6 +218,7 @@ pub fn call(session: &mut Session, name: &str, args: &Value) -> Value {
                     name: text("name"),
                     props: object("props"),
                     style: object("style"),
+                    motion: object("motion"),
                     hidden: args.get("hidden").and_then(|v| v.as_bool()),
                     locked: args.get("locked").and_then(|v| v.as_bool()),
                 },
@@ -300,6 +314,24 @@ mod tests {
             assert!(tool["name"].as_str().is_some_and(|n| !n.is_empty()));
             assert!(tool["description"].as_str().is_some_and(|d| d.len() > 20));
             assert_eq!(tool["inputSchema"]["type"], json!("object"));
+        }
+    }
+
+    #[test]
+    fn the_node_tools_advertise_the_motion_object() {
+        let tools = list();
+        let tools = tools["tools"].as_array().unwrap();
+        for name in ["add_node", "set_node"] {
+            let tool = tools
+                .iter()
+                .find(|t| t["name"] == json!(name))
+                .unwrap_or_else(|| panic!("no {name} tool"));
+            let motion = &tool["inputSchema"]["properties"]["motion"];
+            assert_eq!(motion["type"], json!("object"), "{name}");
+            // The vocabulary has to be in the description: an agent that
+            // guesses `easeOut` gets an error instead of an animation.
+            let doc = motion["description"].as_str().unwrap();
+            assert!(doc.contains("slideup") && doc.contains("out-back"));
         }
     }
 

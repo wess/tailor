@@ -164,6 +164,30 @@ impl<'a> Reader<'a> {
     }
 }
 
+/// An easing token as the guise curve it names. The generator prints the
+/// same mapping as a path, so the canvas and the export ease identically.
+pub fn easing(token: tailor_model::tokens::EaseToken) -> Easing {
+    use tailor_model::tokens::EaseToken as E;
+    match token {
+        E::Linear => Easing::Linear,
+        E::OutQuad => Easing::Out(Curve::Quad),
+        E::OutCubic => Easing::Out(Curve::Cubic),
+        E::OutQuint => Easing::Out(Curve::Quint),
+        E::OutExpo => Easing::Out(Curve::Expo),
+        E::OutCirc => Easing::Out(Curve::Circ),
+        E::OutBack => Easing::Out(Curve::Back),
+        E::OutElastic => Easing::Out(Curve::Elastic),
+        E::OutBounce => Easing::Out(Curve::Bounce),
+        E::InQuad => Easing::In(Curve::Quad),
+        E::InCubic => Easing::In(Curve::Cubic),
+        E::InExpo => Easing::In(Curve::Expo),
+        E::InOutQuad => Easing::InOut(Curve::Quad),
+        E::InOutCubic => Easing::InOut(Curve::Cubic),
+        E::InOutSine => Easing::InOut(Curve::Sine),
+        E::Spring => Easing::Spring(Spring::default()),
+    }
+}
+
 /// Resolve a colour spec against the live theme.
 pub fn resolve(color: &ColorSpec, cx: &App) -> Hsla {
     match color {

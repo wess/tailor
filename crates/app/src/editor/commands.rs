@@ -11,6 +11,7 @@ use std::sync::Arc;
 use gpui::prelude::*;
 use gpui::{ClipboardItem, Context, Window};
 use guise::prelude::*;
+use tailor_model::motion::MotionProps;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::props::PropValue;
 use tailor_model::style::{LayoutMode, StyleProps};
@@ -589,6 +590,32 @@ impl Workbench {
             f(&mut node.style);
         }
         self.refresh(cx);
+    }
+
+    /// Edit a node's animation. Bumps the motion epoch, so the canvas
+    /// replays the entrance as soon as it changes — the point of a setting
+    /// you cannot see is hard to judge.
+    pub fn edit_motion(
+        &mut self,
+        id: NodeId,
+        label: &str,
+        cx: &mut Context<Self>,
+        f: impl FnOnce(&mut MotionProps),
+    ) {
+        let before = self.project.clone();
+        self.history.commit_run(label, &before);
+        self.dirty = true;
+        if let Some(node) = self.doc_mut().and_then(|doc| doc.node_mut(id)) {
+            f(&mut node.motion);
+        }
+        self.motion_epoch = self.motion_epoch.wrapping_add(1);
+        self.refresh(cx);
+    }
+
+    /// Play every entrance on the canvas again.
+    pub fn replay_motion(&mut self, cx: &mut Context<Self>) {
+        self.motion_epoch = self.motion_epoch.wrapping_add(1);
+        cx.notify();
     }
 
     /// Edit a node itself — name, events, lock, hidden.

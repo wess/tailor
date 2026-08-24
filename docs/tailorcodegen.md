@@ -104,6 +104,66 @@ That is not a generator quirk; it is the rule you would have to follow writing
 it by hand, and the file follows it so you can keep editing without tripping
 over it.
 
+## Animation
+
+A node with an entrance generates `.animate(..)` on the box it already had:
+
+```rust
+div()
+    .w_full()
+    .child(Button::new("node-4", "Continue"))
+    .animate(
+        "node-4",
+        Motion::enter_from(TransitionKind::SlideUp, 8.)
+            .duration(260.)
+            .delay(120.)
+            .ease(Easing::Out(Curve::Cubic)),
+    )
+```
+
+Two things about that are deliberate. It lands on the node's own box rather
+than in a wrapper of its own, so the generated tree has exactly the same shape
+whether a node animates or not — a wrapper would be a new flex item, and a
+`w_full` child would start measuring against it instead of the row it was in. A
+node with no box styling grows one for the animation, which is the same `div`
+the style system would have emitted for a padding.
+
+And it is built from the same `Motion` the canvas plays, through the same
+resolved settings — a designer who previews something other than what ships is
+worse off than one with no preview at all.
+
+A node inside a **free-form** container gets `.as_margins()` on the end of that
+chain: a pinned node *is* its inset, and animating one would drag it off its
+pin. Margins offset it from where it was pinned instead, for the same visible
+slide.
+
+A container with a **stagger** hands its motion to each child with the index
+folded into the delay, and does not animate itself. So a staggered list of
+three generates three `.animate(..)` calls at `0`, `60`, `120` — and a child
+with its own entrance keeps it.
+
+In the **macros** flavour it prints a `motion!` block instead, next to the
+`style!` block for the box:
+
+```rust
+div()
+    .apply(style! { width: full; })
+    .child(Button::new("node-4", "Continue"))
+    .animate(
+        "node-4",
+        motion! {
+            enter: slide_up 8.;
+            duration: 260.;
+            delay: 120.;
+            ease: out cubic;
+        },
+    )
+```
+
+See [motion & transitions](transitions.md) for what `Motion` can do beyond the
+entrances Tailor exposes, and [macros](macros.md#motion--animation-as-a-declaration-block)
+for the block's full grammar.
+
 ## What is left out
 
 Defaults. A prop you never touched does not appear, because the file is meant to
@@ -120,7 +180,7 @@ sloppy.
 - **plain** — builder calls and gpui `Styled` methods. Reads like the rest of an
   app.
 - **macros** — the same layout through `style! { … }` blocks and the `row!` /
-  `col!` [layout macros](macros.md).
+  `col!` [macros](macros.md), and animation through `motion! { … }`.
 
 Switch in the code panel or the Generator section of the document inspector.
 Both compile; it is a house-style choice, and the project remembers yours.

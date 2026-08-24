@@ -9,11 +9,13 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
 use tailor_model::catalog::{self, Ctor};
+use tailor_model::motion::MotionProps;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::props::{PropType, PropValue, Props};
 use tailor_model::style::{Dimension, Direction, Edges, LayoutMode, ShadowToken, StyleProps};
 use tailor_model::tokens::{
-    AlignToken, ColorSpec, ColorToken, JustifyToken, SizeToken, VariantToken,
+    AlignToken, ColorSpec, ColorToken, EaseToken, EnterToken, JustifyToken, LoopToken, SizeToken,
+    VariantToken,
 };
 use tailor_model::{
     ActionDef, DocKind, Document, Node, NodeId, Project, Scheme, StateVar, VarType,
@@ -40,6 +42,7 @@ pub struct Placement<'a> {
     pub name: Option<&'a str>,
     pub props: Option<&'a Map<String, Value>>,
     pub style: Option<&'a Map<String, Value>>,
+    pub motion: Option<&'a Map<String, Value>>,
 }
 
 /// The same for `set_node`. Every field is optional: absent means "leave it".
@@ -48,6 +51,7 @@ pub struct Edit<'a> {
     pub name: Option<&'a str>,
     pub props: Option<&'a Map<String, Value>>,
     pub style: Option<&'a Map<String, Value>>,
+    pub motion: Option<&'a Map<String, Value>>,
     pub hidden: Option<bool>,
     pub locked: Option<bool>,
 }
@@ -325,6 +329,7 @@ impl Session {
             name,
             props,
             style,
+            motion,
         } = at;
         // A component reference has to be checked before it is placed, or the
         // canvas will recurse the first time it draws.
@@ -340,6 +345,10 @@ impl Session {
         };
         let parsed_style = match style {
             Some(style) => Some(style_from_json(style)?),
+            None => None,
+        };
+        let parsed_motion = match motion {
+            Some(motion) => Some(motion_from_json_onto(MotionProps::default(), motion)?),
             None => None,
         };
 
@@ -362,6 +371,9 @@ impl Session {
         if let Some(style) = parsed_style {
             node.style = style;
         }
+        if let Some(motion) = parsed_motion {
+            node.motion = motion;
+        }
         let id = document.insert(
             parent,
             slot.unwrap_or(DEFAULT_SLOT),
@@ -377,6 +389,7 @@ impl Session {
             name,
             props,
             style,
+            motion,
             hidden,
             locked,
         } = edit;
@@ -397,6 +410,13 @@ impl Session {
             )?),
             None => None,
         };
+        let parsed_motion = match motion {
+            Some(motion) => Some(motion_from_json_onto(
+                self.doc(doc)?.node(id).unwrap().motion,
+                motion,
+            )?),
+            None => None,
+        };
 
         let document = self.doc_mut(doc)?;
         let target = document
@@ -410,6 +430,9 @@ impl Session {
         }
         if let Some(style) = parsed_style {
             target.style = style;
+        }
+        if let Some(motion) = parsed_motion {
+            target.motion = motion;
         }
         if let Some(hidden) = hidden {
             target.hidden = hidden;
@@ -723,6 +746,48 @@ fn prop_from_json(
 }
 
 /// Style from JSON, onto a fresh default.
+/// A node's entrance from JSON, onto whatever it already had.
+///
+/// `enter: null` turns the animation off, which is the only way to say
+/// "remove this" in a merge-shaped API.
+pub fn motion_from_json_onto(
+    mut motion: MotionProps,
+    values: &Map<String, Value>,
+) -> Result<MotionProps, String> {
+    for (key, value) in values {
+        let number = || value.as_f64().filter(|v| v.is_finite()).map(|v| v as f32);
+        let text = value.as_str();
+        match key.as_str() {
+            "enter" => {
+                motion.enter = match value {
+                    Value::Null => None,
+                    _ => Some(text.and_then(EnterToken::parse).ok_or_else(|| {
+                        "enter wants fade, slideup, slidedown, slideleft, slideright or null"
+                            .to_string()
+                    })?),
+                }
+            }
+            "ease" => {
+                motion.ease = text
+                    .and_then(EaseToken::parse)
+                    .ok_or_else(|| format!("no easing called {text:?}"))?
+            }
+            "duration" => motion.duration = number().unwrap_or(0.0).max(0.0),
+            "delay" => motion.delay = number().unwrap_or(0.0).max(0.0),
+            "distance" => motion.distance = number().unwrap_or(0.0),
+            "stagger" => motion.stagger = number().unwrap_or(0.0).max(0.0),
+            "repeat" => {
+                motion.repeat = text
+                    .and_then(LoopToken::parse)
+                    .ok_or_else(|| "repeat wants once or forever".to_string())?
+            }
+            "alternate" => motion.alternate = value.as_bool().unwrap_or(false),
+            other => return Err(format!("no motion setting called {other}")),
+        }
+    }
+    Ok(motion)
+}
+
 pub fn style_from_json(values: &Map<String, Value>) -> Result<StyleProps, String> {
     style_from_json_onto(StyleProps::default(), values)
 }
@@ -840,4 +905,70 @@ fn color(value: &Value) -> Result<ColorSpec, String> {
         Some(token) => ColorSpec::Named(token),
         None => ColorSpec::Custom(text.to_string()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn map(value: Value) -> Map<String, Value> {
+        value.as_object().cloned().unwrap()
+    }
+
+    #[test]
+    fn motion_json_merges_onto_what_is_already_there() {
+        let first = motion_from_json_onto(
+            MotionProps::default(),
+            &map(json!({ "enter": "slideup", "ease": "out-back", "duration": 320 })),
+        )
+        .unwrap();
+        assert_eq!(first.enter, Some(EnterToken::SlideUp));
+        assert_eq!(first.ease, EaseToken::OutBack);
+        assert_eq!(first.duration, 320.0);
+
+        // A later delay-only edit leaves the easing alone.
+        let second = motion_from_json_onto(first, &map(json!({ "delay": 60 }))).unwrap();
+        assert_eq!(second.ease, EaseToken::OutBack);
+        assert_eq!(second.delay, 60.0);
+    }
+
+    #[test]
+    fn null_is_how_an_entrance_is_taken_away() {
+        let motion = motion_from_json_onto(
+            MotionProps {
+                enter: Some(EnterToken::Fade),
+                ..Default::default()
+            },
+            &map(json!({ "enter": null })),
+        )
+        .unwrap();
+        assert!(motion.is_off());
+    }
+
+    #[test]
+    fn an_unknown_word_is_an_error_not_a_silent_default() {
+        for bad in [
+            json!({ "ease": "easeOutQuad" }),
+            json!({ "enter": "zoom" }),
+            json!({ "repeat": "twice" }),
+            json!({ "wobble": 3 }),
+        ] {
+            assert!(
+                motion_from_json_onto(MotionProps::default(), &map(bad.clone())).is_err(),
+                "{bad} should have been refused"
+            );
+        }
+    }
+
+    #[test]
+    fn unwritable_numbers_never_reach_the_document() {
+        let motion = motion_from_json_onto(
+            MotionProps::default(),
+            &map(json!({ "duration": f64::INFINITY, "delay": -40 })),
+        )
+        .unwrap();
+        assert!(!motion.has_non_finite());
+        assert_eq!(motion.delay, 0.0, "a negative delay clamps to none");
+    }
 }

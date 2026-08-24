@@ -59,6 +59,9 @@ pub enum Inspector {
     Size,
     /// Fill, border, radius, shadow, text.
     Style,
+    /// The entrance this node plays, and how a container staggers its
+    /// children into view.
+    Motion,
     /// Events to actions, props to state variables.
     Connections,
     /// Name, kind, and what it generates as.
@@ -70,6 +73,7 @@ impl Inspector {
         Inspector::Attributes,
         Inspector::Size,
         Inspector::Style,
+        Inspector::Motion,
         Inspector::Connections,
         Inspector::Identity,
     ];
@@ -79,6 +83,7 @@ impl Inspector {
             Inspector::Attributes => "Attributes",
             Inspector::Size => "Size",
             Inspector::Style => "Style",
+            Inspector::Motion => "Motion",
             Inspector::Connections => "Connections",
             Inspector::Identity => "Identity",
         }
@@ -89,6 +94,7 @@ impl Inspector {
             Inspector::Attributes => "sliders-horizontal",
             Inspector::Size => "ruler",
             Inspector::Style => "paintbrush",
+            Inspector::Motion => "play",
             Inspector::Connections => "cable",
             Inspector::Identity => "tag",
         }
@@ -171,6 +177,9 @@ pub struct Workbench {
     pub warned_about_file: bool,
     /// Portrait or landscape for the current device preset.
     pub landscape: bool,
+    /// Bumped to replay the canvas's entrance animations. Editing any motion
+    /// setting bumps it, so an adjustment plays back the moment it is made.
+    pub motion_epoch: usize,
     /// The canvas's focus. Not decoration: gpui builds the dispatch path from
     /// whatever is focused, and an app where nothing is focused has no path —
     /// so every action registered on an element goes unreachable and the whole
@@ -257,6 +266,7 @@ impl Workbench {
             file_seen: None,
             warned_about_file: false,
             landscape: false,
+            motion_epoch: 0,
             focus: cx.focus_handle(),
             focused: false,
             subs,
