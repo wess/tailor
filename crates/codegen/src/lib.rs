@@ -199,6 +199,20 @@ mod tests {
     }
 
     #[test]
+    fn an_icon_button_emits_its_label() {
+        let mut project = kitchen_sink();
+        let doc = &mut project.docs[0];
+        let mut action = doc.create("actionicon");
+        action.set_prop("icon", PropValue::Icon("pencil".into()));
+        action.set_prop("label", PropValue::Text("Edit".into()));
+        doc.insert(doc.root, DEFAULT_SLOT, 3, action);
+
+        let source = preview(&project, &project.docs[0]).source;
+        assert!(source.contains("ActionIcon::new("), "{source}");
+        assert!(source.contains(".label(\"Edit\")"), "{source}");
+    }
+
+    #[test]
     fn the_kitchen_sink_generates_a_whole_component() {
         let project = kitchen_sink();
         let file = preview(&project, &project.docs[0]);

@@ -36,6 +36,7 @@ pub static SPECS: &[ComponentSpec] = &[
         Ctor::IdAnd("icon"),
         props: &[
             icon("icon", "Icon", Emit::None),
+            text("label", "Label", Emit::Method("label")),
             variant("variant", "Variant", Emit::Method("variant"), VariantToken::Subtle),
             color("color", "Color", Emit::Method("color"), ColorToken::Gray),
             size("size", "Size", Emit::Method("size"), SizeToken::Md),

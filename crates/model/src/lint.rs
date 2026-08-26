@@ -268,6 +268,12 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
                 format!("{label} has no icon"),
                 "Pick one from the icon picker.",
             ),
+            "actionicon" if blank("label") => report(
+                Severity::Warning,
+                Some(id),
+                format!("{label} has no label"),
+                "Name the action in the Attributes inspector.",
+            ),
             _ => {}
         }
     }
@@ -453,6 +459,19 @@ mod tests {
         let doc = &mut project.docs[0];
         let root = doc.root;
         let node = doc.create("button");
+        doc.insert(root, DEFAULT_SLOT, 0, node);
+
+        let problems = check(&project);
+        assert!(problems.iter().any(|p| p.message.contains("no label")));
+    }
+
+    #[test]
+    fn an_icon_button_with_no_label_is_a_warning() {
+        let mut project = project();
+        let doc = &mut project.docs[0];
+        let root = doc.root;
+        let mut node = doc.create("actionicon");
+        node.set_prop("icon", crate::props::PropValue::Icon("pencil".into()));
         doc.insert(root, DEFAULT_SLOT, 0, node);
 
         let problems = check(&project);

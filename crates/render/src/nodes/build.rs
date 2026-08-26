@@ -274,13 +274,17 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
                 .icon("icon")
                 .map(Glyph::from)
                 .unwrap_or_else(|| Glyph::from(read.text("icon")));
-            ActionIcon::new(id(), glyph)
+            let mut action = ActionIcon::new(id(), glyph)
                 .variant(read.variant("variant"))
                 .color(read.color("color", cx))
                 .size(read.size("size"))
                 .radius(read.size("radius"))
-                .disabled(read.bool("disabled"))
-                .into_any_element()
+                .disabled(read.bool("disabled"));
+            let label = read.text("label");
+            if !label.is_empty() {
+                action = action.label(label);
+            }
+            action.into_any_element()
         }
         "closebutton" => CloseButton::new(id())
             .size(read.size("size"))
