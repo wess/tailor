@@ -30,94 +30,95 @@ pub const ANALYSIS_DELAY: Duration = Duration::from_millis(120);
 pub const AUTOSAVE_DELAY: Duration = Duration::from_millis(600);
 
 impl Workbench {
-    /// Recompute the generated code and the problem list in the background.
-    pub(super) fn analyse(&mut self, cx: &mut Context<Self>) {
-        let revision = self.revision;
-        let project = Arc::clone(&self.project);
-        let doc_id = self.doc_id.clone();
-        let delay = self.analysis_delay;
+  /// Recompute the generated code and the problem list in the background.
+  pub(super) fn analyse(&mut self, cx: &mut Context<Self>) {
+    let revision = self.revision;
+    let project = Arc::clone(&self.project);
+    let doc_id = self.doc_id.clone();
+    let delay = self.analysis_delay;
 
-        self.analysis = Some(cx.spawn(async move |this, cx| {
-            if !delay.is_zero() {
-                cx.background_executor().timer(delay).await;
+    self.analysis = Some(cx.spawn(async move |this, cx| {
+      if !delay.is_zero() {
+        cx.background_executor().timer(delay).await;
+      }
+      let outcome = cx
+        .background_executor()
+        .spawn(async move {
+          let generated = project
+            .doc(&doc_id)
+            .map(|doc| tailor_codegen::preview(&project, doc).source)
+            .unwrap_or_default();
+          let problems = tailor_model::lint::check(&project);
+          (generated, problems)
+        })
+        .await;
+      this
+        .update(cx, |this, cx| this.apply_analysis(revision, outcome, cx))
+        .ok();
+    }));
+  }
+
+  pub(crate) fn apply_analysis(
+    &mut self,
+    revision: u64,
+    (generated, problems): (String, Vec<Problem>),
+    cx: &mut Context<Self>,
+  ) {
+    // Something newer landed while this was running.
+    if self.revision != revision {
+      return;
+    }
+    self.problems = problems;
+    if generated != self.generated {
+      self.generated = generated;
+      let text = self.generated.clone();
+      self
+        .code_view
+        .update(cx, |editor, cx| editor.set_text(&text, cx));
+    }
+    cx.notify();
+  }
+
+  /// Write the project out, once the edits stop. Replacing the task cancels
+  /// the previous one, so a burst of edits costs one write rather than one
+  /// per keystroke.
+  pub(super) fn schedule_autosave(&mut self, cx: &mut Context<Self>) {
+    if !self.settings.autosave || !self.dirty {
+      self.autosave = None;
+      return;
+    }
+    let Some(path) = self.path.clone() else {
+      self.autosave = None;
+      return;
+    };
+    let project = Arc::clone(&self.project);
+    let revision = self.revision;
+    let delay = self.autosave_delay;
+
+    self.autosave = Some(cx.spawn(async move |this, cx| {
+      if !delay.is_zero() {
+        cx.background_executor().timer(delay).await;
+      }
+      let written = cx
+        .background_executor()
+        .spawn(async move { tailor_store::save(&path, &project).map_err(|e| e.to_string()) })
+        .await;
+      this
+        .update(cx, |this, cx| {
+          // A newer edit is already on its way to disk; leave the flag.
+          if this.revision != revision {
+            return;
+          }
+          match written {
+            Ok(()) => {
+              this.dirty = false;
+              this.mark_file_seen();
+              cx.notify();
             }
-            let outcome = cx
-                .background_executor()
-                .spawn(async move {
-                    let generated = project
-                        .doc(&doc_id)
-                        .map(|doc| tailor_codegen::preview(&project, doc).source)
-                        .unwrap_or_default();
-                    let problems = tailor_model::lint::check(&project);
-                    (generated, problems)
-                })
-                .await;
-            this.update(cx, |this, cx| this.apply_analysis(revision, outcome, cx))
-                .ok();
-        }));
-    }
-
-    pub(crate) fn apply_analysis(
-        &mut self,
-        revision: u64,
-        (generated, problems): (String, Vec<Problem>),
-        cx: &mut Context<Self>,
-    ) {
-        // Something newer landed while this was running.
-        if self.revision != revision {
-            return;
-        }
-        self.problems = problems;
-        if generated != self.generated {
-            self.generated = generated;
-            let text = self.generated.clone();
-            self.code_view
-                .update(cx, |editor, cx| editor.set_text(&text, cx));
-        }
-        cx.notify();
-    }
-
-    /// Write the project out, once the edits stop. Replacing the task cancels
-    /// the previous one, so a burst of edits costs one write rather than one
-    /// per keystroke.
-    pub(super) fn schedule_autosave(&mut self, cx: &mut Context<Self>) {
-        if !self.settings.autosave || !self.dirty {
-            self.autosave = None;
-            return;
-        }
-        let Some(path) = self.path.clone() else {
-            self.autosave = None;
-            return;
-        };
-        let project = Arc::clone(&self.project);
-        let revision = self.revision;
-        let delay = self.autosave_delay;
-
-        self.autosave = Some(cx.spawn(async move |this, cx| {
-            if !delay.is_zero() {
-                cx.background_executor().timer(delay).await;
-            }
-            let written = cx
-                .background_executor()
-                .spawn(
-                    async move { tailor_store::save(&path, &project).map_err(|e| e.to_string()) },
-                )
-                .await;
-            this.update(cx, |this, cx| {
-                // A newer edit is already on its way to disk; leave the flag.
-                if this.revision != revision {
-                    return;
-                }
-                match written {
-                    Ok(()) => {
-                        this.dirty = false;
-                        this.mark_file_seen();
-                        cx.notify();
-                    }
-                    Err(err) => this.toasts.failed(format!("Autosave failed: {err}"), cx),
-                }
-            })
-            .ok();
-        }));
-    }
+            Err(err) => this.toasts.failed(format!("Autosave failed: {err}"), cx),
+          }
+        })
+        .ok();
+    }));
+  }
 }
