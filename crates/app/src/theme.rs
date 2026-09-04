@@ -46,9 +46,9 @@ pub fn chrome(scheme: Scheme) -> Theme {
 /// the whole of what one *is* — so the primary token stops applying when
 /// either is set. Radius and font are orthogonal to a palette and stay the
 /// project's either way.
-pub fn project_theme(spec: &ThemeSpec) -> Theme {
-  let mut theme = base(spec);
-  if !spec.is_overridden() {
+pub fn project_theme(library: &dyn tailor_model::Library, spec: &ThemeSpec) -> Theme {
+  let mut theme = base(library, spec);
+  if !spec.is_overridden(library) {
     theme.primary_color = color_of(spec.primary);
   }
   theme.default_radius = size_of(spec.radius);
@@ -64,7 +64,7 @@ pub fn project_theme(spec: &ThemeSpec) -> Theme {
 /// Whatever wins keeps Tailor's graphite ramp for `ColorName::Dark`, because
 /// that ramp is what the *chrome* reads. A preset's semantic colours are
 /// overrides and still win for the canvas; the panels around it stay graphite.
-fn base(spec: &ThemeSpec) -> Theme {
+fn base(library: &dyn tailor_model::Library, spec: &ThemeSpec) -> Theme {
   let ramp = |mut theme: Theme| {
     theme
       .palette
@@ -77,7 +77,7 @@ fn base(spec: &ThemeSpec) -> Theme {
       return ramp(theme);
     }
   }
-  if let Some(preset) = spec.preset_entry() {
+  if let Some(preset) = spec.preset_entry(library) {
     if let Some(theme) = Theme::preset(preset.id) {
       return ramp(theme);
     }
@@ -138,8 +138,12 @@ fn id_of(scheme: Scheme) -> &'static str {
 
 /// Install the project's theme app-wide. Called whenever a project is opened
 /// and whenever its theme is edited.
-pub fn install(spec: &ThemeSpec, cx: &mut App) {
-  let theme = project_theme(spec);
+///
+/// Takes the whole project rather than its theme: a preset is looked up in the
+/// library the project targets, and the theme alone does not know which that
+/// is.
+pub fn install(project: &tailor_model::Project, cx: &mut App) {
+  let theme = project_theme(project.library(), &project.theme);
   if cx.has_global::<ThemeManager>() {
     cx.global_mut::<ThemeManager>()
       .register(ThemeEntry::new(PROJECT, theme).name("Project"));

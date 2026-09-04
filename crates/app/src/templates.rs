@@ -57,7 +57,10 @@ fn add(
   kind: &str,
   setup: impl FnOnce(&mut tailor_model::Node),
 ) -> NodeId {
-  let spec = tailor_model::catalog::get(kind);
+  // A template is written against whatever library is registered — Tailor's
+  // own starting points are guise's, and a build that shipped a different
+  // default would want its own.
+  let spec = tailor_model::library::default().get(kind);
   let mut node = match spec {
     Some(spec) => spec.build(doc.ids.next()),
     None => doc.create(kind),

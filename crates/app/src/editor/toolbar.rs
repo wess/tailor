@@ -298,7 +298,7 @@ impl Workbench {
       1 => self
         .doc()
         .and_then(|doc| doc.node(self.selection[0]))
-        .map(tailor_render::nodes::label_of)
+        .map(|node| tailor_render::nodes::label_of(self.library(), node))
         .unwrap_or_else(|| "1 node".into()),
       n => format!("{n} nodes"),
     };

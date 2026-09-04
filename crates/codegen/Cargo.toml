@@ -9,3 +9,9 @@ description = "Tailor's Rust generator: a document in, idiomatic guise out."
 
 [dependencies]
 tailor-model = { workspace = true }
+
+[dev-dependencies]
+# A library to generate for. The generator is library-agnostic and ships no
+# catalog, so its tests borrow the provider Tailor is built with — a dev-only
+# cycle back onto this crate, which is what dev-dependencies are for.
+tailor-guise = { workspace = true }

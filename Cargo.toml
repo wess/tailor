@@ -5,13 +5,17 @@ members = [
     "crates/codegen",
     "crates/store",
     "crates/render",
+    "crates/guise",
+    "crates/guiserender",
     "crates/app",
     "crates/mcp",
     "crates/surface",
 ]
 
 [workspace.package]
-version = "1.6.0"
+# Tailor rode guise's version line to 1.6.0 inside that repository. Out on its
+# own it starts its own, at the number the work is actually at.
+version = "0.1.0-beta"
 edition = "2021"
 license = "MIT"
 authors = ["Wess Cope <opensource@wess.io>"]
@@ -26,14 +30,19 @@ gpui = "0.2.2"
 # The component library Tailor is built with, and the first library it targets.
 # Pinned to a published version rather than a path: Tailor is a consumer of
 # guise like any other app, and the boundary is only real if it goes through
-# crates.io. `guise.catalog.json` in `crates/model` is regenerated against this
-# version — bumping one means regenerating the other.
+# crates.io. `libraries/guise.surface` is regenerated against this version —
+# bumping one means regenerating the other, in the same commit.
 guise-ui = "1.6.0"
 
 tailor-model = { path = "crates/model" }
 tailor-codegen = { path = "crates/codegen" }
 tailor-store = { path = "crates/store" }
 tailor-render = { path = "crates/render" }
+
+# The guise provider: everything Tailor knows about the library it draws,
+# behind the same two traits a second library would implement.
+tailor-guise = { path = "crates/guise" }
+tailor-guiserender = { path = "crates/guiserender" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

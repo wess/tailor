@@ -9,7 +9,6 @@
 
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Bounds, Context, DragMoveEvent, Pixels, Point};
-use tailor_model::catalog;
 use tailor_model::props::{PropType, PropValue};
 use tailor_model::style::{Dimension, LayoutMode};
 use tailor_model::NodeId;
@@ -45,8 +44,12 @@ pub struct Grab {
 }
 
 /// The value of a component's own pixel-sized prop, when it has one.
-fn pixel_prop(node: &tailor_model::Node, key: &str) -> Option<f32> {
-  let spec = catalog::get(&node.kind)?;
+fn pixel_prop(
+  library: &dyn tailor_model::Library,
+  node: &tailor_model::Node,
+  key: &str,
+) -> Option<f32> {
+  let spec = library.get(&node.kind)?;
   let prop = spec.prop(key)?;
   if prop.ty != PropType::Float {
     return None;
@@ -78,6 +81,7 @@ impl Workbench {
     from: Point<Pixels>,
     cx: &mut Context<Self>,
   ) {
+    let library = self.library();
     let Some(doc) = self.doc() else { return };
     let Some(style) = doc.node(node).map(|node| node.style.clone()) else {
       return;
@@ -93,7 +97,12 @@ impl Workbench {
     // resized through the box around it.
     let sized = doc
       .node(node)
-      .map(|node| (pixel_prop(node, "width"), pixel_prop(node, "height")))
+      .map(|node| {
+        (
+          pixel_prop(library, node, "width"),
+          pixel_prop(library, node, "height"),
+        )
+      })
       .unwrap_or((None, None));
 
     // Sizes come from what was painted, not from the style: a node sized by

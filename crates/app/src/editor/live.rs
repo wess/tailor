@@ -239,8 +239,12 @@ impl LiveView {
   }
 
   fn sync(&mut self, cx: &mut Context<Self>) {
+    let renderer = tailor_render::renderer::for_project(&self.project);
+    let library = self.project.library();
     if let Some(doc) = self.project.doc(&self.doc_id).cloned() {
-      self.store.update(cx, |store, cx| store.sync(&doc, cx));
+      self
+        .store
+        .update(cx, |store, cx| store.sync(renderer, library, &doc, cx));
     }
   }
 }
@@ -267,6 +271,7 @@ impl Render for LiveView {
       drop: None,
       dragging: None,
       store: self.store.clone(),
+      renderer: tailor_render::renderer::for_project(&self.project),
       hooks: Hooks::inert(),
       outlines: false,
       placing: false,

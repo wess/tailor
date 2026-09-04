@@ -5,14 +5,15 @@
 //! plus the pixel-based `guise::flex` trio for the cases where a flexbox by
 //! numbers reads better than one by tokens.
 
-use crate::node::{EventSpec, Node, TOGGLE};
-use crate::props::{
+use tailor_model::node::{EventSpec, Node, TOGGLE};
+use tailor_model::props::{
   boolean, color, enums, float, int, items, size, text, Emit, PropSpec, PropValue,
 };
-use crate::style::{Dimension, Edges};
-use crate::tokens::{ColorToken, SizeToken};
+use tailor_model::style::{Dimension, Edges};
+use tailor_model::tokens::{ColorToken, SizeToken};
 
-use super::spec::{slot, ComponentSpec, Ctor, SlotSpec, CHILDREN};
+use tailor_model::catalog::{slot, ComponentSpec, Ctor, SlotSpec, CHILDREN};
+use tailor_model::comp;
 
 const ALIGN: &[&str] = &["start", "center", "end", "stretch"];
 const JUSTIFY: &[&str] = &["start", "center", "end", "between", "around"];
@@ -94,7 +95,7 @@ fn frame_defaults(node: &mut Node) {
 }
 
 fn absolute_defaults(node: &mut Node) {
-  node.style.layout = crate::style::LayoutMode::Absolute;
+  node.style.layout = tailor_model::style::LayoutMode::Absolute;
   node.style.width = Dimension::Px(320.0);
   node.style.height = Dimension::Px(240.0);
 }
@@ -317,7 +318,7 @@ pub static SPECS: &[ComponentSpec] = &[
           float("sidebar_width", "Sidebar width", Emit::Method("sidebar_width"),
               || PropValue::Float(200.0)),
       ],
-      dynamic: Some(super::spec::DynamicSlots { from_prop: "pages", prefix: "page", method: "" }),
+      dynamic: Some(tailor_model::catalog::DynamicSlots { from_prop: "pages", prefix: "page", method: "" }),
   ),
   comp!(
       "settingssection", "Settings section", "SettingsSection", Layout, "rows-2",

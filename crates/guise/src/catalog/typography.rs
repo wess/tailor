@@ -4,12 +4,13 @@
 //! colour props are declared with `color_value` — the generator resolves a
 //! palette family through the theme and an explicit colour through `Color::hex`.
 
-use crate::props::{
+use tailor_model::props::{
   boolean, color_name, color_value, enums, int, multiline, size, text, Emit, PropValue,
 };
-use crate::tokens::{ColorToken, SizeToken};
+use tailor_model::tokens::{ColorToken, SizeToken};
 
-use super::spec::{ComponentSpec, Ctor, CHILDREN};
+use tailor_model::catalog::{ComponentSpec, Ctor, CHILDREN};
+use tailor_model::comp;
 
 const WEIGHTS: &[&str] = &["normal", "medium", "semibold", "bold"];
 
@@ -48,7 +49,7 @@ pub static SPECS: &[ComponentSpec] = &[
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
           text("href", "URL", Emit::None),
       ],
-      events: &[crate::node::CLICK],
+      events: &[tailor_model::node::CLICK],
   ),
   comp!(
       "code", "Inline code", "Code", Typography, "code",
@@ -83,7 +84,7 @@ pub static SPECS: &[ComponentSpec] = &[
           multiline("text", "Text", Emit::Method("text")),
           text("cite", "Citation", Emit::Method("cite")),
           color_name("color", "Color", Emit::Method("color"), ColorToken::Gray),
-          crate::props::icon("icon", "Icon", Emit::Method("icon")),
+          tailor_model::props::icon("icon", "Icon", Emit::Method("icon")),
           size("padding", "Padding", Emit::Method("padding"), SizeToken::Md),
           size("radius", "Radius", Emit::Method("radius"), SizeToken::Md),
       ],
@@ -103,7 +104,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "Content collapsed behind a show/hide toggle.",
       Ctor::Id,
       props: &[
-          crate::props::float("max_height", "Collapsed height", Emit::Method("max_height"), || {
+          tailor_model::props::float("max_height", "Collapsed height", Emit::Method("max_height"), || {
               PropValue::Float(80.0)
           }),
           boolean("expanded", "Expanded", Emit::Method("expanded"), false),
@@ -113,6 +114,6 @@ pub static SPECS: &[ComponentSpec] = &[
           size("size", "Size", Emit::Method("size"), SizeToken::Sm),
       ],
       slots: &[CHILDREN],
-      events: &[crate::node::TOGGLE],
+      events: &[tailor_model::node::TOGGLE],
   ),
 ];

@@ -120,6 +120,7 @@ mod tests {
 
   #[test]
   fn an_export_writes_the_tree_and_reports_replacements() {
+    tailor_guise::register();
     let root = std::env::temp_dir().join("tailor-export-test");
     let _ = std::fs::remove_dir_all(&root);
     let project = Project::new("Demo");

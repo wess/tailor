@@ -1,20 +1,19 @@
 //! Turning a node into an element, and wrapping it in the canvas's chrome.
 //!
-//! Two layers. `build` makes the guise component; this module puts it in a box
-//! that carries the node's style, its selection outline, its mouse handlers,
-//! and — while a drag is in flight — the strips you drop between children.
+//! Two layers. The target library's [`Renderer`](crate::Renderer) makes the
+//! component; this module puts it in a box that carries the node's style, its
+//! selection outline, its mouse handlers, and — while a drag is in flight — the
+//! strips you drop between children. None of that depends on which library the
+//! component came from.
 //!
 //! The chrome only exists outside preview mode. In preview the wrapper is a
 //! plain styled `div` and every click goes where it would in the real app.
-
-pub mod build;
 
 use gpui::prelude::*;
 use gpui::{
   div, px, AnyElement, App, Div, ElementId, Empty, MouseButton, SharedString, Stateful, Window,
 };
 use guise::anim::{Motion, Motioned};
-use tailor_model::catalog;
 use tailor_model::motion::Resolved as ResolvedMotion;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::style::{Dimension, Direction, LayoutMode, StyleProps};
@@ -23,7 +22,7 @@ use tailor_model::{Node, NodeId};
 
 use crate::chrome::{self, DragGhost};
 use crate::hooks::{DragPayload, DropSpot, GrabDrag};
-use crate::read;
+use crate::theme::{easing, resolve};
 use crate::{Mode, RenderCtx, MAX_DEPTH};
 
 /// Render a node, working out from the document whether its parent pins it.
@@ -53,7 +52,7 @@ pub fn render_in(
 
   if node.hidden && ctx.mode != Mode::Preview {
     return wrapper(ctx, node, absolute, cx)
-      .child(chrome::ghost(label_of(node), cx))
+      .child(chrome::ghost(label_of(ctx.library(), node), cx))
       .into_any_element();
   }
   if node.hidden {
@@ -82,25 +81,22 @@ pub fn render_in(
           .children(overlays(ctx, node, cx)),
       );
     }
-    if node.kind == "surface" {
-      let reader = read::Reader::new(node, doc);
-      if let tailor_model::props::PropValue::Color(color) = reader.get("fill") {
-        root = root.bg(read::resolve(&color, cx));
-      }
+    if let Some(tailor_model::props::PropValue::Color(color)) = fill_of(ctx, node) {
+      root = root.bg(resolve(&color, cx));
     }
     let kids = slot_children(ctx, node, DEFAULT_SLOT, window, cx);
     root = root.children(kids);
   } else if ctx.mode == Mode::Blueprint {
-    root = root.child(chrome::blueprint_box(label_of(node), cx));
+    root = root.child(chrome::blueprint_box(label_of(ctx.library(), node), cx));
     // A blueprint still shows structure, so containers keep their children.
-    if let Some(spec) = catalog::get(&node.kind) {
+    if let Some(spec) = ctx.library().get(&node.kind) {
       if spec.takes_children() {
         let kids = slot_children(ctx, node, DEFAULT_SLOT, window, cx);
         root = root.flex().flex_col().gap(px(4.)).children(kids);
       }
     }
   } else {
-    root = root.child(build::element(ctx, node, window, cx));
+    root = root.child(ctx.renderer.element(ctx, node, window, cx));
   }
 
   animate(ctx, node, absolute, root.children(overlays(ctx, node, cx)))
@@ -145,7 +141,7 @@ pub fn clip_for(motion: ResolvedMotion, pinned: bool) -> Motion {
   let mut clip = Motion::enter_from(kind, motion.distance)
     .duration(motion.duration)
     .delay(motion.delay)
-    .ease(read::easing(motion.ease));
+    .ease(easing(motion.ease));
   if motion.repeat == LoopToken::Forever {
     clip = clip.repeat_forever();
   }
@@ -177,7 +173,9 @@ fn wrapper(ctx: &RenderCtx, node: &Node, absolute: bool, cx: &mut App) -> Statef
 
   // Anything that takes children is a drop target for the whole of its box;
   // the strips between its children refine that to an index.
-  let accepts = catalog::get(&node.kind)
+  let accepts = ctx
+    .library()
+    .get(&node.kind)
     .map(|spec| spec.takes_children())
     .unwrap_or(false);
   let spot = accepts.then(|| {
@@ -231,7 +229,7 @@ fn wrapper(ctx: &RenderCtx, node: &Node, absolute: bool, cx: &mut App) -> Statef
           |_, _, _, cx| cx.new(|_| Empty),
         );
     } else {
-      let label = label_of(node);
+      let label = label_of(ctx.library(), node);
       let place = ctx.hooks.place.clone();
       root = root.on_drag(
         DragPayload::Existing(id),
@@ -427,13 +425,13 @@ fn apply_box(
       .ml(px(m.left));
   }
   if let Some(color) = &style.background {
-    root = root.bg(read::resolve(color, cx));
+    root = root.bg(resolve(color, cx));
   }
   if style.border_width > 0.0 {
     let color = style.border_color.clone().unwrap_or_default();
     root = root
       .border(px(style.border_width))
-      .border_color(read::resolve(&color, cx));
+      .border_color(resolve(&color, cx));
   }
   if style.radius > 0.0 {
     root = root.rounded(px(style.radius));
@@ -450,7 +448,7 @@ fn apply_box(
     root = root.opacity(style.opacity);
   }
   if let Some(color) = &style.text_color {
-    root = root.text_color(read::resolve(color, cx));
+    root = root.text_color(resolve(color, cx));
   }
   if let Some(size) = style.font_size {
     root = root.text_size(px(size));
@@ -495,9 +493,9 @@ pub fn slot_children(
   if children.is_empty() {
     if ctx.mode != Mode::Preview {
       let label = if slot == DEFAULT_SLOT {
-        format!("Drop into {}", label_of(node))
+        format!("Drop into {}", label_of(ctx.library(), node))
       } else {
-        slot_label(node, slot)
+        slot_label(ctx.library(), node, slot)
       };
       out.push(chrome::empty_slot(label, cx).into_any_element());
     }
@@ -546,17 +544,21 @@ fn strip(
 }
 
 /// What the layers tree and the empty-slot placeholder call a node.
-pub fn label_of(node: &Node) -> String {
+///
+/// Takes the library because a node's fallback name is its component's title,
+/// and that is the catalog's to say.
+pub fn label_of(library: &dyn tailor_model::Library, node: &Node) -> String {
   node
     .name
     .clone()
     .or_else(|| node.component_ref().map(|name| name.to_string()))
-    .or_else(|| catalog::get(&node.kind).map(|spec| spec.title.to_string()))
+    .or_else(|| library.get(&node.kind).map(|spec| spec.title.to_string()))
     .unwrap_or_else(|| node.kind.clone())
 }
 
-fn slot_label(node: &Node, slot: &str) -> String {
-  catalog::get(&node.kind)
+fn slot_label(library: &dyn tailor_model::Library, node: &Node, slot: &str) -> String {
+  library
+    .get(&node.kind)
     .and_then(|spec| spec.slot_spec(slot).map(|s| s.label.to_string()))
     .unwrap_or_else(|| slot.to_string())
 }
@@ -577,4 +579,16 @@ pub fn render_component(
   let nested = ctx.nested(&target.id);
   let root = target.root;
   render_in(&nested, root, false, window, cx)
+}
+
+/// A container's fill, from the node or the catalog's default. The only prop
+/// the chrome reads for itself: a `surface` is a box the canvas paints, not a
+/// component the provider builds.
+fn fill_of(ctx: &RenderCtx, node: &Node) -> Option<tailor_model::props::PropValue> {
+  let spec = ctx.library().get(&node.kind)?;
+  spec.prop("fill")?;
+  node
+    .prop("fill")
+    .cloned()
+    .or_else(|| spec.default_prop("fill"))
 }

@@ -6,6 +6,7 @@
 //! index anyway. The whole thing is small — it is a tree of props, not assets.
 
 use crate::doc::{DocKind, Document};
+use crate::library::Library;
 use crate::tokens::{ColorToken, SizeToken};
 use serde::{Deserialize, Serialize};
 
@@ -56,20 +57,24 @@ pub struct ThemeSpec {
   pub json: String,
 }
 
-/// One of guise's prebuilt themes, as the document refers to it.
+/// One of a library's prebuilt themes, as the document refers to it.
+///
+/// The table lives in the provider ([`crate::library::Library::presets`]);
+/// this is only its shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemePreset {
   /// What the file stores, and what `Theme::preset(..)` looks up.
   pub id: &'static str,
   pub label: &'static str,
-  /// The guise constructor the generator prints. Not always the id: the ids
-  /// are run together and the Rust names are not.
+  /// The constructor the generator prints. Not always the id: guise's ids are
+  /// run together where the Rust names are not.
   pub rust: &'static str,
   /// The scheme this preset is a variation of.
   pub scheme: Scheme,
 }
 
-const fn preset(
+/// Build one. `const`, so a provider's preset table is static data.
+pub const fn preset(
   id: &'static str,
   label: &'static str,
   rust: &'static str,
@@ -83,29 +88,17 @@ const fn preset(
   }
 }
 
-/// The guise theme presets a project can start from.
-///
-/// Duplicated here rather than read out of guise, because the model is
-/// deliberately guise-free — `presets_match_guise` in this file's tests reads
-/// guise's own source and fails when the two lists drift.
-pub const THEME_PRESETS: &[ThemePreset] = &[
-  preset("catppuccin", "Catppuccin", "catppuccin", Scheme::Dark),
-  preset("nord", "Nord", "nord", Scheme::Dark),
-  preset("tokyonight", "Tokyo Night", "tokyonight", Scheme::Dark),
-  preset("gruvbox", "Gruvbox", "gruvbox", Scheme::Dark),
-  preset("dracula", "Dracula", "dracula", Scheme::Dark),
-  preset(
-    "solarizedlight",
-    "Solarized Light",
-    "solarized_light",
-    Scheme::Light,
-  ),
-];
-
 impl ThemeSpec {
-  /// The named preset, when there is one and it is known.
-  pub fn preset_entry(&self) -> Option<&'static ThemePreset> {
-    THEME_PRESETS.iter().find(|preset| preset.id == self.preset)
+  /// The named preset, when there is one and the library defines it.
+  ///
+  /// Takes the library rather than reading a global table: a preset is a
+  /// library's, and a project that switched libraries can be carrying the name
+  /// of one the new library has never heard of.
+  pub fn preset_entry(&self, library: &dyn Library) -> Option<&'static ThemePreset> {
+    library
+      .presets()
+      .iter()
+      .find(|preset| preset.id == self.preset)
   }
 
   /// The scheme the design actually renders in. A pasted theme file names its
@@ -113,15 +106,15 @@ impl ThemeSpec {
   ///
   /// Precedence is the same everywhere it matters — the canvas, the generator,
   /// and the inspector all call this rather than reading `scheme` directly.
-  pub fn effective_scheme(&self) -> Scheme {
+  pub fn effective_scheme(&self, library: &dyn Library) -> Scheme {
     if !self.json.is_empty() {
       return match json_scheme(&self.json) {
         Some(scheme) => scheme,
-        // guise's theme files default to dark when they say nothing.
+        // A theme file that names no scheme is dark, as guise's are.
         None => Scheme::Dark,
       };
     }
-    match self.preset_entry() {
+    match self.preset_entry(library) {
       Some(preset) => preset.scheme,
       None => self.scheme,
     }
@@ -129,8 +122,8 @@ impl ThemeSpec {
 
   /// True when a preset or a theme file is doing the work, so the scheme and
   /// primary controls no longer decide anything.
-  pub fn is_overridden(&self) -> bool {
-    !self.json.is_empty() || self.preset_entry().is_some()
+  pub fn is_overridden(&self, library: &dyn Library) -> bool {
+    !self.json.is_empty() || self.preset_entry(library).is_some()
   }
 }
 
@@ -235,6 +228,15 @@ pub struct Project {
   #[serde(default = "current_version")]
   pub format: u32,
   pub name: String,
+  /// The component library this project is drawn with, by
+  /// [`crate::library::Library::id`].
+  ///
+  /// `default` rather than required, because every `.tailor` file written
+  /// before Tailor could target more than one library is a guise project and
+  /// says nothing — [`Project::library`] resolves an empty string to whatever
+  /// registered first, which in Tailor's own build is guise.
+  #[serde(default, skip_serializing_if = "String::is_empty")]
+  pub library: String,
   pub docs: Vec<Document>,
   #[serde(default)]
   pub theme: ThemeSpec,
@@ -272,10 +274,20 @@ impl Project {
     Project {
       format: FORMAT_VERSION,
       name: name.into(),
+      library: String::new(),
       docs: vec![Document::new("main", "MainScreen", DocKind::Screen)],
       theme: ThemeSpec::default(),
       gen: GenSettings::default(),
     }
+  }
+
+  /// The library this project is drawn with.
+  ///
+  /// Never fails: an unknown id falls back to the default, so a file naming a
+  /// library this build does not ship still opens. See
+  /// [`crate::library::resolve`].
+  pub fn library(&self) -> &'static dyn Library {
+    crate::library::resolve(&self.library)
   }
 
   pub fn doc(&self, id: &str) -> Option<&Document> {
@@ -488,32 +500,33 @@ mod tests {
 
   #[test]
   fn a_preset_and_a_theme_file_each_decide_the_scheme() {
+    let library = crate::library::fixture::library();
     let mut spec = ThemeSpec {
       scheme: Scheme::Light,
       ..ThemeSpec::default()
     };
-    assert_eq!(spec.effective_scheme(), Scheme::Light);
-    assert!(!spec.is_overridden());
+    assert_eq!(spec.effective_scheme(library), Scheme::Light);
+    assert!(!spec.is_overridden(library));
 
     // A preset is a variation of one scheme, so it settles the question.
     spec.preset = "dracula".into();
-    assert_eq!(spec.effective_scheme(), Scheme::Dark);
-    assert_eq!(spec.preset_entry().unwrap().label, "Dracula");
-    assert!(spec.is_overridden());
+    assert_eq!(spec.effective_scheme(library), Scheme::Dark);
+    assert_eq!(spec.preset_entry(library).unwrap().label, "Dracula");
+    assert!(spec.is_overridden(library));
 
     // A pasted theme file outranks the preset and names its own.
     spec.json = r##"{"scheme": "light", "primary": "#268bd2"}"##.into();
-    assert_eq!(spec.effective_scheme(), Scheme::Light);
+    assert_eq!(spec.effective_scheme(library), Scheme::Light);
     // guise defaults a theme file with no `scheme` key to dark.
     spec.json = r##"{"primary": "#268bd2"}"##.into();
-    assert_eq!(spec.effective_scheme(), Scheme::Dark);
+    assert_eq!(spec.effective_scheme(library), Scheme::Dark);
 
     // An unknown preset is ignored rather than fatal — a file written by a
     // newer Tailor still opens.
     spec.json = String::new();
     spec.preset = "nonesuch".into();
-    assert_eq!(spec.effective_scheme(), Scheme::Light);
-    assert!(!spec.is_overridden());
+    assert_eq!(spec.effective_scheme(library), Scheme::Light);
+    assert!(!spec.is_overridden(library));
   }
 
   #[test]
@@ -543,45 +556,5 @@ mod tests {
       Project::from_json(&plain).unwrap().theme,
       ThemeSpec::default()
     );
-  }
-
-  /// The model is guise-free on purpose, so [`THEME_PRESETS`] is a copy. This
-  /// checks it against `libraries/guise.surface` — the record of what the
-  /// pinned guise actually ships — and fails when the copy drifts. Same
-  /// ratchet as the catalog's coverage test, same source.
-  #[test]
-  fn presets_match_guise() {
-    let theirs = crate::surface::guise().presets;
-
-    let ours: Vec<&str> = THEME_PRESETS.iter().map(|preset| preset.id).collect();
-    let names: Vec<&str> = theirs.iter().map(|(id, _, _)| id.as_str()).collect();
-    assert_eq!(
-      ours, names,
-      "THEME_PRESETS has drifted from guise's PRESET_NAMES — update the table"
-    );
-
-    // The constructor and the scheme, which are the halves a name list cannot
-    // carry: the ids run together where the Rust names do not, and a preset is
-    // a variation of one scheme or the other.
-    for preset in THEME_PRESETS {
-      let (_, ctor, scheme) = theirs
-        .iter()
-        .find(|(id, _, _)| id == preset.id)
-        .expect("checked above");
-      assert_eq!(
-        &preset.rust, ctor,
-        "{} generates Theme::{}() but guise defines Theme::{ctor}()",
-        preset.id, preset.rust
-      );
-      let expected = match preset.scheme {
-        Scheme::Dark => "dark",
-        Scheme::Light => "light",
-      };
-      assert_eq!(
-        scheme, expected,
-        "{} is {:?} here but not in guise",
-        preset.id, preset.scheme
-      );
-    }
   }
 }

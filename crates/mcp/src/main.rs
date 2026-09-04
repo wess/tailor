@@ -22,6 +22,11 @@ use protocol::{error, result, Request, INTERNAL_ERROR, METHOD_NOT_FOUND, PROTOCO
 use session::Session;
 
 fn main() {
+  // The description and the generator, but no renderer: this server has no
+  // window, and linking one would drag gpui in for a process that only ever
+  // reads and writes JSON.
+  tailor_guise::register();
+
   let stdin = std::io::stdin();
   let mut stdout = std::io::stdout();
   let mut session = Session::default();
@@ -95,13 +100,19 @@ Every change saves the file immediately, so a running Tailor window picks it up.
 mod tests {
   use super::*;
 
+  /// A session with the provider registered — what `main` does before it
+  /// reads a line. Idempotent, so every test may ask.
+  fn session() -> Session {
+    tailor_guise::register();
+    Session::default()
+  }
   fn request(text: &str) -> Request {
     Request::parse(text).unwrap()
   }
 
   #[test]
   fn initialize_reports_the_protocol_and_the_server() {
-    let mut session = Session::default();
+    let mut session = session();
     let response = handle(&mut session, &request(r#"{"id":1,"method":"initialize"}"#)).unwrap();
     assert_eq!(
       response["result"]["protocolVersion"],
@@ -116,7 +127,7 @@ mod tests {
 
   #[test]
   fn a_notification_gets_no_answer() {
-    let mut session = Session::default();
+    let mut session = session();
     assert!(handle(
       &mut session,
       &request(r#"{"method":"notifications/initialized"}"#)
@@ -126,7 +137,7 @@ mod tests {
 
   #[test]
   fn an_unknown_method_is_a_jsonrpc_error() {
-    let mut session = Session::default();
+    let mut session = session();
     let response = handle(&mut session, &request(r#"{"id":2,"method":"dance"}"#)).unwrap();
     assert_eq!(response["error"]["code"], json!(METHOD_NOT_FOUND));
   }
@@ -139,7 +150,7 @@ mod tests {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("demo.tailor");
 
-    let mut session = Session::default();
+    let mut session = session();
     let created = tools::call(
       &mut session,
       "create_project",
@@ -199,7 +210,7 @@ mod tests {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("p.tailor");
 
-    let mut session = Session::default();
+    let mut session = session();
     let args = json!({ "path": path.to_string_lossy() });
     assert_eq!(
       tools::call(&mut session, "create_project", &args)["isError"],
@@ -222,7 +233,7 @@ mod tests {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
 
-    let mut session = Session::default();
+    let mut session = session();
     tools::call(
       &mut session,
       "create_project",

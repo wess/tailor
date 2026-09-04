@@ -1,14 +1,22 @@
-//! Renders a Tailor document as live guise components.
+//! Renders a Tailor document as live components.
 //!
 //! The canvas is not a drawing of your interface — it is your interface. A
-//! `Button` on the canvas is a `guise::Button`, reading the same theme, so what
-//! you lay out is what the generated code produces.
+//! `Button` on the canvas is the target library's real `Button`, reading the
+//! same theme, so what you lay out is what the generated code produces.
 //!
-//! Five components are the exception, and deliberately: `Tabs`, `Accordion`,
-//! `SplitPanel`, `AppShell`, and `Carousel` take their regions as `'static`
-//! closures, which a designer cannot reach into. Those are drawn here from the
-//! theme instead, which is also what lets you click a tab to reveal the slot
-//! behind it and drop into it. Generated code uses the real component.
+//! Which components those are is not this crate's business. Building one is
+//! [`Renderer`], implemented by the library's provider (`tailor-guiserender`
+//! for guise). What *is* this crate's business is everything around a
+//! component: the box that carries a node's style, the selection outline, the
+//! drop strips a drag opens between children, and the entrance replay. That
+//! chrome is drawn in guise because Tailor is a guise app — a separate fact
+//! from what it draws *with*.
+//!
+//! Some containers take their regions as `'static` closures, which a designer
+//! cannot reach into ([`tailor_model::library::Library::drawn`]). A provider
+//! draws those from the theme instead, which is also what lets you click a tab
+//! to reveal the slot behind it and drop into it. Generated code uses the real
+//! component.
 //!
 //! Interaction never reaches back into the app directly: everything the canvas
 //! needs to hear about arrives through [`Hooks`], which the app builds from a
@@ -18,10 +26,12 @@
 pub mod chrome;
 pub mod hooks;
 pub mod nodes;
-pub mod read;
+pub mod renderer;
 pub mod store;
+pub mod theme;
 
 pub use hooks::{DragPayload, DropSpot, GrabDrag, Handle, Hooks};
+pub use renderer::{register, Renderer};
 pub use store::PreviewStore;
 
 use std::rc::Rc;
@@ -62,6 +72,9 @@ pub struct RenderCtx {
   /// The node being dragged, so it can draw itself as the source.
   pub dragging: Option<NodeId>,
   pub store: gpui::Entity<PreviewStore>,
+  /// What builds the component under the chrome. Resolved from the project's
+  /// library once, when the context is made, rather than looked up per node.
+  pub renderer: &'static dyn Renderer,
   pub hooks: Hooks,
   /// Outline every node, not only the selected one — the "show layout
   /// bounds" toggle every layout editor has.
@@ -83,6 +96,12 @@ pub struct RenderCtx {
 impl RenderCtx {
   pub fn doc(&self) -> Option<&Document> {
     self.project.doc(&self.doc_id)
+  }
+
+  /// The catalog behind this document — the renderer's, so a node and the
+  /// component built for it can never come from two different libraries.
+  pub fn library(&self) -> &'static dyn tailor_model::Library {
+    self.renderer.library()
   }
 
   pub fn is_selected(&self, id: NodeId) -> bool {

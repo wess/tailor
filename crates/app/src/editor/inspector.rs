@@ -14,7 +14,6 @@ use std::sync::Arc;
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Context, ElementId, Entity, SharedString, Window};
 use guise::prelude::*;
-use tailor_model::catalog;
 use tailor_model::motion::MotionProps;
 use tailor_model::props::{PropSpec, PropType, PropValue};
 use tailor_model::style::{Dimension, Direction, LayoutMode, Overflow, ShadowToken, TextAlign};
@@ -139,7 +138,7 @@ impl Workbench {
         cx,
       );
     }
-    let Some(spec) = catalog::get(&node.kind) else {
+    let Some(spec) = self.library().get(&node.kind) else {
       return empty("Tailor does not know this component", cx);
     };
     if spec.props.is_empty() {
@@ -499,7 +498,7 @@ impl Workbench {
           .text_color(chrome.dimmed)
           .child(icon("unlink"))
           .on_click(cx.listener(move |this, _, _window, cx| {
-            let spec = catalog::get(
+            let spec = this.library().get(
               &this
                 .doc()
                 .and_then(|d| d.node(id))
@@ -570,7 +569,9 @@ impl Workbench {
       return empty("This node is gone", cx);
     };
     let style = node.style.clone();
-    let is_container = catalog::get(&node.kind)
+    let is_container = self
+      .library()
+      .get(&node.kind)
       .map(|s| s.takes_children())
       .unwrap_or(false);
     let parent_absolute = self
@@ -1327,7 +1328,9 @@ impl Workbench {
     let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
       return empty("This node is gone", cx);
     };
-    let events = catalog::get(&node.kind)
+    let events = self
+      .library()
+      .get(&node.kind)
       .map(|spec| spec.events)
       .unwrap_or(&[]);
     let actions: Vec<String> = self
@@ -1547,7 +1550,7 @@ impl Workbench {
     let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
       return empty("This node is gone", cx);
     };
-    let spec = catalog::get(&node.kind);
+    let spec = self.library().get(&node.kind);
     let name = node.name.clone().unwrap_or_default();
     let field = self.field(format!("{id}/name"), name, cx, move |this, text, cx| {
       let trimmed = text.trim().to_string();
@@ -1561,7 +1564,7 @@ impl Workbench {
       .map(|_| {
         format!(
           "A field on the generated screen: `{}`",
-          tailor_model::snake_case(&tailor_render::nodes::label_of(&node))
+          tailor_model::snake_case(&tailor_render::nodes::label_of(self.library(), &node))
         )
       })
       .unwrap_or_else(|| "Rendered inline; it has no field of its own.".to_string());
@@ -1646,7 +1649,7 @@ impl Workbench {
     let primary = self.project.theme.primary;
     let radius = self.project.theme.radius;
     let preset = self.project.theme.preset.clone();
-    let overridden = self.project.theme.is_overridden();
+    let overridden = self.project.theme.is_overridden(self.library());
     let has_json = !self.project.theme.json.trim().is_empty();
     let json_error = theme::json_error(&self.project.theme);
     let flavor = self.project.gen.flavor;
@@ -1693,7 +1696,9 @@ impl Workbench {
           // `chip_row` takes (label, value): the label is what shows, the
           // value is what comes back.
           std::iter::once(("none".to_string(), "none".to_string())).chain(
-            tailor_model::THEME_PRESETS
+            self
+              .library()
+              .presets()
               .iter()
               .map(|preset| (preset.label.to_string(), preset.id.to_string())),
           ),
@@ -1912,7 +1917,7 @@ impl Workbench {
     self.history.commit("Theme", &before);
     f(&mut Arc::make_mut(&mut self.project).theme);
     self.dirty = true;
-    theme::install(&self.project.theme, cx);
+    theme::install(&self.project, cx);
     self.refresh(cx);
   }
 

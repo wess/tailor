@@ -44,7 +44,7 @@ use crate::toasts::Toasts;
 /// A Lucide glyph by name, falling back to a dot so a bad name in the catalog
 /// never blanks a row.
 pub fn icon(name: &str) -> Glyph {
-  tailor_render::read::icon_named(name)
+  tailor_guiserender::read::icon_named(name)
     .map(Glyph::from)
     .unwrap_or(Glyph::from(IconName::Circle))
 }
@@ -277,6 +277,18 @@ impl Workbench {
     workbench
   }
 
+  /// The catalog behind the open project. One lookup for the whole workbench:
+  /// the palette, the inspector, the outline and the commands all ask the same
+  /// library the canvas is drawing with.
+  pub fn library(&self) -> &'static dyn tailor_model::Library {
+    self.project.library()
+  }
+
+  /// What draws the canvas — the renderer registered for that library.
+  pub fn renderer(&self) -> &'static dyn tailor_render::Renderer {
+    tailor_render::renderer::for_project(&self.project)
+  }
+
   pub fn doc(&self) -> Option<&Document> {
     self.project.doc(&self.doc_id)
   }
@@ -319,7 +331,11 @@ impl Workbench {
     // The entity cache is the one part that cannot leave the main thread:
     // it builds gpui entities. It is also the cheap part.
     if let Some(doc) = self.project.doc(&self.doc_id).cloned() {
-      self.store.update(cx, |store, cx| store.sync(&doc, cx));
+      let renderer = self.renderer();
+      let library = self.library();
+      self
+        .store
+        .update(cx, |store, cx| store.sync(renderer, library, &doc, cx));
     }
     self.push_live(cx);
     self.analyse(cx);

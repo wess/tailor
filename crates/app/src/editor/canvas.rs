@@ -28,7 +28,7 @@ impl Workbench {
       .canvas
       .background
       .clone()
-      .map(|color| tailor_render::read::resolve(&color, cx))
+      .map(|color| tailor_render::theme::resolve(&color, cx))
       .unwrap_or_else(|| theme(cx).body().hsla());
     let root = doc.root;
     let grid = self.settings.show_grid && self.mode() != Mode::Preview;
@@ -43,6 +43,7 @@ impl Workbench {
       drop: self.drop.clone(),
       dragging: None,
       store: self.store.clone(),
+      renderer: self.renderer(),
       hooks: self.hooks(cx),
       outlines: self.settings.show_outlines,
       placing: self.placing,

@@ -1,12 +1,19 @@
 //! Prop values as Rust expressions.
 //!
+//! A token prints as `<type>::<Variant>`, and the type half is the library's —
+//! it rides in on [`Hoist`], which is already threaded through every function
+//! here.
+//!
 //! The awkward part is colour. guise's setters take three different types —
 //! `impl Into<ColorValue>`, a bare `ColorName`, and guise's own `Color` — and
 //! two of those need a value resolved out of the theme. Resolving inline would
 //! hold a `&Theme` borrow across the rest of the builder chain, which is the
 //! one thing guise's own conventions tell you not to do, so every resolved
-//! colour is hoisted into a `let` at the top of `render` instead.
+//! colour is hoisted into a `let` at the top of `render` instead. That
+//! three-way shape is still guise's, and is the next thing this file owes the
+//! provider seam; the token *names* it prints are already the library's.
 
+use tailor_model::library::TokenPaths;
 use tailor_model::props::{PropSpec, PropType, PropValue};
 use tailor_model::tokens::{ColorSpec, ColorToken};
 use tailor_model::{Document, SizeToken, VariantToken};
@@ -17,17 +24,36 @@ use crate::rust::{float, string};
 /// paints on the canvas, so the export looks like what you designed.
 pub const SHADE: usize = 6;
 
-/// Colours pulled out of the builder chain into locals at the top of `render`.
-#[derive(Debug, Default)]
+/// Colours pulled out of the builder chain into locals at the top of `render`,
+/// and the token type names the library spells its scales with.
+///
+/// The two travel together because they are needed in the same places: every
+/// function that turns a prop into an expression already takes a `Hoist`.
+#[derive(Debug)]
 pub struct Hoist {
   entries: Vec<(String, String)>,
+  tokens: TokenPaths,
 }
 
 impl Hoist {
+  pub fn new(tokens: TokenPaths) -> Self {
+    Hoist {
+      entries: Vec::new(),
+      tokens,
+    }
+  }
+
+  pub fn tokens(&self) -> TokenPaths {
+    self.tokens
+  }
+
   /// A local holding `theme(cx).color(ColorName::Blue, 6).hsla()`.
   pub fn named(&mut self, token: ColorToken) -> String {
     let name = format!("{}_{SHADE}", token.label());
-    let expr = format!("theme(cx).color({}, {SHADE}).hsla()", token.path());
+    let expr = format!(
+      "theme(cx).color({}, {SHADE}).hsla()",
+      path(self.tokens.color, token.variant())
+    );
     self.push(name, expr)
   }
 
@@ -75,15 +101,16 @@ pub fn hsla(hoist: &mut Hoist, color: &ColorSpec) -> String {
 
 /// A colour for a component prop, in whichever type its setter takes.
 pub fn color_arg(hoist: &mut Hoist, rust_enum: &str, color: &ColorSpec) -> String {
+  let name = hoist.tokens.color;
   match (rust_enum, color) {
     // `impl Into<ColorValue>`: a palette family passes as itself, an
     // explicit colour as the Hsla it resolves to.
-    ("ColorValue", ColorSpec::Named(token)) => token.path(),
+    ("ColorValue", ColorSpec::Named(token)) => path(name, token.variant()),
     ("ColorValue", ColorSpec::Custom(hex)) => hoist.custom(hex),
     // A bare `ColorName` has no room for an explicit colour. The inspector
     // only offers palette families for these, so Custom is a stale file.
-    ("ColorName", ColorSpec::Named(token)) => token.path(),
-    ("ColorName", ColorSpec::Custom(_)) => ColorToken::Blue.path(),
+    ("ColorName", ColorSpec::Named(token)) => path(name, token.variant()),
+    ("ColorName", ColorSpec::Custom(_)) => path(name, ColorToken::Blue.variant()),
     // guise's `Color`.
     (_, ColorSpec::Named(token)) => format!("Color::from_hsla({})", hoist.named(*token)),
     (_, ColorSpec::Custom(hex)) => format!("Color::hex({})", string(hex)),
@@ -124,8 +151,8 @@ fn value_in(
     (_, PropValue::Float(v)) => float(*v as f32),
     (_, PropValue::Text(v)) => string(v),
     (_, PropValue::Icon(v)) => icon_path(v),
-    (_, PropValue::Size(v)) => v.path(),
-    (_, PropValue::Variant(v)) => v.path(),
+    (_, PropValue::Size(v)) => path(hoist.tokens.size, v.variant()),
+    (_, PropValue::Variant(v)) => path(hoist.tokens.variant, v.variant()),
     (_, PropValue::Choice(v)) => choice(spec, v),
     (_, PropValue::Items(v)) => items(v),
     (_, PropValue::Numbers(v)) => numbers(v),
@@ -186,14 +213,19 @@ pub fn is_default(spec: &PropSpec, value: &PropValue) -> bool {
   spec.default_value() == *value
 }
 
-/// Sizes and variants print as their token path; kept here so the node emitter
-/// never reaches into `tokens` directly.
-pub fn size_path(size: SizeToken) -> String {
-  size.path()
+/// `Size::Md` — a token's variant behind the type its library spells it with.
+pub fn path(ty: &str, variant: &str) -> String {
+  format!("{ty}::{variant}")
 }
 
-pub fn variant_path(variant: VariantToken) -> String {
-  variant.path()
+/// Sizes and variants print as their token path; kept here so the node emitter
+/// never reaches into `tokens` directly.
+pub fn size_path(hoist: &Hoist, size: SizeToken) -> String {
+  path(hoist.tokens.size, size.variant())
+}
+
+pub fn variant_path(hoist: &Hoist, variant: VariantToken) -> String {
+  path(hoist.tokens.variant, variant.variant())
 }
 
 #[cfg(test)]
@@ -201,9 +233,20 @@ mod tests {
   use super::*;
   use tailor_model::props::{color, color_name, color_value, Emit};
 
+  /// guise's spelling, which is what the assertions below are written in.
+  fn paths() -> TokenPaths {
+    TokenPaths {
+      size: "Size",
+      variant: "Variant",
+      color: "ColorName",
+      align: "Align",
+      justify: "Justify",
+    }
+  }
+
   #[test]
   fn a_hoisted_colour_is_declared_once() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     assert_eq!(hoist.named(ColorToken::Blue), "blue_6");
     assert_eq!(hoist.named(ColorToken::Blue), "blue_6");
     assert_eq!(hoist.named(ColorToken::Red), "red_6");
@@ -218,7 +261,7 @@ mod tests {
 
   #[test]
   fn a_custom_colour_hoists_under_its_hex() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     assert_eq!(hoist.custom("#3B82F6"), "hex_3b82f6");
     assert_eq!(
       hoist.lines(),
@@ -228,7 +271,7 @@ mod tests {
 
   #[test]
   fn colour_arguments_match_the_setter_they_feed() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     let named = ColorSpec::Named(ColorToken::Grape);
     let custom = ColorSpec::Custom("#101010".into());
 

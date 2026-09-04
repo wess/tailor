@@ -6192,13 +6192,15 @@ dependencies = [
 
 [[package]]
 name = "tailor-app"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
  "gpui",
  "guise-ui",
  "serde",
  "serde_json",
  "tailor-codegen",
+ "tailor-guise",
+ "tailor-guiserender",
  "tailor-model",
  "tailor-render",
  "tailor-store",
@@ -6206,25 +6208,46 @@ dependencies = [
 
 [[package]]
 name = "tailor-codegen"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
+ "tailor-guise",
  "tailor-model",
 ]
 
 [[package]]
+name = "tailor-guise"
+version = "0.1.0-beta"
+dependencies = [
+ "tailor-codegen",
+ "tailor-model",
+]
+
+[[package]]
+name = "tailor-guiserender"
+version = "0.1.0-beta"
+dependencies = [
+ "gpui",
+ "guise-ui",
+ "tailor-guise",
+ "tailor-model",
+ "tailor-render",
+]
+
+[[package]]
 name = "tailor-mcp"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
  "serde",
  "serde_json",
  "tailor-codegen",
+ "tailor-guise",
  "tailor-model",
  "tailor-store",
 ]
 
 [[package]]
 name = "tailor-model"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
  "serde",
  "serde_json",
@@ -6232,27 +6255,29 @@ dependencies = [
 
 [[package]]
 name = "tailor-render"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
  "gpui",
  "guise-ui",
+ "tailor-guise",
  "tailor-model",
 ]
 
 [[package]]
 name = "tailor-store"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
  "dirs 6.0.0",
  "serde",
  "serde_json",
  "tailor-codegen",
+ "tailor-guise",
  "tailor-model",
 ]
 
 [[package]]
 name = "tailor-surface"
-version = "1.6.0"
+version = "0.1.0-beta"
 dependencies = [
  "serde_json",
 ]

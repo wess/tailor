@@ -6,7 +6,7 @@
 //! you renamed, an event pointing at an action you deleted, a container the
 //! generator cannot fill.
 
-use crate::catalog;
+use crate::library::Library;
 use crate::node::DEFAULT_SLOT;
 use crate::{DocKind, Document, NodeId, Project};
 
@@ -52,6 +52,7 @@ pub struct Problem {
 
 /// Every problem in the project, most severe first.
 pub fn check(project: &Project) -> Vec<Problem> {
+  let library = project.library();
   let mut out = Vec::new();
   let mut names: Vec<&str> = Vec::new();
 
@@ -68,18 +69,20 @@ pub fn check(project: &Project) -> Vec<Problem> {
     names.push(&doc.name);
 
     // A document called `Button` generates `pub struct Button` into a file
-    // that glob-imports guise. The local item wins, and every `Button::new`
-    // in it then resolves to the wrong type.
+    // that glob-imports the library's prelude. The local item wins, and every
+    // `Button::new` in it then resolves to the wrong type.
     let generated = crate::pascal_case(&doc.name);
-    if shadows_guise(&generated) {
+    if shadows(library, &generated) {
       out.push(Problem {
         severity: Severity::Error,
         doc_id: doc.id.clone(),
         node: None,
-        message: format!("{generated} is also a guise component"),
-        fix: "Rename it — the generated file imports guise, and the two \
-                      names would collide."
-          .into(),
+        message: format!("{generated} is also a {} component", library.label()),
+        fix: format!(
+          "Rename it — the generated file imports {}, and the two names \
+           would collide.",
+          library.label()
+        ),
       });
     }
 
@@ -97,14 +100,19 @@ pub fn check(project: &Project) -> Vec<Problem> {
       });
     }
 
-    check_document(project, doc, &mut out);
+    check_document(project, library, doc, &mut out);
   }
 
   out.sort_by_key(|problem| problem.severity);
   out
 }
 
-fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
+fn check_document(
+  project: &Project,
+  library: &dyn Library,
+  doc: &Document,
+  out: &mut Vec<Problem>,
+) {
   let mut report = |severity, node, message: String, fix: &str| {
     out.push(Problem {
       severity,
@@ -120,7 +128,7 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
     let label = node
       .name
       .clone()
-      .or_else(|| catalog::get(&node.kind).map(|spec| spec.title.to_string()))
+      .or_else(|| library.get(&node.kind).map(|spec| spec.title.to_string()))
       .unwrap_or_else(|| node.kind.clone());
 
     // A reference to a document that is gone, or that is a screen.
@@ -143,7 +151,7 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
       continue;
     }
 
-    let Some(spec) = catalog::get(&node.kind) else {
+    let Some(spec) = library.get(&node.kind) else {
       report(
         Severity::Error,
         Some(id),
@@ -211,13 +219,13 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
       );
     }
 
-    // The five containers whose regions are `'static` closures cannot hold
-    // a component that lives in a struct field.
-    if matches!(node.kind.as_str(), "tabs" | "accordion" | "splitpanel") {
+    // A container the canvas draws takes its regions as `'static` closures,
+    // so it cannot hold a component that lives in a struct field.
+    if library.drawn().contains(&node.kind.as_str()) {
       for child in doc.descendants(id) {
         let holds_state = doc
           .node(child)
-          .and_then(|node| catalog::get(&node.kind))
+          .and_then(|node| library.get(&node.kind))
           .map(|spec| spec.ctor.is_entity())
           .unwrap_or(false);
         if holds_state {
@@ -245,38 +253,19 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
             .unwrap_or(false)
         })
     };
-    match node.kind.as_str() {
-      "button" | "badge" | "chip" | "anchor" | "navlink" if blank("label") => report(
-        Severity::Warning,
-        Some(id),
-        format!("{label} has no label"),
-        "Set one in the Attributes inspector.",
-      ),
-      "text" | "title" if blank("content") => report(
-        Severity::Warning,
-        Some(id),
-        format!("{label} has no content"),
-        "Type into Content, or bind it to a state variable.",
-      ),
-      "image" if blank("source") => report(
-        Severity::Warning,
-        Some(id),
-        "Image has no source".into(),
-        "Point it at a file path or a URL.",
-      ),
-      "icon" | "actionicon" if blank("icon") => report(
-        Severity::Warning,
-        Some(id),
-        format!("{label} has no icon"),
-        "Pick one from the icon picker.",
-      ),
-      "actionicon" if blank("label") => report(
-        Severity::Warning,
-        Some(id),
-        format!("{label} has no label"),
-        "Name the action in the Attributes inspector.",
-      ),
-      _ => {}
+    for (key, fix) in spec.required {
+      if blank(key) {
+        let what = spec
+          .prop(key)
+          .map(|prop| prop.label.to_lowercase())
+          .unwrap_or_else(|| (*key).to_string());
+        report(
+          Severity::Warning,
+          Some(id),
+          format!("{label} has no {what}"),
+          fix,
+        );
+      }
     }
   }
 
@@ -318,11 +307,11 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
   }
 }
 
-/// Whether a generated type name would collide with something the prelude
-/// brings in. The catalog knows every component's Rust name; the rest is what
-/// a generated file also names.
-pub fn shadows_guise(name: &str) -> bool {
-  crate::library::Library::shadows(catalog::guise(), name)
+/// Whether a generated type name would collide with something the target
+/// library's prelude brings in. The catalog knows every component's Rust name;
+/// [`Library::reserved`] is what a generated file also names.
+pub fn shadows(library: &dyn Library, name: &str) -> bool {
+  library.shadows(name)
 }
 
 /// Only the problems that belong to one document.
@@ -349,8 +338,13 @@ mod tests {
   use crate::props::PropValue as V;
   use crate::{ActionDef, StateVar, VarType};
 
+  /// A project on the fixture library — see [`crate::library::fixture`] for
+  /// why the model's own tests do not borrow guise's catalog.
   fn project() -> Project {
-    Project::new("Demo")
+    let library = crate::library::fixture::library();
+    let mut project = Project::new("Demo");
+    project.library = library.id().into();
+    project
   }
 
   #[test]

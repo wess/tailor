@@ -4,13 +4,14 @@
 //! `Modal` shows its content so you can lay it out, and generated code puts it
 //! behind the `open` flag the component already takes.
 
-use crate::node::{EventSpec, CLOSE};
-use crate::props::{
+use tailor_model::node::{EventSpec, CLOSE};
+use tailor_model::props::{
   boolean, color, color_name, enums, float, icon, size, text, variant, Emit, PropValue,
 };
-use crate::tokens::{ColorToken, SizeToken, VariantToken};
+use tailor_model::tokens::{ColorToken, SizeToken, VariantToken};
 
-use super::spec::{slot, ComponentSpec, Ctor, SlotSpec, CHILDREN};
+use tailor_model::catalog::{slot, ComponentSpec, Ctor, SlotSpec, CHILDREN};
+use tailor_model::comp;
 
 const CLOSES: &[EventSpec] = &[CLOSE];
 
@@ -22,7 +23,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "An inline message with a title and an icon.",
       Ctor::Arg("message"),
       props: &[
-          crate::props::multiline("message", "Message", Emit::None),
+          tailor_model::props::multiline("message", "Message", Emit::None),
           text("title", "Title", Emit::Method("title")),
           variant("variant", "Variant", Emit::Method("variant"), VariantToken::Light),
           color("color", "Color", Emit::Method("color"), ColorToken::Blue),

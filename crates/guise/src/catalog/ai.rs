@@ -9,10 +9,13 @@
 //! The composite views (`AIChatView`, `AIComposer`, `AIModelPicker`,
 //! `AISettings`) are entities, the way they are in a hand-written app.
 
-use crate::props::{boolean, color_name, enums, int, multiline, size, text, Emit, PropValue};
-use crate::tokens::{ColorToken, SizeToken};
+use tailor_model::props::{
+  boolean, color_name, enums, int, multiline, size, text, Emit, PropValue,
+};
+use tailor_model::tokens::{ColorToken, SizeToken};
 
-use super::spec::{ComponentSpec, Ctor};
+use tailor_model::catalog::{ComponentSpec, Ctor};
+use tailor_model::comp;
 
 pub static SPECS: &[ComponentSpec] = &[
   comp!(
@@ -120,7 +123,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "What the answer was drawn from.",
       Ctor::Special,
       props: &[
-          crate::props::items("sources", "Sources", Emit::Custom,
+          tailor_model::props::items("sources", "Sources", Emit::Custom,
               || PropValue::Items(vec!["guise docs — docs/ai.md".into()])),
           text("title", "Title", Emit::Method("title")),
           boolean("excerpts", "Excerpts", Emit::Method("excerpts"), true),
@@ -132,7 +135,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "The whole transcript, scrolled and composed.",
       Ctor::Entity,
       props: &[
-          crate::props::items("turns", "Turns", Emit::Custom,
+          tailor_model::props::items("turns", "Turns", Emit::Custom,
               || PropValue::Items(vec!["How do I theme this?".into(), "Read it from `theme(cx)`.".into()])),
       ],
   ),
@@ -152,7 +155,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "Which model answers.",
       Ctor::Entity,
       props: &[
-          crate::props::items("models", "Models", Emit::Custom,
+          tailor_model::props::items("models", "Models", Emit::Custom,
               || PropValue::Items(vec!["Opus".into(), "Sonnet".into(), "Haiku".into()])),
           text("label", "Label", Emit::Method("label")),
           boolean("disabled", "Disabled", Emit::Method("disabled"), false),

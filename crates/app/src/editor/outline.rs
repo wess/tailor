@@ -8,7 +8,6 @@
 
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Context, ElementId, SharedString, Window};
-use tailor_model::catalog;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::NodeId;
 use tailor_render::chrome::DragGhost;
@@ -71,7 +70,7 @@ impl Workbench {
 
   fn walk(&self, doc: &tailor_model::Document, id: NodeId, depth: usize, rows: &mut Vec<Row>) {
     let Some(node) = doc.node(id) else { return };
-    let spec = catalog::get(&node.kind);
+    let spec = self.library().get(&node.kind);
     let slots = spec.map(|spec| spec.slots_of(node)).unwrap_or_default();
     let has_children = !node.all_children().is_empty();
     let expanded = !self.collapsed.contains(&id);
@@ -79,7 +78,7 @@ impl Workbench {
     rows.push(Row {
       id,
       depth,
-      label: tailor_render::nodes::label_of(node),
+      label: tailor_render::nodes::label_of(self.library(), node),
       glyph: spec.map(|spec| spec.icon).unwrap_or("box"),
       has_children,
       expanded,
@@ -172,7 +171,9 @@ impl Workbench {
       .doc()
       .and_then(|doc| {
         let node = doc.node(id)?;
-        let accepts = catalog::get(&node.kind)
+        let accepts = self
+          .library()
+          .get(&node.kind)
           .map(|spec| spec.takes_children())
           .unwrap_or(false);
         if accepts {

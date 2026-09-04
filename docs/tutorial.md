@@ -539,16 +539,16 @@ over MCP appears on the canvas as it is built.
 
 Call `catalog` for the 101 kinds and `component` for one kind's props, slots and
 events before setting props you have not set before. See
-[the MCP server](tailormcp.md) for the full tool list.
+[the MCP server](mcp.md) for the full tool list.
 
 This tutorial's project was built exactly this way, which is why its code blocks
 are output rather than prose.
 
 ## Where to go next
 
-- [The canvas](tailorcanvas.md) — selection, resizing, layout modes, snapping
-- [Components and slots](tailorcomponents.md) — the catalog, the five drawn
+- [The canvas](canvas.md) — selection, resizing, layout modes, snapping
+- [Components and slots](components.md) — the catalog, the drawn
   containers, adding your own
-- [State, bindings and actions](tailorstate.md) — the wiring, in depth
-- [What gets generated](tailorcodegen.md) — flavours, export, the file format
+- [State, bindings and actions](state.md) — the wiring, in depth
+- [What gets generated](codegen.md) — flavours, export, the file format
 - [The library tutorial](tutorial.md) — the same ground, written by hand

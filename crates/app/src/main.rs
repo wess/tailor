@@ -340,6 +340,11 @@ fn reveal(target: &str) -> Result<String, String> {
 }
 
 fn main() {
+  // Every component library this build ships, before anything can open a
+  // project. Adding one is one more line here plus its two crates — the whole
+  // of what "Tailor supports library X" means.
+  tailor_guiserender::register();
+
   let args: Vec<String> = std::env::args().skip(1).collect();
 
   // `tailordev --reveal src/ui/people.rs:106` goes the other way from *Open in

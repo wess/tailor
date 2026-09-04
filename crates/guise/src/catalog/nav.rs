@@ -1,10 +1,13 @@
 //! Navigation chrome.
 
-use crate::node::CLICK;
-use crate::props::{boolean, color_name, float, icon, int, items, size, text, Emit, PropValue};
-use crate::tokens::{ColorToken, SizeToken};
+use tailor_model::node::CLICK;
+use tailor_model::props::{
+  boolean, color_name, float, icon, int, items, size, text, Emit, PropValue,
+};
+use tailor_model::tokens::{ColorToken, SizeToken};
 
-use super::spec::{slot, ComponentSpec, Ctor, SlotSpec};
+use tailor_model::catalog::{slot, ComponentSpec, Ctor, SlotSpec};
+use tailor_model::comp;
 
 const STATUSBAR_SLOTS: &[SlotSpec] = &[
   slot("left", "Left", "left"),
@@ -44,7 +47,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "Numbered steps with a current position.",
       Ctor::Unit,
       props: &[
-          crate::props::hinted(
+          tailor_model::props::hinted(
               items("steps", "Steps", Emit::Custom, || {
                   PropValue::Items(vec!["Account".into(), "Details".into(), "Review".into()])
               }),
@@ -68,7 +71,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "statusbar", "Status bar", "StatusBar", Navigation, "panel-bottom",
       "A three-region footer strip.",
       Ctor::Unit,
-      props: &[crate::props::float("height", "Height", Emit::Method("height"), || {
+      props: &[tailor_model::props::float("height", "Height", Emit::Method("height"), || {
           PropValue::Float(28.0)
       })],
       slots: STATUSBAR_SLOTS,
@@ -78,7 +81,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "A horizontal menu bar with dropdowns.",
       Ctor::Entity,
       props: &[
-          crate::props::hinted(
+          tailor_model::props::hinted(
               items("items", "Items", Emit::Custom, || {
                   PropValue::Items(vec!["file:File".into(), "edit:Edit".into(), "view:View".into()])
               }),

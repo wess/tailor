@@ -1,8 +1,12 @@
 //! Tailor's document model.
 //!
-//! Everything Tailor knows about a design, with no gpui in sight: the component
-//! catalog, the node tree, the tokens a node can carry, the state and actions
-//! that make a document a real component, and the `.tailor` file format.
+//! Everything Tailor knows about a design, with no gpui in sight: the node
+//! tree, the tokens a node can carry, the state and actions that make a
+//! document a real component, and the `.tailor` file format.
+//!
+//! It knows what a component library *is* ([`library::Library`]) without
+//! knowing any: guise's catalog lives in `tailor-guise`, registered at
+//! start-up, exactly where a second library's would.
 //!
 //! Keeping this crate free of the UI is what lets the tree be unit-tested — the
 //! reparent rules, the cycle checks, the undo stack, and the file round-trip are
@@ -20,20 +24,18 @@ pub mod project;
 pub mod props;
 pub mod state;
 pub mod style;
-#[cfg(test)]
-pub mod surface;
 pub mod tokens;
 
 pub use catalog::{Category, ComponentSpec, Ctor, SlotRef, SlotSpec};
 pub use doc::{Canvas, DocKind, Document, PRESETS};
 pub use history::History;
 pub use id::{IdGen, NodeId};
+pub use library::Library;
 pub use lint::{Problem, Severity};
 pub use motion::{MotionProps, Resolved as ResolvedMotion};
 pub use node::{EventSpec, Node, COMPONENT_PREFIX, DEFAULT_SLOT};
 pub use project::{
-  Flavor, GenSettings, LoadError, Project, Scheme, ThemePreset, ThemeSpec, FORMAT_VERSION,
-  THEME_PRESETS,
+  preset, Flavor, GenSettings, LoadError, Project, Scheme, ThemePreset, ThemeSpec, FORMAT_VERSION,
 };
 pub use props::{Emit, PropSpec, PropType, PropValue, Props};
 pub use state::{ActionDef, StateVar, VarType};

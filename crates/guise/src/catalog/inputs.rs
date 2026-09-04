@@ -6,13 +6,14 @@
 //! generator can hide: it is exactly why the generated screen is a `Render`
 //! entity with a field per field, the way you would have written it.
 
-use crate::node::{EventSpec, CHANGE_BOOL, CHANGE_INDEX, CHANGE_VALUE};
-use crate::props::{
+use tailor_model::node::{EventSpec, CHANGE_BOOL, CHANGE_INDEX, CHANGE_VALUE};
+use tailor_model::props::{
   boolean, color_name, enums, float, int, items, size, text, Emit, PropSpec, PropValue,
 };
-use crate::tokens::{ColorToken, SizeToken};
+use tailor_model::tokens::{ColorToken, SizeToken};
 
-use super::spec::{ComponentSpec, Ctor, CHILDREN};
+use tailor_model::catalog::{ComponentSpec, Ctor, CHILDREN};
+use tailor_model::comp;
 
 const LABEL: PropSpec = text("label", "Label", Emit::Method("label"));
 const DESCRIPTION: PropSpec = text("description", "Description", Emit::Method("description"));
@@ -285,7 +286,7 @@ pub static SPECS: &[ComponentSpec] = &[
       props: &[
           LABEL,
           text("hint", "Hint", Emit::Method("hint")),
-          crate::props::icon("icon", "Icon", Emit::Method("icon")),
+          tailor_model::props::icon("icon", "Icon", Emit::Method("icon")),
           items("accept", "Accept", Emit::Method("accept"), || PropValue::Items(Vec::new())),
           boolean("single", "Single file", Emit::Flag("single"), false),
           float("height", "Height", Emit::Method("height"), || PropValue::Float(140.0)),
@@ -313,7 +314,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "A syntax-highlighted code buffer.",
       Ctor::Entity,
       props: &[
-          crate::props::multiline("value", "Content", Emit::None),
+          tailor_model::props::multiline("value", "Content", Emit::None),
           enums("language", "Language", Emit::None, "Language",
               &["none", "rust", "sql", "json", "toml", "python", "javascript", "typescript", "go", "c", "markdown"],
               || PropValue::Choice("rust".into())),
@@ -325,7 +326,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "A live-preview markdown buffer.",
       Ctor::Entity,
       props: &[
-          crate::props::multiline("value", "Content", Emit::Method("value")),
+          tailor_model::props::multiline("value", "Content", Emit::Method("value")),
           PLACEHOLDER,
           int("rows", "Rows", Emit::Method("rows"), || PropValue::Int(10)),
           boolean("read_only", "Read only", Emit::Method("read_only"), false),

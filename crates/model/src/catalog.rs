@@ -1,10 +1,14 @@
-//! What the catalog knows about one component.
+//! What a catalog knows about one component.
 //!
-//! Three consumers read this table and nothing else: the palette and inspector
+//! This is the vocabulary a component library is described *in*, not a
+//! description of any particular one — guise's tables live in `tailor-guise`,
+//! behind [`crate::library::Library`], exactly where a second library's would.
+//!
+//! Three consumers read a spec and nothing else: the palette and inspector
 //! (what you can place and what you can set), the renderer (what to build), and
 //! the generator (what to print). Keeping the description declarative is what
-//! stops those three from drifting — adding a prop is one line here, not three
-//! edits in three crates.
+//! stops those three from drifting — adding a prop is one line in a provider,
+//! not three edits in three crates.
 
 use crate::node::{EventSpec, Node, DEFAULT_SLOT};
 use crate::props::{PropSpec, PropValue};
@@ -186,6 +190,12 @@ pub struct ComponentSpec {
   /// almost everything; guise's `flex/` is the exception, because its names
   /// deliberately overlap `layout/` and it is not glob-exported.
   pub imports: &'static [&'static str],
+  /// Props the component is pointless without, and the fix to suggest. A
+  /// `Button` with no label is a rectangle; the linter says so.
+  ///
+  /// Declared here rather than as a list of kinds in the linter, because which
+  /// components those are is a fact about the library.
+  pub required: &'static [(&'static str, &'static str)],
 
   // --- What an agent needs that a person reading the palette does not ---
   //
@@ -275,4 +285,58 @@ impl std::fmt::Debug for ComponentSpec {
       .field("kind", &self.kind)
       .finish()
   }
+}
+
+/// A spec with every optional field empty. [`comp!`] fills in the rest.
+///
+/// `const`, so a provider's tables are `static` data with no start-up cost.
+pub const fn base(
+  kind: &'static str,
+  title: &'static str,
+  rust: &'static str,
+  category: Category,
+  icon: &'static str,
+  blurb: &'static str,
+  ctor: Ctor,
+) -> ComponentSpec {
+  ComponentSpec {
+    kind,
+    title,
+    rust,
+    category,
+    icon,
+    blurb,
+    ctor,
+    props: &[],
+    slots: &[],
+    dynamic: None,
+    events: &[],
+    on_place: None,
+    imports: &[],
+    required: &[],
+    docs: "",
+    example: "",
+    aliases: &[],
+  }
+}
+
+/// Declare a component: the seven positional facts, then any field that
+/// differs from [`base`].
+///
+/// Exported because providers live in their own crates — this macro is most of
+/// what writing one looks like, and a ninety-row table stays scannable only if
+/// the interesting part of each row is what it *sets*.
+#[macro_export]
+macro_rules! comp {
+    (
+        $kind:literal, $title:literal, $rust:literal, $cat:ident, $icon:literal, $blurb:literal,
+        $ctor:expr $(, $field:ident: $value:expr )* $(,)?
+    ) => {{
+        #[allow(unused_mut)]
+        let mut spec = $crate::catalog::base(
+            $kind, $title, $rust, $crate::catalog::Category::$cat, $icon, $blurb, $ctor,
+        );
+        $( spec.$field = $value; )*
+        spec
+    }};
 }

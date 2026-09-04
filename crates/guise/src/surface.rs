@@ -1,13 +1,16 @@
-//! Reading a library's surface file — test support for the catalog ratchets.
+//! Reading guise's surface file — the ratchet under this whole crate.
 //!
-//! `libraries/<name>.surface` records what a target library ships: every
+//! `libraries/guise.surface` records what the pinned guise ships: every
 //! component type, and the theme presets. It is generated from the *published*
-//! source of the pinned dependency (`cargo run -p tailor-surface`), which is
-//! how the ratchets survived Tailor moving out of guise's workspace — there is
-//! no sibling checkout to read any more.
+//! source of the dependency (`cargo run -p tailor-surface`), which is how the
+//! ratchets survived Tailor moving out of guise's workspace — there is no
+//! sibling checkout to read any more.
 //!
 //! [`guise`] also checks the file against `Cargo.lock`, so the two-step
 //! "bump the dependency, regenerate the surface" cannot silently become one.
+//!
+//! A second provider wants the same thing, and gets it the same way: point
+//! `tailor-surface` at the crate, check the result in, and read it here.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -98,4 +101,50 @@ fn locked_version(package: &str) -> String {
     .find_map(|line| line.trim().strip_prefix("version = "))
     .map(|v| v.trim_matches('"').to_string())
     .unwrap_or_else(|| panic!("no version after {needle}"))
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::theme::PRESETS;
+  use tailor_model::project::Scheme;
+
+  /// This crate describes guise without linking it, so [`PRESETS`] is a copy.
+  /// This checks it against `libraries/guise.surface` — the record of what the
+  /// pinned guise actually ships — and fails when the copy drifts. Same
+  /// ratchet as `coverage`, same source.
+  #[test]
+  fn presets_match_guise() {
+    let theirs = super::guise().presets;
+
+    let ours: Vec<&str> = PRESETS.iter().map(|preset| preset.id).collect();
+    let names: Vec<&str> = theirs.iter().map(|(id, _, _)| id.as_str()).collect();
+    assert_eq!(
+      ours, names,
+      "PRESETS has drifted from guise's PRESET_NAMES — update the table"
+    );
+
+    // The constructor and the scheme, which are the halves a name list cannot
+    // carry: the ids run together where the Rust names do not, and a preset is
+    // a variation of one scheme or the other.
+    for preset in PRESETS {
+      let (_, ctor, scheme) = theirs
+        .iter()
+        .find(|(id, _, _)| id == preset.id)
+        .expect("checked above");
+      assert_eq!(
+        &preset.rust, ctor,
+        "{} generates Theme::{}() but guise defines Theme::{ctor}()",
+        preset.id, preset.rust
+      );
+      let expected = match preset.scheme {
+        Scheme::Dark => "dark",
+        Scheme::Light => "light",
+      };
+      assert_eq!(
+        scheme, expected,
+        "{} is {:?} here but not in guise",
+        preset.id, preset.scheme
+      );
+    }
+  }
 }

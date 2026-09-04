@@ -13,3 +13,7 @@ tailor-codegen = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 dirs = { workspace = true }
+
+[dev-dependencies]
+# Export runs the generator, and the generator needs a library registered.
+tailor-guise = { workspace = true }

@@ -35,7 +35,7 @@ see what the first frame will look like.
 
 **A binding is two-way.** guise has two shapes for that, and which one you get
 depends on the kind of component — the same split described in
-[components](tailorcomponents.md#two-kinds-of-component):
+[components](components.md#two-kinds-of-component):
 
 A **stateful entity** — a text input, a select, a slider — binds with a call
 after both sides exist:
@@ -105,7 +105,7 @@ How the connection is generated depends, again, on the kind of component:
   `.on_click(cx.listener(|this, _event, _window, cx| this.add_person(cx)))`
 - An **entity** emits, so the wiring goes in the constructor:
   `cx.subscribe(&select, |this, _entity, _event, cx| this.pick(cx)).detach();`
-- A builder **inside one of the five drawn containers** goes through a weak
+- A builder **inside one of the drawn containers** goes through a weak
   handle, because those regions are `'static` closures and a borrowed context
   cannot outlive the method that made it:
 

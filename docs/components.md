@@ -64,7 +64,7 @@ file:
 You do not pick between them; the component is one or the other. What it changes
 for you is that a document holding *any* entity generates as a `Render` entity
 with a constructor, rather than a `RenderOnce` builder. See
-[what gets generated](tailorcodegen.md).
+[what gets generated](codegen.md).
 
 The entities are every text-ish input, every picker, the overlays that own
 open-state, and the big surfaces — Editor, Markdown editor, Tabs, Accordion,
@@ -166,17 +166,17 @@ code — the file is what you would have written, not a dump of every prop — s
 prop you never touched costs nothing in the output.
 
 Any text, number or boolean prop can be **bound** to a state variable instead of
-holding a literal. See [state, bindings and actions](tailorstate.md).
+holding a literal. See [state, bindings and actions](state.md).
 
 ## Adding a component to the catalog
 
 If you are working on Tailor itself: the catalog is the single source of truth,
 and adding a component is two edits that have to happen together.
 
-1. One `comp!` entry in `crates/model/src/catalog/`: the kind, the Rust
+1. One `comp!` entry in `crates/guise/src/catalog/`: the kind, the Rust
    type, the category, the blurb, the constructor shape, the props with their
    types and defaults, the slots, the events.
-2. One arm in `crates/render/src/nodes/build.rs`, which turns a node of
+2. One arm in `crates/guiserender/src/nodes.rs`, which turns a node of
    that kind into a live guise component for the canvas.
 
 `PropSpec::emit` decides what the generator prints for each prop — a method
@@ -186,13 +186,18 @@ one failure this design exists to prevent.
 
 Two tests hold that together, and both fail loudly rather than quietly:
 
-- **`catalog::coverage`** (`tailor-model`) reads guise's own source and asserts
-  every `RenderOnce` builder and `Render` entity is either in the catalog or in
+- **`coverage`** (`tailor-guise`) reads `libraries/guise.surface` — the
+  checked-in record of what the pinned crate ships — and asserts every
+  `RenderOnce` builder and `Render` entity is either in the catalog or in
   `EXCLUDED` with a reason. Adding a component to guise and forgetting Tailor
   is a failing test, not a missing library entry noticed a release later.
-- **`every_catalog_kind_generates_something`** (`tailor-codegen`) generates one
+- **`every_catalog_kind_generates_something`** (`tailor-guise`) generates one
   document per catalog kind and asserts each names its own type. A `comp!` entry
   with no generator support fails here.
+
+The catalog is a *provider's*, not Tailor's — guise is one implementation of
+three traits rather than a built-in. See
+[component libraries](libraries.md) for what it takes to add another.
 
 Constructor shapes live in `Ctor`: `Unit`, `Id`, `IdAnd(prop)`, `Arg(prop)`,
 `Args(&[prop, ..])` for the ones that take two facts (`AIMessage::new(role,

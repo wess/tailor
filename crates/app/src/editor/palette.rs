@@ -8,7 +8,7 @@
 
 use gpui::prelude::*;
 use gpui::{div, px, Context, ElementId, MouseButton, MouseDownEvent, SharedString, Window};
-use tailor_model::catalog::{self, Category};
+use tailor_model::catalog::Category;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::{ComponentSpec, DocKind};
 use tailor_render::chrome::DragGhost;
@@ -31,11 +31,11 @@ impl Workbench {
 
     let specs: Vec<&'static ComponentSpec> = if query.trim().is_empty() {
       match category {
-        Some(category) => catalog::in_category(category),
-        None => catalog::all().to_vec(),
+        Some(category) => self.library().in_category(category),
+        None => self.library().components().to_vec(),
       }
     } else {
-      catalog::search(&query)
+      self.library().search(&query)
     };
 
     let components: Vec<(String, String)> = self
@@ -262,7 +262,7 @@ impl Workbench {
     let target = self.selection.first().copied().unwrap_or(root);
     let accepts = doc
       .node(target)
-      .and_then(|node| catalog::get(&node.kind))
+      .and_then(|node| self.library().get(&node.kind))
       .map(|spec| spec.takes_children())
       .unwrap_or(false);
 

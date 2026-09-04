@@ -1,18 +1,19 @@
 //! The theme tokens a document can carry.
 //!
-//! These mirror guise's `Size` / `Variant` / `ColorName` / `Align` / `Justify`
-//! without depending on guise: the model crate stays free of gpui so it can be
-//! unit-tested, serialized, and reasoned about on its own. `tailor-render` maps
-//! them onto the real enums; `tailor-codegen` prints them as Rust paths.
+//! A size is `md` in the file and in the inspector whoever draws it. What that
+//! becomes in Rust is the target library's business: guise spells it
+//! `Size::Md`, and another library might spell it something else entirely — so
+//! a token knows its [`variant`](SizeToken::variant) name and nothing about the
+//! type in front of it. [`crate::library::TokenPaths`] supplies that half.
 
 use serde::{Deserialize, Serialize};
 
 /// Generate a token enum plus its `label` (what the UI and the file format
-/// spell it) and `path` (the Rust it generates).
+/// spell it) and its `variant` (the Rust name a generator prefixes).
 macro_rules! token {
     (
         $(#[$meta:meta])*
-        $name:ident : $rust:literal {
+        $name:ident {
             $( $variant:ident => $label:literal ),* $(,)?
         }
     ) => {
@@ -36,10 +37,12 @@ macro_rules! token {
                 match s { $( $label => Some($name::$variant), )* _ => None }
             }
 
-            /// The Rust path this token generates, e.g. `Size::Md`.
-            pub fn path(self) -> String {
-                let variant = match self { $( $name::$variant => stringify!($variant) ),* };
-                format!("{}::{}", $rust, variant)
+            /// The Rust variant name, e.g. `Md`. The *type* it hangs off is
+            /// the target library's, not the model's — see
+            /// [`crate::library::TokenPaths`], which is what a generator
+            /// prefixes this with.
+            pub fn variant(self) -> &'static str {
+                match self { $( $name::$variant => stringify!($variant) ),* }
             }
         }
     };
@@ -47,7 +50,7 @@ macro_rules! token {
 
 token! {
     /// The `xs..xl` scale used for spacing, radius, and font size.
-    SizeToken: "Size" {
+    SizeToken {
         Xs => "xs",
         Sm => "sm",
         Md => "md",
@@ -58,7 +61,7 @@ token! {
 
 token! {
     /// How a component fills itself against its color.
-    VariantToken: "Variant" {
+    VariantToken {
         Filled => "filled",
         Light => "light",
         Outline => "outline",
@@ -71,7 +74,7 @@ token! {
 
 token! {
     /// A named palette family. Explicit colors go through [`ColorSpec::Custom`].
-    ColorToken: "ColorName" {
+    ColorToken {
         Dark => "dark",
         Gray => "gray",
         Red => "red",
@@ -91,7 +94,7 @@ token! {
 
 token! {
     /// Cross-axis alignment of flex children.
-    AlignToken: "Align" {
+    AlignToken {
         Start => "start",
         Center => "center",
         End => "end",
@@ -101,7 +104,7 @@ token! {
 
 token! {
     /// Main-axis distribution of flex children.
-    JustifyToken: "Justify" {
+    JustifyToken {
         Start => "start",
         Center => "center",
         End => "end",
@@ -127,14 +130,6 @@ impl Default for ColorSpec {
 }
 
 impl ColorSpec {
-  /// The Rust expression for this color in generated code.
-  pub fn path(&self) -> String {
-    match self {
-      ColorSpec::Named(name) => name.path(),
-      ColorSpec::Custom(hex) => format!("css({hex:?}).unwrap()"),
-    }
-  }
-
   /// Split `#rrggbb`/`#rrggbbaa` into 0..1 channel floats. Invalid text is
   /// mid-gray rather than an error — the inspector lets you type freely, and
   /// a half-finished hex should not blank the canvas.
@@ -188,7 +183,7 @@ pub fn to_hex(rgba: [f32; 4]) -> String {
 token! {
     /// The entrance a node plays when it appears. Mirrors guise's
     /// `TransitionKind`, which is what generated code names.
-    EnterToken: "TransitionKind" {
+    EnterToken {
         Fade => "fade",
         SlideUp => "slideup",
         SlideDown => "slidedown",
@@ -345,28 +340,6 @@ impl EaseToken {
       EaseToken::Spring => "spring",
     }
   }
-
-  /// The Rust this token generates.
-  pub fn path(self) -> &'static str {
-    match self {
-      EaseToken::Linear => "Easing::Linear",
-      EaseToken::OutQuad => "Easing::Out(Curve::Quad)",
-      EaseToken::OutCubic => "Easing::Out(Curve::Cubic)",
-      EaseToken::OutQuint => "Easing::Out(Curve::Quint)",
-      EaseToken::OutExpo => "Easing::Out(Curve::Expo)",
-      EaseToken::OutCirc => "Easing::Out(Curve::Circ)",
-      EaseToken::OutBack => "Easing::Out(Curve::Back)",
-      EaseToken::OutElastic => "Easing::Out(Curve::Elastic)",
-      EaseToken::OutBounce => "Easing::Out(Curve::Bounce)",
-      EaseToken::InQuad => "Easing::In(Curve::Quad)",
-      EaseToken::InCubic => "Easing::In(Curve::Cubic)",
-      EaseToken::InExpo => "Easing::In(Curve::Expo)",
-      EaseToken::InOutQuad => "Easing::InOut(Curve::Quad)",
-      EaseToken::InOutCubic => "Easing::InOut(Curve::Cubic)",
-      EaseToken::InOutSine => "Easing::InOut(Curve::Sine)",
-      EaseToken::Spring => "Easing::Spring(Spring::default())",
-    }
-  }
 }
 
 /// How many times a motion runs.
@@ -425,13 +398,11 @@ mod tests {
   }
 
   #[test]
-  fn tokens_print_their_rust_path() {
-    assert_eq!(SizeToken::Md.path(), "Size::Md");
-    assert_eq!(VariantToken::Outline.path(), "Variant::Outline");
-    assert_eq!(ColorToken::Grape.path(), "ColorName::Grape");
-    assert_eq!(EnterToken::SlideUp.path(), "TransitionKind::SlideUp");
-    assert_eq!(EaseToken::OutBack.path(), "Easing::Out(Curve::Back)");
-    assert_eq!(EaseToken::Linear.path(), "Easing::Linear");
+  fn a_token_knows_its_variant_but_not_its_type() {
+    assert_eq!(SizeToken::Md.variant(), "Md");
+    assert_eq!(VariantToken::Outline.variant(), "Outline");
+    assert_eq!(ColorToken::Grape.variant(), "Grape");
+    assert_eq!(EnterToken::SlideUp.variant(), "SlideUp");
     assert_eq!(EaseToken::OutBack.words(), "out back");
     assert_eq!(EaseToken::InOutSine.words(), "in_out sine");
     assert_eq!(EnterToken::SlideUp.word(), "slide_up");

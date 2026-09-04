@@ -8,7 +8,8 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
-use tailor_model::catalog::{self, Ctor};
+use tailor_model::catalog::Ctor;
+use tailor_model::library::Library;
 use tailor_model::motion::MotionProps;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::props::{PropType, PropValue, Props};
@@ -57,6 +58,16 @@ pub struct Edit<'a> {
 }
 
 impl Session {
+  /// The catalog behind the open project, or the default when nothing is open
+  /// — `catalog` and `component` answer before a project exists, and a caller
+  /// deciding what to build wants the list either way.
+  pub fn library(&self) -> &'static dyn Library {
+    match &self.project {
+      Some(project) => project.library(),
+      None => tailor_model::library::default(),
+    }
+  }
+
   pub fn open(&mut self, path: &Path) -> Answer {
     let project = tailor_store::open(path).map_err(|err| err.to_string())?;
     self.current = project
@@ -182,14 +193,14 @@ impl Session {
   pub fn outline(&self, doc: Option<&str>) -> Answer {
     let doc = self.doc(doc)?;
     let mut lines = Vec::new();
-    write_outline(doc, doc.root, 0, &mut lines);
+    write_outline(self.library(), doc, doc.root, 0, &mut lines);
     Ok(json!({ "document": doc.name, "root": doc.root.0, "tree": lines.join("\n") }))
   }
 
   pub fn catalog(&self, query: Option<&str>, category: Option<&str>) -> Answer {
     let specs: Vec<_> = match query {
-      Some(query) if !query.trim().is_empty() => catalog::search(query),
-      _ => catalog::all().to_vec(),
+      Some(query) if !query.trim().is_empty() => self.library().search(query),
+      _ => self.library().components().to_vec(),
     };
     let rows: Vec<Value> = specs
       .into_iter()
@@ -214,7 +225,10 @@ impl Session {
   }
 
   pub fn component(&self, kind: &str) -> Answer {
-    let spec = catalog::get(kind).ok_or_else(|| format!("no component called {kind}"))?;
+    let spec = self
+      .library()
+      .get(kind)
+      .ok_or_else(|| format!("no component called {kind}"))?;
     let props: Vec<Value> = spec
       .props
       .iter()
@@ -345,7 +359,7 @@ impl Session {
       }
     }
     let parsed_props = match props {
-      Some(props) => props_from_json(kind, props)?,
+      Some(props) => props_from_json(self.library(), kind, props)?,
       None => Props::new(),
     };
     let parsed_style = match style {
@@ -357,12 +371,16 @@ impl Session {
       None => None,
     };
 
+    // Resolved before the document is borrowed mutably; the catalog is
+    // `&'static` and outlives the borrow either way.
+    let spec = self.library().get(kind);
+
     let document = self.doc_mut(doc)?;
     let parent = parent.map(NodeId).unwrap_or(document.root);
     if document.node(parent).is_none() {
       return Err(format!("no node {}", parent.0));
     }
-    let mut node = match catalog::get(kind) {
+    let mut node = match spec {
       Some(spec) => spec.build(document.ids.next()),
       None if kind.starts_with('@') => Node::new(document.ids.next(), kind),
       None => return Err(format!("no component called {kind}")),
@@ -405,7 +423,7 @@ impl Session {
       .map(|node| node.kind.clone())
       .ok_or_else(|| format!("no node {node}"))?;
     let parsed_props = match props {
-      Some(props) => props_from_json(&kind, props)?,
+      Some(props) => props_from_json(self.library(), &kind, props)?,
       None => Props::new(),
     };
     let parsed_style = match style {
@@ -572,13 +590,19 @@ impl Session {
   }
 }
 
-fn write_outline(doc: &Document, id: NodeId, depth: usize, out: &mut Vec<String>) {
+fn write_outline(
+  library: &dyn Library,
+  doc: &Document,
+  id: NodeId,
+  depth: usize,
+  out: &mut Vec<String>,
+) {
   let Some(node) = doc.node(id) else { return };
   let title = node
     .name
     .clone()
     .or_else(|| node.component_ref().map(|name| name.to_string()))
-    .or_else(|| catalog::get(&node.kind).map(|spec| spec.title.to_string()))
+    .or_else(|| library.get(&node.kind).map(|spec| spec.title.to_string()))
     .unwrap_or_else(|| node.kind.clone());
   let mut line = format!("{}#{} {} [{}]", "  ".repeat(depth), id.0, title, node.kind);
   if node.hidden {
@@ -600,7 +624,7 @@ fn write_outline(doc: &Document, id: NodeId, depth: usize, out: &mut Vec<String>
     }
     for child in children {
       let extra = usize::from(slot != DEFAULT_SLOT);
-      write_outline(doc, child, depth + 1 + extra, out);
+      write_outline(library, doc, child, depth + 1 + extra, out);
     }
   }
 }
@@ -641,8 +665,12 @@ fn prop_to_json(value: &PropValue) -> Value {
 /// Turn a JSON object of props into typed values, guided by the catalog. This
 /// is what lets a caller write `{"variant": "outline", "size": "lg"}` and have
 /// it mean the right thing without knowing about `VariantToken`.
-pub fn props_from_json(kind: &str, values: &Map<String, Value>) -> Result<Props, String> {
-  let spec = catalog::get(kind);
+pub fn props_from_json(
+  library: &dyn Library,
+  kind: &str,
+  values: &Map<String, Value>,
+) -> Result<Props, String> {
+  let spec = library.get(kind);
   let mut out = Props::new();
   for (key, value) in values {
     let Some(spec) = spec else {

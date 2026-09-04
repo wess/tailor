@@ -4,10 +4,13 @@
 //! row type the host owns, so there is nothing for a visual builder to fill in.
 //! `Table` covers the static case, and a generated screen can hold either.
 
-use crate::props::{boolean, color_name, float, int, items, size, text, variant, Emit, PropValue};
-use crate::tokens::{ColorToken, SizeToken, VariantToken};
+use tailor_model::props::{
+  boolean, color_name, float, int, items, size, text, variant, Emit, PropValue,
+};
+use tailor_model::tokens::{ColorToken, SizeToken, VariantToken};
 
-use super::spec::{ComponentSpec, Ctor, DynamicSlots, CHILDREN};
+use tailor_model::catalog::{ComponentSpec, Ctor, DynamicSlots, CHILDREN};
+use tailor_model::comp;
 
 fn three() -> PropValue {
   PropValue::Items(vec!["First".into(), "Second".into(), "Third".into()])
@@ -47,7 +50,7 @@ pub static SPECS: &[ComponentSpec] = &[
           boolean("ordered", "Numbered", Emit::Method("ordered"), false),
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
           size("spacing", "Spacing", Emit::Method("spacing"), SizeToken::Xs),
-          crate::props::icon("icon", "Bullet icon", Emit::Method("icon")),
+          tailor_model::props::icon("icon", "Bullet icon", Emit::Method("icon")),
       ],
   ),
   comp!(
@@ -58,7 +61,7 @@ pub static SPECS: &[ComponentSpec] = &[
           items("head", "Header", Emit::None, || {
               PropValue::Items(vec!["Name".into(), "Role".into(), "Status".into()])
           }),
-          crate::props::hinted(
+          tailor_model::props::hinted(
               items("rows", "Rows", Emit::None, || {
                   PropValue::Items(vec![
                       "Ada | Engineer | Active".into(),
@@ -108,7 +111,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "A vertical sequence of events.",
       Ctor::Unit,
       props: &[
-          crate::props::hinted(
+          tailor_model::props::hinted(
               items("items", "Items", Emit::Custom, three),
               "title, or title | description",
           ),
@@ -121,7 +124,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "A collapsible tree. Indent with two spaces per level.",
       Ctor::Entity,
       props: &[
-          crate::props::hinted(
+          tailor_model::props::hinted(
               items("nodes", "Nodes", Emit::Custom, || {
                   PropValue::Items(vec![
                       "src".into(),

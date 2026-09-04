@@ -33,7 +33,8 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
   let type_name = tailor_model::pascal_case(&doc.name);
   // `fields` is in build order; `lookup` is the same thing by id, for the
   // emitter to resolve a node to its field name.
-  let fields = entity_fields(doc);
+  let library = project.library();
+  let fields = entity_fields(library, doc);
   let lookup: std::collections::BTreeMap<tailor_model::NodeId, String> =
     fields.iter().cloned().collect();
   let stateful = !fields.is_empty() || !doc.state.is_empty() || !doc.actions.is_empty();
@@ -43,7 +44,7 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
     Owner::Plain
   };
 
-  let mut hoist = Hoist::default();
+  let mut hoist = Hoist::new(library.token_paths());
   let mut emitter = Emitter::new(project, doc, &lookup, &mut hoist, owner);
 
   // The body first: it is what decides the imports and the hoisted colours.
@@ -77,15 +78,20 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
     76,
   ));
   source.line("");
-  source.line("use gpui::prelude::*;");
-  source.line(gpui_imports(
-    &body,
-    &inits,
-    &hoisted,
-    owner,
-    !fields.is_empty(),
-  ));
-  source.line("use guise::prelude::*;");
+  // The library's prelude, then the gpui items this particular file reached
+  // for. The prelude is the provider's to name — everything below it is not.
+  for line in library.prelude() {
+    source.line(*line);
+    if line.starts_with("use gpui::prelude") {
+      source.line(gpui_imports(
+        &body,
+        &inits,
+        &hoisted,
+        owner,
+        !fields.is_empty(),
+      ));
+    }
+  }
   for import in &extra_imports {
     source.line(import);
   }
@@ -101,7 +107,7 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
     for (id, field) in &fields {
       let rust = doc
         .node(*id)
-        .and_then(|node| tailor_model::catalog::get(&node.kind))
+        .and_then(|node| library.get(&node.kind))
         .map(|spec| spec.rust)
         .unwrap_or("()");
       // Public like the state signals: these handles are how the host
@@ -349,210 +355,6 @@ pub fn module(project: &Project) -> Generated {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use tailor_model::node::DEFAULT_SLOT;
-  use tailor_model::props::PropValue;
-  use tailor_model::DocKind;
-
-  fn project_with(kind: DocKind) -> Project {
-    let mut project = Project::new("Demo");
-    project.docs[0].kind = kind;
-    project
-  }
-
-  #[test]
-  fn an_empty_screen_generates_a_render_entity() {
-    let project = project_with(DocKind::Screen);
-    let file = document(&project, &project.docs[0]);
-    assert!(file.source.contains("impl Render for MainScreen"));
-    assert!(file
-      .source
-      .contains("pub fn new(_cx: &mut Context<Self>) -> Self"));
-    assert_eq!(file.path, "main_screen.rs");
-  }
-
-  #[test]
-  fn a_stateless_component_generates_a_renderonce_builder() {
-    let mut project = project_with(DocKind::Component);
-    project.docs[0].name = "StatCard".into();
-    let file = document(&project, &project.docs[0]);
-    assert!(file.source.contains("#[derive(IntoElement, Default)]"));
-    assert!(file.source.contains("impl RenderOnce for StatCard"));
-    assert!(file.source.contains("pub struct StatCard;"));
-  }
-
-  #[test]
-  fn a_component_that_holds_a_field_is_promoted_to_an_entity() {
-    let mut project = project_with(DocKind::Component);
-    project.docs[0].name = "LoginForm".into();
-    let root = project.docs[0].root;
-    let field = project.docs[0].create("textinput");
-    project.docs[0].insert(root, DEFAULT_SLOT, 0, field);
-
-    let file = document(&project, &project.docs[0]);
-    assert!(file.source.contains("impl Render for LoginForm"));
-    assert!(file.source.contains("Entity<TextInput>,"));
-    assert!(file.notes.iter().any(|note| note.contains("Render entity")));
-  }
-
-  #[test]
-  fn a_button_generates_its_constructor_and_its_props() {
-    let mut project = project_with(DocKind::Screen);
-    let root = project.docs[0].root;
-    let mut button = project.docs[0].create("button");
-    button.set_prop("label", PropValue::Text("Save".into()));
-    button.set_prop("full_width", PropValue::Bool(true));
-    let id = button.id;
-    project.docs[0].insert(root, DEFAULT_SLOT, 0, button);
-
-    let file = document(&project, &project.docs[0]);
-    assert!(file
-      .source
-      .contains(&format!("Button::new(\"{}\", \"Save\")", id.element_id())));
-    assert!(file.source.contains(".full_width(true)"));
-    // The default variant is not restated.
-    assert!(!file.source.contains(".variant(Variant::Filled)"));
-  }
-
-  /// A bound prop is read from a signal, and `new` has no `self` to read it
-  /// from — the field being built *is* what `self` will be made of. The
-  /// signal has to be a local first, and guise's two-way `bind` has to be a
-  /// call after both sides exist.
-  #[test]
-  fn a_bound_entity_binds_after_construction_and_never_says_self_in_new() {
-    let mut project = project_with(DocKind::Screen);
-    let root = project.docs[0].root;
-    let mut field = project.docs[0].create("textinput");
-    field.set_prop("value", PropValue::Binding("query".into()));
-    project.docs[0].insert(root, DEFAULT_SLOT, 0, field);
-    project.docs[0].state.push(tailor_model::StateVar {
-      name: "query".into(),
-      ty: tailor_model::VarType::Text,
-      initial: String::new(),
-      note: String::new(),
-    });
-
-    let file = document(&project, &project.docs[0]);
-    let new_body = file
-      .source
-      .split("pub fn new(")
-      .nth(1)
-      .and_then(|rest| rest.split("impl Render").next())
-      .expect("a screen generates a constructor");
-
-    assert!(
-      !new_body.contains("self."),
-      "`new` cannot reach `self`:\n{new_body}"
-    );
-    assert!(
-      new_body.contains("let query = Signal::new(cx,"),
-      "the signal has to be a local before the field that binds it:\n{new_body}"
-    );
-    assert!(
-      new_body.contains("TextInput::bind(&text_field, &query, cx);"),
-      "a binding is two-way, not a one-shot read:\n{new_body}"
-    );
-    // And the setter the binding drives is not also emitted, or the two
-    // would fight over the same value.
-    assert!(!new_body.contains(".value("), "{new_body}");
-  }
-
-  /// A container whose region takes a `'static` closure cannot hold a
-  /// `cx.listener`: the context is borrowed for the method body and the
-  /// closure outlives it. The handler goes through a weak handle instead.
-  #[test]
-  fn an_event_inside_a_region_closure_goes_through_a_weak_handle() {
-    let mut project = project_with(DocKind::Screen);
-    let root = project.docs[0].root;
-    let shell = project.docs[0].create("appshell");
-    let shell_id = shell.id;
-    project.docs[0].insert(root, DEFAULT_SLOT, 0, shell);
-
-    let mut button = project.docs[0].create("button");
-    button.set_prop("label", PropValue::Text("Save".into()));
-    button.events.insert("click".into(), "save".into());
-    project.docs[0].insert(shell_id, "header", 0, button);
-    project.docs[0].actions.push(tailor_model::ActionDef {
-      name: "save".into(),
-      note: String::new(),
-      body: String::new(),
-    });
-
-    let file = document(&project, &project.docs[0]);
-    assert!(
-      file.source.contains("let view = cx.entity().downgrade();"),
-      "the closure needs a handle it can own:\n{}",
-      file.source
-    );
-    assert!(
-      file
-        .source
-        .contains("view.update(cx, |this, cx| this.save(cx)).ok();"),
-      "{}",
-      file.source
-    );
-    // The header closure must not carry a borrow of the outer context.
-    let header = file
-      .source
-      .split(".header(")
-      .nth(1)
-      .and_then(|rest| rest.split(".navbar(").next())
-      .unwrap_or_default();
-    assert!(!header.contains("cx.listener("), "{header}");
-  }
-
-  /// The line map is what turns "select this component" into "put the cursor
-  /// here", so a line that does not hold the node's expression is worse than
-  /// no map at all.
-  #[test]
-  fn every_node_maps_to_the_line_its_expression_is_on() {
-    let mut project = project_with(DocKind::Screen);
-    let root = project.docs[0].root;
-
-    let mut button = project.docs[0].create("button");
-    button.set_prop("label", PropValue::Text("Save".into()));
-    let button_id = project.docs[0].insert(root, DEFAULT_SLOT, 0, button);
-
-    let mut title = project.docs[0].create("title");
-    title.set_prop("content", PropValue::Text("Sign in".into()));
-    let title_id = project.docs[0].insert(root, DEFAULT_SLOT, 0, title);
-
-    let file = document(&project, &project.docs[0]);
-    let lines: Vec<&str> = file.source.lines().collect();
-
-    // No tag survives into the file.
-    assert!(!file.source.contains(crate::node::MARK), "{}", file.source);
-
-    for (id, expected) in [(button_id, "Button::new"), (title_id, "Title::new")] {
-      let line = file
-        .lines
-        .get(&id)
-        .copied()
-        .unwrap_or_else(|| panic!("node {id:?} is not in the map: {:?}", file.lines));
-      let text = lines
-        .get(line - 1)
-        .unwrap_or_else(|| panic!("line {line} is past the end of the file"));
-      assert!(
-        text.contains(expected),
-        "node {id:?} maps to line {line} ({text:?}), which is not its expression"
-      );
-    }
-
-    // The root is in there too, and it is the first thing in `render`.
-    assert!(file.lines.contains_key(&root), "{:?}", file.lines);
-  }
-
-  #[test]
-  fn the_module_file_lists_every_document() {
-    let mut project = Project::new("Demo");
-    project.docs.push(tailor_model::Document::new(
-      "card",
-      "StatCard",
-      DocKind::Component,
-    ));
-    let module = module(&project);
-    assert!(module.source.contains("mod main_screen;"));
-    assert!(module.source.contains("pub use stat_card::StatCard;"));
-  }
 
   #[test]
   fn identifiers_are_matched_as_whole_words() {

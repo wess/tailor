@@ -111,11 +111,11 @@ is an error rather than a silent default, so a guessed `"easeOut"` comes back
 saying so.
 
 A non-zero `stagger` animates the node's *children*, one delay per index,
-instead of the node itself. See [the canvas page](tailorcanvas.md#motion).
+instead of the node itself. See [the canvas page](canvas.md#motion).
 
 ## Building a screen
 
-The whole of [the tutorial](tailortutorial.md) in the shape an agent would write
+The whole of [the tutorial](tutorial.md) in the shape an agent would write
 it. Node ids come back from `add_node`; the document's root is id 1.
 
 ```jsonc

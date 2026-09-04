@@ -10,3 +10,4 @@ description = "Tailor's document model: the component catalog, the node tree, an
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+

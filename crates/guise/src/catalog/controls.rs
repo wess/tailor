@@ -1,10 +1,13 @@
 //! Buttons, badges, and the small interactive bits.
 
-use crate::node::{EventSpec, CLICK};
-use crate::props::{boolean, color, color_name, enums, icon, size, text, variant, Emit, PropValue};
-use crate::tokens::{ColorToken, SizeToken, VariantToken};
+use tailor_model::node::{EventSpec, CLICK};
+use tailor_model::props::{
+  boolean, color, color_name, enums, icon, size, text, variant, Emit, PropValue,
+};
+use tailor_model::tokens::{ColorToken, SizeToken, VariantToken};
 
-use super::spec::{slot, ComponentSpec, Ctor, SlotSpec};
+use tailor_model::catalog::{slot, ComponentSpec, Ctor, SlotSpec};
+use tailor_model::comp;
 
 const CLICKS: &[EventSpec] = &[CLICK];
 
@@ -82,7 +85,7 @@ pub static SPECS: &[ComponentSpec] = &[
           color("color", "Color", Emit::Method("color"), ColorToken::Blue),
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
       ],
-      events: &[crate::node::CHANGE_BOOL],
+      events: &[tailor_model::node::CHANGE_BOOL],
   ),
   comp!(
       "icon", "Icon", "Icon", Controls, "shapes",
@@ -122,20 +125,20 @@ pub static SPECS: &[ComponentSpec] = &[
       "A star rating.",
       Ctor::Id,
       props: &[
-          crate::props::int("count", "Stars", Emit::Method("count"), || PropValue::Int(5)),
-          crate::props::float("value", "Value", Emit::None, || PropValue::Float(3.0)),
+          tailor_model::props::int("count", "Stars", Emit::Method("count"), || PropValue::Int(5)),
+          tailor_model::props::float("value", "Value", Emit::None, || PropValue::Float(3.0)),
           color("color", "Color", Emit::Method("color"), ColorToken::Yellow),
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
           boolean("readonly", "Read only", Emit::Method("readonly"), false),
       ],
-      events: &[crate::node::CHANGE_VALUE],
+      events: &[tailor_model::node::CHANGE_VALUE],
   ),
   comp!(
       "kbdgroup", "Shortcut", "Kbd", Controls, "command",
       "A row of key caps, split on +.",
       Ctor::Special,
       props: &[
-          crate::props::items("keys", "Keys", Emit::None, || {
+          tailor_model::props::items("keys", "Keys", Emit::None, || {
               PropValue::Items(vec!["cmd".into(), "K".into()])
           }),
       ],

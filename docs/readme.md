@@ -1,23 +1,27 @@
 # Tailor
 
-Tailor is a visual interface builder for gpui and guise, and it ships in this
-repository. You lay out a screen by dragging real components onto a canvas, wire
-the state and the actions, and export idiomatic Rust that has no dependency on
-Tailor left in it.
+Tailor is a visual interface builder for gpui. You lay out a screen by dragging
+real components onto a canvas, wire the state and the actions, and export
+idiomatic Rust that has no dependency on Tailor left in it.
 
-**New here? Start with [the tutorial](tailortutorial.md)** — it builds a
+It draws with [guise](https://github.com/wess/guise), and it *targets* guise —
+two different facts. What it targets is a plug-in: a catalog, a generator and a
+renderer behind three traits. See [component libraries](libraries.md).
+
+**New here? Start with [the tutorial](tutorial.md)** — it builds a
 complete app from an empty project to a running binary, and every code block in
 it is output Tailor actually produced.
 
 | Page | What is on it |
 | --- | --- |
-| [Tutorial](tailortutorial.md) | Build an app end to end, and run what comes out |
-| [The canvas](tailorcanvas.md) | Modes, selecting, resizing, layout modes, snapping, the live window |
-| [Components and slots](tailorcomponents.md) | The 101-component catalog, slots, the five drawn containers, your own components |
-| [State, bindings and actions](tailorstate.md) | Signals, two-way binding, events, the lint pass |
-| [What gets generated](tailorcodegen.md) | The output, the flavours, export, the file format, the theme |
-| [The MCP server](tailormcp.md) | Driving the same document from an agent |
-| [Zed & other editors](tailorzed.md) | Jumping between a component and its code, in both directions |
+| [Tutorial](tutorial.md) | Build an app end to end, and run what comes out |
+| [The canvas](canvas.md) | Modes, selecting, resizing, layout modes, snapping, the live window |
+| [Components and slots](components.md) | The catalog, slots, the seven drawn containers, your own components |
+| [State, bindings and actions](state.md) | Signals, two-way binding, events, the lint pass |
+| [What gets generated](codegen.md) | The output, the flavours, export, the file format, the theme |
+| [The MCP server](mcp.md) | Driving the same document from an agent |
+| [Zed & other editors](zed.md) | Jumping between a component and its code, in both directions |
+| [Component libraries](libraries.md) | What a target library is, and how to add one |
 
 ## Getting it
 
@@ -41,10 +45,10 @@ installed `tailor`. To build the bundle yourself, see
 ## What it is, and what it is not
 
 The canvas is not a drawing of your interface — it is your interface. A `Button`
-on the canvas is a `guise::Button`, reading the same theme, laid out by the same
-flexbox. That is the whole design: there is no second rendering path to keep in
-step with the real one, so a component cannot look right in the builder and
-wrong in the app.
+on the canvas is a real `guise::Button`, reading the same theme, laid out by the
+same flexbox. That is the whole design: there is no second rendering path to
+keep in step with the real one, so a component cannot look right in the builder
+and wrong in the app.
 
 What it is not is a runtime. The `.tailor` file is a design document, not
 something your app loads. The output is a Rust file you own — and the ending
@@ -65,7 +69,7 @@ editor lay theirs out.
 | **Problems** (bottom) | What will not generate, and what probably was not meant. |
 
 Every panel resizes and folds away, and the layout persists. ⌥⌘1 – ⌥⌘4 toggle
-the four panels. The [canvas page](tailorcanvas.md) covers the rest, including
+the four panels. The [canvas page](canvas.md) covers the rest, including
 the full shortcut list.
 
 ## Right-click
@@ -87,7 +91,7 @@ on whatever happened to be selected:
 
 A node's menu also has **Open in Editor**, which puts your cursor on the line
 that node generated. The reverse — cursor on a line, component selected in
-Tailor — is a Zed task away. See [Zed](tailorzed.md).
+Tailor — is a Zed task away. See [Zed](zed.md).
 
 Nothing in any of them is a command that exists only there. **Rename…** on a tab
 opens the document and puts the cursor in the name field the inspector already
@@ -113,45 +117,49 @@ them.
 
 ```
 crates/
-├── model/     # the document: catalog, node tree, tokens, state, file format
-├── codegen/   # document -> idiomatic guise Rust
-├── store/     # project files, recents, editor settings, export, the editor bridge
-├── render/    # document -> live guise components (the canvas)
-├── app/       # the gpui workbench
-├── mcp/       # an MCP server over the same document model
-└── surface/   # regenerates libraries/*.surface (a dev tool, not shipped)
+├── model/        # the document: node tree, tokens, state, file format,
+│                 #   and what a component library *is* (the Library trait)
+├── codegen/      # document -> idiomatic Rust (and the Generator trait)
+├── store/        # project files, recents, editor settings, export, the editor bridge
+├── render/       # the canvas: chrome, drop targets, the entity cache
+│                 #   (and the Renderer trait)
+├── guise/        # guise as a target library: its catalog, presets, generator
+├── guiserender/  # guise on the canvas — the half that needs a window
+├── app/          # the gpui workbench
+├── mcp/          # an MCP server over the same document model
+└── surface/      # regenerates libraries/*.surface (a dev tool, not shipped)
 
 libraries/       # what each target library ships, as a checked-in file
 extensions/zed/  # a Zed context server for tailor-mcp — its own cargo
                  # workspace, because it targets wasm32-wasip2
 ```
 
-`model`, `codegen`, and `store` are free of gpui and carry the tests: the
-reparent rules, the cycle checks, the undo stack, the generated output, and the
-file round-trip are all plain-data logic, and that is where a builder actually
-goes wrong.
+The split down the middle is the gpui dependency. `model`, `codegen`, `store`
+and `guise` are free of it and carry the tests: the reparent rules, the cycle
+checks, the undo stack, the generated output, and the file round-trip are all
+plain-data logic, and that is where a builder actually goes wrong.
 
 ```sh
-cargo test -p tailor-model -p tailor-codegen -p tailor-store
+cargo test -p tailor-model -p tailor-codegen -p tailor-store -p tailor-guise
 ```
 
-All six crates are `publish = false`. Nothing about Tailor reaches crates.io,
-and nothing about it is in `guise-ui` — `cargo package -p guise-ui --list` is
-the proof, and it is why the library still depends on nothing but gpui and std
-while Tailor is free to use serde.
+Every crate is `publish = false`. Nothing about Tailor reaches crates.io, and
+nothing about it is in `guise-ui` — `cargo package -p guise-ui --list` is the
+proof, and it is why the library still depends on nothing but gpui and std while
+Tailor is free to use serde.
 
 ## Adding a component to the catalog
 
-If you are working on Tailor itself, the catalog in `tailor-model` is read by
-four consumers: the Library lists it, the inspector builds a control per prop,
-the renderer builds the real component, and the generator prints it.
+The catalog lives in the provider (`tailor-guise`), and four consumers read it:
+the Library lists it, the inspector builds a control per prop, the renderer
+builds the real component, and the generator prints it.
 
-1. Add an entry to the right file under `crates/model/src/catalog/`,
-   using the `comp!` macro: seven positional facts, then any field that differs
-   from the defaults.
-2. Add an arm to `crates/render/src/nodes/build.rs`.
+1. Add an entry to the right file under `crates/guise/src/catalog/`, using the
+   `comp!` macro: seven positional facts, then any field that differs from the
+   defaults.
+2. Add an arm to `crates/guiserender/src/nodes.rs`.
 3. That is all — unless the constructor is not one chained call, in which case
-   add an arm to `Emitter::special` in `crates/codegen/src/node.rs` too.
+   add an arm to `GuiseGenerator::special` in `crates/guise/src/codegen.rs` too.
 
 `PropSpec::emit` is what keeps the three in step: `Emit::Method("size")`
 generates `.size(..)`, `Emit::Flag("fill")` generates `.fill()` when the bool is
@@ -159,4 +167,5 @@ true, `Emit::None` means the constructor already consumed it.
 
 Editing the catalog without the renderer — or the other way round — is how a
 canvas and an export drift apart, which is the one failure this whole design
-exists to prevent.
+exists to prevent. See [component libraries](libraries.md) for the traits
+underneath, and for what it takes to target something other than guise.

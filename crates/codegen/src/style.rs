@@ -338,6 +338,18 @@ pub fn calls(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use tailor_model::library::TokenPaths;
+
+  /// Any spelling will do here — nothing in this file prints a token.
+  fn paths() -> TokenPaths {
+    TokenPaths {
+      size: "Size",
+      variant: "Variant",
+      color: "ColorName",
+      align: "Align",
+      justify: "Justify",
+    }
+  }
   use tailor_model::style::ShadowToken;
   use tailor_model::tokens::{ColorSpec, ColorToken};
 
@@ -373,7 +385,7 @@ mod tests {
 
   #[test]
   fn edges_collapse_to_the_fewest_calls() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     let mut style = flow();
     style.padding = Edges::all(8.0);
     let calls = box_calls(&style, Placement { absolute: false }, &mut hoist);
@@ -398,7 +410,7 @@ mod tests {
 
   #[test]
   fn an_absolutely_placed_child_pins_itself() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     let mut style = flow();
     style.x = 24.0;
     style.y = 40.0;
@@ -408,7 +420,7 @@ mod tests {
 
   #[test]
   fn paint_props_hoist_their_colours() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     let mut style = flow();
     style.background = Some(ColorSpec::Named(ColorToken::Dark));
     style.border_width = 1.0;
@@ -431,7 +443,7 @@ mod tests {
 
   #[test]
   fn the_macro_flavour_opens_a_style_block() {
-    let mut hoist = Hoist::default();
+    let mut hoist = Hoist::new(paths());
     let mut style = flow();
     style.gap = Some(8.0);
     style.padding = Edges::all(16.0);

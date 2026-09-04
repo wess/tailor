@@ -1,16 +1,17 @@
 //! Images and the placeholder that stands in for one.
 
-use crate::props::{enums, float, size, text, Emit, PropValue};
-use crate::tokens::SizeToken;
+use tailor_model::props::{enums, float, size, text, Emit, PropValue};
+use tailor_model::tokens::SizeToken;
 
-use super::spec::{ComponentSpec, Ctor};
+use tailor_model::catalog::{ComponentSpec, Ctor};
+use tailor_model::comp;
 
 pub static SPECS: &[ComponentSpec] = &[comp!(
     "image", "Image", "Image", Media, "image",
     "An image from a path or a URL.",
     Ctor::Arg("source"),
     props: &[
-        crate::props::hinted(
+        tailor_model::props::hinted(
             text("source", "Source", Emit::None),
             "a file path or an http(s) URL",
         ),

@@ -22,6 +22,9 @@ fn workbench(
   project: Project,
   cx: &mut TestAppContext,
 ) -> (gpui::Entity<Workbench>, &mut VisualTestContext) {
+  // What `main` does first. Idempotent, and every test needs a library before
+  // it can open anything.
+  tailor_guiserender::register();
   cx.update(|cx| theme::chrome(Scheme::Dark).init(cx));
   let (workbench, cx) = cx.add_window_view(|_window, cx| {
     let toasts = Toasts::new(cx);
@@ -986,7 +989,7 @@ fn the_manager_owns_the_theme_global(cx: &mut TestAppContext) {
 
     // Opening a project registers its theme and wears it.
     let project = Project::new("Demo");
-    theme::install(&project.theme, cx);
+    theme::install(&project, cx);
     assert_eq!(
       cx.global::<ThemeManager>().resolved_id().as_ref(),
       "project"

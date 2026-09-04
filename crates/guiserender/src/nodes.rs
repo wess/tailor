@@ -1,9 +1,13 @@
 //! The guise component for a node.
 //!
 //! One arm per catalog kind. Entity-backed components come out of the preview
-//! store; the five closure-region containers are drawn from the theme here,
+//! store; the seven closure-region containers are drawn from the theme here,
 //! because a `'static` content closure is not something a designer can drop
 //! into. Everything else is the real component, built from the node's props.
+//!
+//! Nothing in this file draws chrome. The style box, the selection outline and
+//! the drop strips are `tailor-render`'s, and they are already around whatever
+//! this returns.
 
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, App, ElementId, SharedString, Window};
@@ -11,19 +15,20 @@ use guise::prelude::*;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::{Node, NodeId};
 
-use crate::chrome;
-use crate::read::{align_of, justify_of, Reader};
-use crate::store::Preview;
-use crate::{Mode, RenderCtx};
+use tailor_render::nodes::{label_of, render_component, render_in, slot_children};
+use tailor_render::{chrome, Mode, RenderCtx};
 
-use super::{label_of, render_component, slot_children};
+use crate::preview::entity_element;
+use crate::read::{align_of, justify_of, Reader};
 
 pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) -> AnyElement {
   if let Some(name) = node.component_ref() {
     return render_component(ctx, name, window, cx);
   }
   if let Some(preview) = ctx.store.read(cx).get(node.id).cloned() {
-    return entity_element(preview);
+    if let Some(element) = entity_element(&preview) {
+      return element;
+    }
   }
   let Some(doc) = ctx.doc() else {
     return chrome::missing("no document").into_any_element();
@@ -925,7 +930,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
     }
     "settingsview" => settings_view(ctx, node, &read, window, cx),
 
-    _ => chrome::blueprint_box(label_of(node), cx).into_any_element(),
+    _ => chrome::blueprint_box(label_of(ctx.library(), node), cx).into_any_element(),
   }
 }
 
@@ -943,49 +948,12 @@ fn first(
   cx: &mut App,
 ) -> Option<AnyElement> {
   let id = node.slot(slot).first().copied()?;
-  Some(super::render_in(ctx, id, false, window, cx))
+  Some(render_in(ctx, id, false, window, cx))
 }
 
 /// A controlled component's value: what preview mode last set, or the prop.
 fn checked(ctx: &RenderCtx, id: NodeId, fallback: bool, cx: &App) -> bool {
-  crate::store::controlled_bool(ctx.store.read(cx), id, fallback)
-}
-
-/// The live entity, drawn as itself.
-fn entity_element(preview: Preview) -> AnyElement {
-  match preview {
-    Preview::TextInput(e) => e.into_any_element(),
-    Preview::TextArea(e) => e.into_any_element(),
-    Preview::NumberInput(e) => e.into_any_element(),
-    Preview::PasswordInput(e) => e.into_any_element(),
-    Preview::PinInput(e) => e.into_any_element(),
-    Preview::Select(e) => e.into_any_element(),
-    Preview::Combobox(e) => e.into_any_element(),
-    Preview::Autocomplete(e) => e.into_any_element(),
-    Preview::Segmented(e) => e.into_any_element(),
-    Preview::Slider(e) => e.into_any_element(),
-    Preview::RangeSlider(e) => e.into_any_element(),
-    Preview::ColorInput(e) => e.into_any_element(),
-    Preview::TagsInput(e) => e.into_any_element(),
-    Preview::DatePicker(e) => e.into_any_element(),
-    Preview::TimePicker(e) => e.into_any_element(),
-    Preview::FileInput(e) => e.into_any_element(),
-    Preview::Transfer(e) => e.into_any_element(),
-    Preview::TreeView(e) => e.into_any_element(),
-    Preview::TabBar(e) => e.into_any_element(),
-    Preview::Pagination(e) => e.into_any_element(),
-    Preview::NavigationMenu(e) => e.into_any_element(),
-    Preview::Editor(e) => e.into_any_element(),
-    Preview::MarkdownEditor(e) => e.into_any_element(),
-    Preview::WebView(e) => e.into_any_element(),
-    Preview::CopyButton(e) => e.into_any_element(),
-    Preview::AIChatView(e) => e.into_any_element(),
-    Preview::AIComposer(e) => e.into_any_element(),
-    Preview::AIModelPicker(e) => e.into_any_element(),
-    Preview::AISettings(e) => e.into_any_element(),
-    Preview::Menu(e) => e.into_any_element(),
-    Preview::ContextMenu(e) => e.into_any_element(),
-  }
+  tailor_render::store::controlled_bool(ctx.store.read(cx), id, fallback)
 }
 
 /// Tabs, drawn from the theme so the panel behind a tab is a real drop target
@@ -1362,7 +1330,7 @@ fn carousel(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) -> 
   let content = if slides.is_empty() {
     chrome::empty_slot("Drop slides here", cx).into_any_element()
   } else {
-    super::render_in(ctx, slides[page], false, window, cx)
+    render_in(ctx, slides[page], false, window, cx)
   };
 
   let mut dots = div().flex().gap(px(6.)).justify_center().pt(px(8.));

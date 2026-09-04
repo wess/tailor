@@ -112,9 +112,12 @@ pub enum DragPayload {
 }
 
 impl DragPayload {
-  pub fn label(&self) -> String {
+  /// What the drag ghost says it is carrying. Takes the library because a
+  /// palette drag carries a catalog key, and only the catalog knows its name.
+  pub fn label(&self, library: &dyn tailor_model::Library) -> String {
     match self {
-      DragPayload::New(kind) => tailor_model::catalog::get(kind)
+      DragPayload::New(kind) => library
+        .get(kind)
         .map(|spec| spec.title.to_string())
         .unwrap_or_else(|| kind.clone()),
       DragPayload::Existing(id) => format!("Node {id}"),
@@ -192,10 +195,11 @@ mod tests {
 
   #[test]
   fn payload_labels_read_from_the_catalog() {
-    assert_eq!(DragPayload::New("button".into()).label(), "Button");
-    assert_eq!(DragPayload::New("nope".into()).label(), "nope");
+    let library = tailor_guise::library();
+    assert_eq!(DragPayload::New("button".into()).label(library), "Button");
+    assert_eq!(DragPayload::New("nope".into()).label(library), "nope");
     assert_eq!(
-      DragPayload::Component("StatCard".into()).label(),
+      DragPayload::Component("StatCard".into()).label(library),
       "StatCard"
     );
   }

@@ -1,0 +1,12 @@
+[package]
+name = "tailor-guise"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "guise as a Tailor target library: its catalog, its theme presets, and the shapes its generator has to special-case."
+
+[dependencies]
+tailor-model = { workspace = true }
+tailor-codegen = { workspace = true }

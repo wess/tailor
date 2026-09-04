@@ -4,10 +4,11 @@
 //! and the generated code carries the same literal. Swapping that literal for
 //! your own vector is the one edit a chart needs after export.
 
-use crate::props::{boolean, color, float, items, numbers, Emit, PropValue};
-use crate::tokens::ColorToken;
+use tailor_model::props::{boolean, color, float, items, numbers, Emit, PropValue};
+use tailor_model::tokens::ColorToken;
 
-use super::spec::{ComponentSpec, Ctor};
+use tailor_model::catalog::{ComponentSpec, Ctor};
+use tailor_model::comp;
 
 fn series() -> PropValue {
   PropValue::Numbers(vec![12.0, 19.0, 8.0, 24.0, 16.0, 28.0, 21.0])
@@ -100,7 +101,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "Points on two axes. Values pair up x, y, x, y.",
       Ctor::Special,
       props: &[
-          crate::props::hinted(
+          tailor_model::props::hinted(
               numbers("values", "Values", Emit::None, || {
                   PropValue::Numbers(vec![1.0, 4.0, 2.0, 7.0, 3.0, 3.0, 4.0, 9.0, 5.0, 6.0])
               }),

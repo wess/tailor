@@ -41,7 +41,7 @@ Full docs live in [`docs/`](docs/readme.md).
 [The canvas](docs/canvas.md) · [Components & slots](docs/components.md) ·
 [State & actions](docs/state.md) · [Generated code](docs/codegen.md) ·
 [MCP server](docs/mcp.md) · [Zed & other editors](docs/zed.md) ·
-[Changelog](CHANGELOG.md)
+[Component libraries](docs/libraries.md) · [Changelog](CHANGELOG.md)
 
 The [tutorial](docs/tutorial.md) builds a complete app end to end — every code
 block in it is output Tailor actually produced.
@@ -50,29 +50,42 @@ block in it is output Tailor actually produced.
 
 ```
 crates/
-├── model/     # the document: catalog, node tree, tokens, state, file format
-├── codegen/   # document -> idiomatic Rust
-├── store/     # project files, recents, editor settings, export, the editor bridge
-├── render/    # document -> live components (the canvas)
-├── app/       # the gpui workbench
-├── mcp/       # an MCP server over the same document model
-└── surface/   # regenerates libraries/*.surface (a dev tool, not shipped)
+├── model/        # the document: node tree, tokens, state, file format,
+│                 #   and what a component library *is* (the Library trait)
+├── codegen/      # document -> idiomatic Rust (and the Generator trait)
+├── store/        # project files, recents, editor settings, export, the editor bridge
+├── render/       # the canvas: chrome, drop targets, the entity cache
+│                 #   (and the Renderer trait)
+├── guise/        # guise as a target library: its catalog, presets, generator
+├── guiserender/  # guise on the canvas — the half that needs a window
+├── app/          # the gpui workbench
+├── mcp/          # an MCP server over the same document model
+└── surface/      # regenerates libraries/*.surface (a dev tool, not shipped)
 
 libraries/     # what each target library ships, as a checked-in file
 extensions/    # a Zed context server for tailor-mcp — its own cargo
                # workspace, because it targets wasm32-wasip2
 ```
 
-`model`, `codegen`, and `store` are free of gpui and carry most of the tests:
-the reparent rules, the cycle checks, the undo stack, the generated output and
-the file round-trip are all plain-data logic, and that is where a builder
-actually goes wrong.
+The split down the middle is the gpui dependency. `model`, `codegen`, `store`
+and `guise` are free of it and carry most of the tests: the reparent rules, the
+cycle checks, the undo stack, the generated output and the file round-trip are
+all plain-data logic, and that is where a builder actually goes wrong.
 
 ## The component library
 
-Tailor targets [guise](https://github.com/wess/guise), and depends on it
-through crates.io like any other consumer — there is no path dependency and no
-patch section. That boundary is what makes a second target library possible.
+Tailor draws with [guise](https://github.com/wess/guise), and it *targets*
+guise. Those are two different facts, and only the second one is interesting.
+
+What it targets is a plug-in. `tailor-guise` is a catalog, a set of theme
+presets and a generator; `tailor-guiserender` is one `match` that builds the
+live component. Neither is privileged — they use the same public traits a
+second library would, and adding one is two crates plus a line in `main`. See
+[component libraries](docs/libraries.md).
+
+The dependency goes through crates.io like any other consumer's — no path
+dependency, no patch section. That boundary is what makes the plug-in real
+rather than asserted.
 
 `libraries/guise.surface` records what the pinned version ships. It is
 generated, not written:
@@ -83,17 +96,15 @@ cargo run -p tailor-surface      # reads the version Cargo.lock resolves
 
 Two tests read it. One fails when guise gains a component the catalog neither
 offers nor excludes with a reason; the other fails when the theme preset table
-drifts. Both used to read guise's source out of the same workspace; the surface
-file is what replaced that when Tailor moved out. Bumping guise is therefore two
-steps in one commit — change the version, regenerate the file — and CI fails the
-build if you do only the first.
+drifts. Bumping guise is therefore two steps in one commit — change the version,
+regenerate the file — and CI fails the build if you do only the first.
 
 ## Building
 
 ```sh
 cargo run -p tailor-app                                   # the app
 cargo test --workspace                                    # everything
-cargo test -p tailor-model -p tailor-codegen -p tailor-store   # the pure half
+cargo test -p tailor-model -p tailor-codegen -p tailor-guise   # the pure half
 scripts/bundle.sh                                         # dist/Tailor.app
 scripts/dmg.sh                                            # dist/Tailor.dmg
 ```

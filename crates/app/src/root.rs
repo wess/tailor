@@ -55,7 +55,7 @@ impl Root {
   }
 
   fn open_project(&mut self, project: Project, path: Option<PathBuf>, cx: &mut Context<Self>) {
-    crate::theme::install(&project.theme, cx);
+    crate::theme::install(&project, cx);
     if let Some(path) = &path {
       let mut recents = Recents::load();
       recents.touch(path, &project.name);

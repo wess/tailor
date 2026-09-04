@@ -132,7 +132,9 @@ impl Workbench {
         return;
       }
     }
-    let label = tailor_model::catalog::get(kind)
+    let label = self
+      .library()
+      .get(kind)
       .map(|spec| spec.title.to_string())
       .unwrap_or_else(|| kind.trim_start_matches('@').to_string());
     self.commit(&format!("Add {label}"));
@@ -142,8 +144,11 @@ impl Workbench {
     // before the document is borrowed.
     let free_form = self.settings.free_form && matches!(kind, "frame" | "surface");
 
+    // Resolved before the document is borrowed mutably. The catalog is
+    // `&'static`, so it outlives the borrow either way.
+    let spec = self.library().get(kind);
     let Some(doc) = self.doc_mut() else { return };
-    let node = match tailor_model::catalog::get(kind) {
+    let node = match spec {
       Some(spec) => spec.build(doc.ids.next()),
       None => Node::new(doc.ids.next(), kind),
     };
@@ -262,7 +267,7 @@ impl Workbench {
         self
           .doc()
           .and_then(|doc| doc.node(*id))
-          .and_then(|node| tailor_model::catalog::get(&node.kind))
+          .and_then(|node| self.library().get(&node.kind))
           .map(|spec| spec.takes_children())
           .unwrap_or(false)
       })
@@ -369,18 +374,21 @@ impl Workbench {
     if self.selection.is_empty() {
       return;
     }
-    let label = tailor_model::catalog::get(kind)
+    let label = self
+      .library()
+      .get(kind)
       .map(|spec| spec.title)
       .unwrap_or(kind);
     self.commit(&format!("Embed in {label}"));
 
     let ids = self.selection.clone();
+    let spec = self.library().get(kind);
     let mut wrapper_id = None;
     if let Some(doc) = self.doc_mut() {
       let Some((parent, slot, index)) = doc.parent_of(ids[0]) else {
         return;
       };
-      let wrapper = match tailor_model::catalog::get(kind) {
+      let wrapper = match spec {
         Some(spec) => spec.build(doc.ids.next()),
         None => Node::new(doc.ids.next(), kind),
       };
@@ -911,7 +919,7 @@ impl Workbench {
     let container = self
       .doc()
       .and_then(|doc| doc.node(id))
-      .and_then(|node| tailor_model::catalog::get(&node.kind))
+      .and_then(|node| self.library().get(&node.kind))
       .map(|spec| spec.takes_children())
       .unwrap_or(false);
     if !container {
@@ -998,7 +1006,7 @@ impl Workbench {
     let current = self
       .doc()
       .and_then(|doc| doc.node(id))
-      .map(tailor_render::nodes::label_of)
+      .map(|node| tailor_render::nodes::label_of(self.library(), node))
       .unwrap_or_default();
     let field = cx.new(|cx| TextInput::new(cx).value(&current).size(Size::Sm));
     let sub = cx.subscribe(

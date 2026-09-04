@@ -1,0 +1,15 @@
+[package]
+name = "tailor-guiserender"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "Draws a Tailor document as live guise components — the half of the guise provider that needs a window."
+
+[dependencies]
+gpui = { workspace = true }
+guise-ui = { workspace = true }
+tailor-model = { workspace = true }
+tailor-render = { workspace = true }
+tailor-guise = { workspace = true }

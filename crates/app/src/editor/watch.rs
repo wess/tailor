@@ -184,7 +184,7 @@ impl Workbench {
     self.history.clear();
     self.dirty = false;
     self.store.update(cx, |store, _| store.clear());
-    crate::theme::install(&self.project.theme, cx);
+    crate::theme::install(&self.project, cx);
     self.refresh(cx);
   }
 }

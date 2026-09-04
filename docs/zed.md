@@ -145,7 +145,7 @@ extension loads. If nothing seems to happen, that is why.
 
 ### What it gets you
 
-Everything in [the MCP server](tailormcp.md), from the agent panel: place
+Everything in [the MCP server](mcp.md), from the agent panel: place
 components, wire state, generate and export. The server saves after every
 change and Tailor watches the file it has open, so a screen built from Zed
 appears on the canvas a moment later. Nothing is wired between the two

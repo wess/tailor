@@ -7,16 +7,14 @@
 //! its first frame. And a colour resolves through the live theme, which is why
 //! switching the project's scheme re-paints the canvas for free.
 
-use gpui::{App, Hsla, SharedString};
+use gpui::{App, SharedString};
 use guise::prelude::*;
-use tailor_model::catalog::{self, ComponentSpec};
+use tailor_model::catalog::ComponentSpec;
 use tailor_model::props::PropValue;
-use tailor_model::tokens::{ColorSpec, ColorToken};
+use tailor_model::tokens::ColorSpec;
 use tailor_model::{Document, Node, SizeToken, VariantToken};
 
-/// The palette shade a named colour resolves to. Matches `tailor-codegen`, so
-/// the canvas and the export agree.
-pub const SHADE: usize = 6;
+pub use tailor_render::theme::{color_name_of, hex_or, resolve, SHADE};
 
 pub struct Reader<'a> {
   node: &'a Node,
@@ -28,7 +26,7 @@ impl<'a> Reader<'a> {
   pub fn new(node: &'a Node, doc: &'a Document) -> Self {
     Reader {
       node,
-      spec: catalog::get(&node.kind),
+      spec: crate::library().get(&node.kind),
       doc,
     }
   }
@@ -162,64 +160,6 @@ impl<'a> Reader<'a> {
       PropValue::Numbers(values) => values.into_iter().map(|v| v as f32).collect(),
       _ => Vec::new(),
     }
-  }
-}
-
-/// An easing token as the guise curve it names. The generator prints the
-/// same mapping as a path, so the canvas and the export ease identically.
-pub fn easing(token: tailor_model::tokens::EaseToken) -> Easing {
-  use tailor_model::tokens::EaseToken as E;
-  match token {
-    E::Linear => Easing::Linear,
-    E::OutQuad => Easing::Out(Curve::Quad),
-    E::OutCubic => Easing::Out(Curve::Cubic),
-    E::OutQuint => Easing::Out(Curve::Quint),
-    E::OutExpo => Easing::Out(Curve::Expo),
-    E::OutCirc => Easing::Out(Curve::Circ),
-    E::OutBack => Easing::Out(Curve::Back),
-    E::OutElastic => Easing::Out(Curve::Elastic),
-    E::OutBounce => Easing::Out(Curve::Bounce),
-    E::InQuad => Easing::In(Curve::Quad),
-    E::InCubic => Easing::In(Curve::Cubic),
-    E::InExpo => Easing::In(Curve::Expo),
-    E::InOutQuad => Easing::InOut(Curve::Quad),
-    E::InOutCubic => Easing::InOut(Curve::Cubic),
-    E::InOutSine => Easing::InOut(Curve::Sine),
-    E::Spring => Easing::Spring(Spring::default()),
-  }
-}
-
-/// Resolve a colour spec against the live theme.
-pub fn resolve(color: &ColorSpec, cx: &App) -> Hsla {
-  match color {
-    ColorSpec::Named(token) => theme(cx).color(color_name_of(*token), SHADE).hsla(),
-    ColorSpec::Custom(hex) => hex_or(hex, cx),
-  }
-}
-
-/// A hex string as a colour, or the theme's dimmed text if it does not parse —
-/// the inspector lets you type freely and a half-typed hex should not blank the
-/// canvas.
-fn hex_or(hex: &str, cx: &App) -> Hsla {
-  css(hex).unwrap_or_else(|_| theme(cx).dimmed().hsla())
-}
-
-pub fn color_name_of(token: ColorToken) -> ColorName {
-  match token {
-    ColorToken::Dark => ColorName::Dark,
-    ColorToken::Gray => ColorName::Gray,
-    ColorToken::Red => ColorName::Red,
-    ColorToken::Pink => ColorName::Pink,
-    ColorToken::Grape => ColorName::Grape,
-    ColorToken::Violet => ColorName::Violet,
-    ColorToken::Indigo => ColorName::Indigo,
-    ColorToken::Blue => ColorName::Blue,
-    ColorToken::Cyan => ColorName::Cyan,
-    ColorToken::Teal => ColorName::Teal,
-    ColorToken::Green => ColorName::Green,
-    ColorToken::Lime => ColorName::Lime,
-    ColorToken::Yellow => ColorName::Yellow,
-    ColorToken::Orange => ColorName::Orange,
   }
 }
 

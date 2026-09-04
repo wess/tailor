@@ -19,7 +19,13 @@ identity="${CODESIGN_IDENTITY:--}"
 
 version="$(sed -n 's/^version = "\([0-9][^"]*\)".*/\1/p' Cargo.toml | head -1)"
 [ -n "$version" ] || { echo "error: could not read version from Cargo.toml" >&2; exit 1; }
-echo "[bundle] $app_name $version"
+# CFBundleVersion and CFBundleShortVersionString are documented as digits and
+# dots, and macOS compares them numerically — a pre-release suffix makes
+# "0.1.0-beta" sort against "0.1.0" in ways nobody intends. So the plist gets
+# the release part and the app itself reports the full string through
+# CARGO_PKG_VERSION, which is where a beta should be visible anyway.
+plist_version="${version%%-*}"
+echo "[bundle] $app_name $version (plist $plist_version)"
 
 # The icon should exist in the repo; regenerate it if missing (macOS only).
 if [ ! -f assets/icon.icns ]; then
@@ -60,9 +66,9 @@ cat > "$contents/Info.plist" << PLIST
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleVersion</key>
-	<string>$version</string>
+	<string>$plist_version</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$version</string>
+	<string>$plist_version</string>
 	<key>CFBundleIconFile</key>
 	<string>icon</string>
 	<key>LSApplicationCategoryType</key>

@@ -5,8 +5,8 @@ most like Interface Builder: an artboard at a device size, a selection with
 knobs on it, a grid to catch drags, and four ways to look at the same document.
 
 Everything here is about *this* page. For what you can place, see
-[components and slots](tailorcomponents.md); for what the design becomes, see
-[what gets generated](tailorcodegen.md).
+[components and slots](components.md); for what the design becomes, see
+[what gets generated](codegen.md).
 
 ## The artboard
 
@@ -132,7 +132,7 @@ component…**, which lifts the selection into a new component document and leav
 a reference behind.
 
 Right-clicking the canvas itself offers Paste, Select all, and a new screen or
-component. [Every other panel has a menu too](tailor.md#right-click).
+component. [Every other panel has a menu too](readme.md#right-click).
 
 ## Restructuring without dragging
 
@@ -209,7 +209,7 @@ a frame forever. Use it for a hint, not for a screen.
 
 What generates is one `.animate(..)` on the node's own box — a `Motion` builder
 in the plain flavour, a `motion!` block in the macros one. See [what gets
-generated](tailorcodegen.md#animation).
+generated](codegen.md#animation).
 
 ## Panels
 

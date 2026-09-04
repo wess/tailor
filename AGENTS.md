@@ -1,23 +1,26 @@
 # Tailor
 
 A visual interface builder for [gpui](https://github.com/zed-industries/zed)
-(Zed's GPU-accelerated Rust UI framework), built with and targeting
-[guise](https://github.com/wess/guise). Six crates plus a dev tool; full human
-docs live in [`docs/`](docs/readme.md), starting at
+(Zed's GPU-accelerated Rust UI framework). Eight crates plus a dev tool; full
+human docs live in [`docs/`](docs/readme.md), starting at
 [`docs/readme.md`](docs/readme.md).
 
-Tailor shipped inside the guise repository through 1.6.0 and moved out after.
+Tailor is *written in* [guise](https://github.com/wess/guise) and it *targets*
+guise. Those are two different facts and the second one is a plug-in: a catalog,
+a generator and a renderer behind three traits, with guise as the first
+implementation rather than a special case. `docs/libraries.md` is the guide.
+
 It depends on `guise-ui` from **crates.io**, pinned — no path dependency, no
-`[patch.crates-io]`. That boundary is load-bearing: it is what makes targeting a
-second component library possible rather than theoretical.
+`[patch.crates-io]`. That boundary is load-bearing: it is what makes the plug-in
+real rather than asserted.
 
 ## Commands
 
 ```sh
 cargo run -p tailor-app                     # launch Tailor (binary: tailordev)
 cargo check --workspace                     # fast type-check
-cargo test --workspace                      # 214 tests
-cargo test -p tailor-model -p tailor-codegen -p tailor-store   # the pure half
+cargo test --workspace                      # 219 tests
+cargo test -p tailor-model -p tailor-codegen -p tailor-guise   # the gpui-free half
 cargo run -p tailor-surface                 # regenerate libraries/guise.surface
 cargo build --workspace --locked            # what CI builds (on macOS)
 cargo fmt --all                             # CI checks formatting, advisory
@@ -51,10 +54,10 @@ unpacked source through `cargo metadata` and rewrites it.
 Two ratchets read it, and they are the reason the catalog does not silently
 drift behind the library:
 
-- `catalog::coverage` (in `model/src/catalog/mod.rs`) fails unless every
-  component in the surface is either catalogued or in `EXCLUDED` with a reason.
-- `project::presets_match_guise` fails when `THEME_PRESETS` drifts from what
-  guise defines.
+- `coverage` (in `guise/src/coverage.rs`) fails unless every component in the
+  surface is either catalogued or in `EXCLUDED` with a reason.
+- `presets_match_guise` (in `guise/src/surface.rs`) fails when `theme::PRESETS`
+  drifts from what guise defines.
 
 The file's first line carries the version it was generated from, checked against
 `Cargo.lock`. So bumping guise is **two steps in one commit** — change the
@@ -64,23 +67,39 @@ changing the version line.
 
 ## Architecture
 
-- **`model/`** — the document: the component catalog, the node arena, tokens,
-  state variables, actions, undo, and the `.tailor` file format. No gpui, and it
-  carries most of the tests: reparent rules, cycle checks, the lint pass, and the
-  file round-trip are where a builder actually goes wrong. It is guise-free on
-  purpose, so the two places it *copies* guise facts (the catalog's type names,
-  `THEME_PRESETS`) are each held to the surface file by a test.
-- **`codegen/`** — document → guise Rust. Driven by the same catalog the canvas
-  reads, so a component cannot render one way and generate another.
+- **`model/`** — the document: the node arena, tokens, state variables, actions,
+  undo, and the `.tailor` file format — plus `library::Library`, which is what a
+  component library *is*. It knows none: guise's catalog lives in `tailor-guise`
+  and registers itself at start-up. No gpui, and it carries most of the tests:
+  reparent rules, cycle checks, the lint pass, and the file round-trip are where
+  a builder actually goes wrong. Its own tests run against
+  `library::fixture` — a ten-component stand-in — rather than guise's catalog,
+  because a dev-dependency back onto a provider would compile `tailor-model`
+  twice and a `&dyn Library` from one copy is a different type from the other's.
+- **`codegen/`** — document → Rust, plus `Generator`, the library's half of it.
+  Driven by the same catalog the canvas reads, so a component cannot render one
+  way and generate another.
 - **`store/`** — project files, recents, editor settings, export.
-- **`render/`** — document → live guise components. Interaction never reaches
-  back into the app directly: it goes through `Hooks`, built from a *weak*
-  handle, because a live component tree must not own the view that renders it.
+- **`render/`** — the canvas, plus `Renderer`. The chrome around a node — its
+  style box, its selection outline, its drop strips, its entrance replay — is
+  this crate's; the component inside is the provider's. Interaction never
+  reaches back into the app directly: it goes through `Hooks`, built from a
+  *weak* handle, because a live component tree must not own the view that
+  renders it.
+- **`guise/`** — guise as a target library: the catalog tables, the theme
+  presets, the `Library` impl, and the `Generator` impl for the ~30 shapes a
+  chained constructor cannot express. No gpui and no `guise-ui` — a catalog
+  *describes* a library and compiles without it. `tailor-mcp` takes this and
+  nothing more.
+- **`guiserender/`** — guise on the canvas: one arm per catalog kind, plus the
+  entity cache's per-kind builder. The gpui half, split out so the MCP server
+  can list and generate components without a window.
 - **`app/`** — one `Workbench` entity owns the project and every panel; the
   panels are render methods in sibling files, not views of their own.
 - **`mcp/`** — an MCP server over the same model (`tailor-mcp`). Hand-rolled
   JSON-RPC over stdio; it saves after every change, and the app polls the file
-  it has open, which is the whole integration between them.
+  it has open, which is the whole integration between them. It registers
+  `tailor_guise` only — no renderer, so no gpui.
 - **`surface/`** — the generator for `libraries/*.surface`. A dev tool; it is
   not in the app bundle.
 - **The editor bridge** (`store/src/bridge.rs` + `--reveal`) is the pair of jumps
@@ -100,16 +119,43 @@ changing the version line.
   one function, which is what keeps the preview and the export the same
   animation. A staggering container animates its children and **not itself**.
 
+## Providers
+
+Three traits, split by whether they need a window:
+
+| Trait | Crate | gpui | Answers |
+| --- | --- | --- | --- |
+| `Library` | `tailor-model` | no | components, props, presets, token type names |
+| `Generator` | `tailor-codegen` | no | the Rust for shapes a chained constructor can't express |
+| `Renderer` | `tailor-render` | yes | the live component, and the entity behind a stateful one |
+
+Registration is explicit, from `main`: `tailor_guiserender::register()` in the
+app (it calls `tailor_guise::register()` for you), `tailor_guise::register()` in
+the MCP server. Both idempotent — tests call them too. **A registry read with
+nothing registered panics with the call to make**, deliberately: it is a wiring
+mistake, not a runtime condition.
+
+A `Project` carries `library: String`. Empty resolves to whatever registered
+first, so every `.tailor` file written before this opens unchanged; an unknown
+id falls back rather than refusing to open, because a project you cannot look at
+is worse than one drawn with the wrong catalog.
+
+Two things are still guise-shaped inside library-agnostic crates, and are
+written down rather than glossed: `tailor-render`'s own chrome is drawn in guise
+(that is Tailor's UI, not what it draws with), and `codegen/src/expr.rs`'s
+colour expressions assume guise's three-way colour vocabulary. Token *names*
+already come from `Library::token_paths`.
+
 ## Two things that are load-bearing and easy to break
 
 - **The catalog is the single source of truth**, and two tests enforce it.
-  Adding a component is one `comp!` entry plus one arm in
-  `render/src/nodes/build.rs`. `PropSpec::emit` decides what the generator
-  prints. `catalog::coverage` reads `libraries/guise.surface` and fails unless
-  every component is catalogued or in `EXCLUDED` with a reason — so a guise bump
-  that adds a component breaks `cargo test` rather than going unnoticed.
-  `every_catalog_kind_generates_something` (in `codegen`) catches an entry the
-  generator has no support for.
+  Adding a component is one `comp!` entry in `guise/src/catalog/` plus one arm in
+  `guiserender/src/nodes.rs`. `PropSpec::emit` decides what the generator prints.
+  `coverage` reads `libraries/guise.surface` and fails unless every component is
+  catalogued or in `EXCLUDED` with a reason — so a guise bump that adds a
+  component breaks `cargo test` rather than going unnoticed.
+  `every_catalog_kind_generates_something` (in `guise/tests/codegen.rs`) catches
+  an entry the generator has no support for.
 - **Seven containers are drawn, not instantiated** (`Tabs`, `Accordion`,
   `SplitPanel`, `AppShell`, `Carousel`, `SettingsView`, `VirtualList`). Their
   regions take `'static` closures, which a designer cannot drop into; drawing
@@ -148,10 +194,10 @@ problems.
 
 ## Adding a component to the catalog
 
-1. One `comp!` entry in the right file under `model/src/catalog/`.
-2. One arm in `render/src/nodes/build.rs` that builds the real component.
-3. If its constructor is not one call, an arm in `Emitter::special` in
-   `codegen/src/node.rs` too.
+1. One `comp!` entry in the right file under `guise/src/catalog/`.
+2. One arm in `guiserender/src/nodes.rs` that builds the real component.
+3. If its constructor is not one call, an arm in `GuiseGenerator::special` in
+   `guise/src/codegen.rs` too.
 4. Document it in `docs/components.md`.
 5. `cargo test` — the coverage ratchet and
    `every_catalog_kind_generates_something` both have to pass.

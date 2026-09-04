@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to release (e.g. v1.1.0)"
+        description: "Tag to release (e.g. v0.1.0-beta)"
         required: true
 
 permissions:
@@ -60,12 +60,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
+          # A semver pre-release (v0.1.0-beta) is marked as one, so it never
+          # becomes what `releases/latest` reports.
+          PRERELEASE=""
+          case "${TAG#v}" in *-*) PRERELEASE="--prerelease" ;; esac
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists — skipping."
           elif [ "${{ steps.notes.outputs.have_notes }}" = "true" ]; then
-            gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag --draft
+            gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag --draft $PRERELEASE
           else
-            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag --draft
+            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag --draft $PRERELEASE
           fi
 
   # Tailor as a macOS app: build, sign, notarize, staple, package.

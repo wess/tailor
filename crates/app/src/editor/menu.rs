@@ -8,7 +8,6 @@
 use gpui::prelude::*;
 use gpui::{App, ClipboardItem, Context, Entity, Pixels, Point, WeakEntity, Window};
 use guise::prelude::*;
-use tailor_model::catalog;
 use tailor_model::node::DEFAULT_SLOT;
 use tailor_model::{DocKind, Document, Node, NodeId};
 use tailor_render::DropSpot;
@@ -80,7 +79,7 @@ impl Workbench {
     let hidden = node.as_ref().map(|node| node.hidden).unwrap_or(false);
     let container = node
       .as_ref()
-      .and_then(|node| catalog::get(&node.kind))
+      .and_then(|node| self.library().get(&node.kind))
       .map(|spec| spec.takes_children())
       .unwrap_or(false);
     let has_children = node
@@ -250,7 +249,7 @@ impl Workbench {
     let base = self
       .doc()
       .and_then(|doc| doc.node(first))
-      .map(tailor_render::nodes::label_of)
+      .map(|node| tailor_render::nodes::label_of(self.library(), node))
       .unwrap_or_else(|| "Component".into());
     let name = self
       .project

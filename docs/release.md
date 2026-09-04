@@ -16,9 +16,15 @@ Nothing here reaches crates.io — every crate is `publish = false`.
 3. Commit, tag `v<version>`, push both.
 
 ```sh
-git tag -a v1.7.0 -m "Version 1.7.0 — …"
-git push origin main v1.7.0
+git tag -a v0.2.0 -m "Version 0.2.0 — …"
+git push origin main v0.2.0
 ```
+
+A semver pre-release tag (`v0.1.0-beta`) is marked as one on GitHub, so it never
+becomes what `releases/latest` reports. The `Info.plist` gets the release part
+of the version — macOS compares `CFBundleVersion` numerically, and a suffix
+sorts in ways nobody intends — while the app itself reports the full string
+through `CARGO_PKG_VERSION`, which is where a beta should be visible.
 
 If the release also moves to a new `guise-ui`, that is its own two-step: change
 the version *and* `cargo run -p tailor-surface` in the same commit. CI

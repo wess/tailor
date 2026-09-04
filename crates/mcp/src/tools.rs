@@ -301,6 +301,12 @@ pub fn arguments(params: &Value) -> Value {
 mod tests {
   use super::*;
 
+  /// A session with the provider registered — what `main` does before it
+  /// reads a line. Idempotent, so every test may ask.
+  fn session() -> Session {
+    tailor_guise::register();
+    Session::default()
+  }
   #[test]
   fn every_tool_has_a_schema_and_a_description() {
     let tools = list();
@@ -333,14 +339,14 @@ mod tests {
 
   #[test]
   fn an_unknown_tool_is_an_error_not_a_panic() {
-    let mut session = Session::default();
+    let mut session = session();
     let value = call(&mut session, "fly", &json!({}));
     assert_eq!(value["isError"], json!(true));
   }
 
   #[test]
   fn tools_refuse_to_run_without_a_project() {
-    let mut session = Session::default();
+    let mut session = session();
     let value = call(&mut session, "outline", &json!({}));
     assert_eq!(value["isError"], json!(true));
     assert!(value["content"][0]["text"]

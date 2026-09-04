@@ -5,9 +5,15 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 publish = false
-description = "Renders a Tailor document as live guise components."
+description = "The canvas: a document as live components, wrapped in the chrome that makes it editable."
 
 [dependencies]
 tailor-model = { workspace = true }
 gpui = { workspace = true }
 guise-ui = { workspace = true }
+
+[dev-dependencies]
+# A catalog to test the chrome against. Not a cycle: the guise *description*
+# knows nothing about drawing, which is the whole reason it is a separate crate
+# from `tailor-guiserender`.
+tailor-guise = { workspace = true }

@@ -21,7 +21,7 @@ its notes — it is worth knowing, because a `RenderOnce` builder is placed as
 
 ## A screen, end to end
 
-This is the `People` screen from [the tutorial](tailortutorial.md) — an app
+This is the `People` screen from [the tutorial](tutorial.md) — an app
 shell, a bound text input, a bound switch, a wired button, and a component of
 its own placed three times.
 
