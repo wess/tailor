@@ -8,6 +8,24 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
+## Unreleased
+
+### Modules you write
+
+An action's body covers what a control does. Everything else an app is made of
+— a data type, an API client, a parser — had nowhere to live, which made a
+generated crate somewhere you could not actually build an app.
+
+**Your modules**, in the Generator section: one name per line. Each is declared
+by the generated `main.rs` and the file is created **once**, with a comment
+saying it is yours, and never written again. An export reports them as *kept*
+rather than *replaced*, and the code pane shows what is on disk rather than the
+scaffold — once the file exists, showing the starting point would be showing
+something nobody has.
+
+`ui`, `theme` and `main` are refused, because they are the generator's own and
+a second `mod theme;` does not compile.
+
 ## 0.2.0 — 2026-09-04
 
 Tailor could draw an interface and print the Rust for it. It could not tell you

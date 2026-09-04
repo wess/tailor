@@ -39,6 +39,11 @@ pub fn main_rs(project: &Project) -> Generated {
   source.line("");
   source.line(format!("mod {module};"));
   source.line("mod theme;");
+  // Modules you added. Declared here so they compile, and written once so
+  // what is in them stays yours.
+  for name in project.gen.modules() {
+    source.line(format!("mod {name};"));
+  }
   source.line("");
   source.line("use gpui::prelude::*;");
   source.line(
@@ -78,6 +83,7 @@ pub fn main_rs(project: &Project) -> Generated {
     source: source.finish(),
     notes: Vec::new(),
     lines: BTreeMap::new(),
+    scaffold: false,
   }
 }
 
@@ -111,6 +117,32 @@ pub fn cargo_toml(project: &Project) -> Generated {
     source,
     notes: Vec::new(),
     lines: BTreeMap::new(),
+    scaffold: false,
+  }
+}
+
+/// A starting point for a module you own.
+///
+/// Written once — [`Generated::scaffold`] — so the next export leaves whatever
+/// you put in it alone. That is the whole contract: Tailor declares the module
+/// and gets out of the way.
+pub fn scaffold(name: &str) -> Generated {
+  let mut source = Source::new();
+  source.block(comment(
+    "//! ",
+    &format!(
+      "{name} — yours. Tailor created this file once and will not write to it \
+       again; declare what you need here and use it from an action's body.",
+    ),
+    76,
+  ));
+  source.line("");
+  Generated {
+    path: format!("{name}.rs"),
+    source: source.finish(),
+    notes: Vec::new(),
+    lines: BTreeMap::new(),
+    scaffold: true,
   }
 }
 
@@ -126,5 +158,6 @@ pub fn theme_json(project: &Project) -> Option<Generated> {
     source: format!("{json}\n"),
     notes: Vec::new(),
     lines: BTreeMap::new(),
+    scaffold: false,
   })
 }

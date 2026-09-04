@@ -195,6 +195,7 @@ src/
 ├── main.rs               # a window on the first screen
 ├── theme.rs              # the theme you designed against
 ├── theme.json            # …and its source, when the project carries one
+├── api.rs                # a module you added — written once, then yours
 └── ui/
     ├── mod.rs            # the module that ties them together
     ├── people.rs         # one file per screen…
@@ -234,6 +235,44 @@ behaviour in the action methods and the types they call — or take the file and
 stop exporting.
 
 An export only ever writes below the directory you name.
+
+## Modules you write
+
+An [action's body](state.md#actions) is where a control's code goes. Everything
+else an app is made of — a data type, an API client, a parser — goes in a
+module you add: **Your modules** in the Generator section of the Document
+inspector, one name per line.
+
+Each one is declared by `main.rs` and **created once**:
+
+```rust
+mod ui;
+mod theme;
+mod api;
+```
+
+The first export writes `src/api.rs` with a one-line comment saying it is
+yours, and no export ever writes it again. That is the whole contract, and it
+is what makes the crate somewhere you can build an app rather than a folder
+Tailor keeps flattening. An export reports them as *kept*.
+
+Reach one from an action the ordinary way:
+
+```rust
+pub fn submit(&mut self, cx: &mut Context<Self>) {
+    let who = crate::api::greeting();
+    self.email.set(cx, who);
+    cx.notify();
+}
+```
+
+`ui`, `theme` and `main` are refused — those are the generator's, and a second
+`mod theme;` would not compile. Names are snake-cased, so "API client" becomes
+`api_client`.
+
+The code pane shows these files as they are **on disk**, not as the scaffold:
+once the file exists it is yours, and showing the starting point instead would
+be showing something nobody has.
 
 ## The `.tailor` file
 

@@ -1661,6 +1661,25 @@ impl Workbench {
         this.refresh(cx);
       },
     );
+    // The modules you own, one per line. A text area rather than a list of
+    // rows: they are names, you add them in bursts, and a row with an X is
+    // three clicks where a line is one.
+    let modules_area = self.area(
+      "project/modules".to_string(),
+      self.project.gen.modules.join("\n"),
+      cx,
+      move |this, text, cx| {
+        let names: Vec<String> = text
+          .lines()
+          .map(|line| line.trim().to_string())
+          .filter(|line| !line.is_empty())
+          .collect();
+        std::sync::Arc::make_mut(&mut this.project).gen.modules = names;
+        this.dirty = true;
+        this.refresh(cx);
+      },
+    );
+
     let project_field = self.field(
       "project/name".to_string(),
       self.project.name.clone(),
@@ -1896,6 +1915,15 @@ impl Workbench {
           ),
           cx,
         ),
+        labelled("Your modules", modules_area.into_any_element(), cx),
+        div()
+          .text_size(px(10.))
+          .text_color(chrome.dimmed)
+          .child(
+            "One per line. Each is declared by main.rs and created once — \
+             what you put in it is never overwritten.",
+          )
+          .into_any_element(),
       ],
       cx,
     );

@@ -627,6 +627,7 @@ fn theme_rs(project: &Project) -> Generated {
     source: source.finish(),
     notes: Vec::new(),
     lines: BTreeMap::new(),
+    scaffold: false,
   }
 }
 

@@ -54,6 +54,13 @@ pub fn project_files(project: &Project) -> Vec<Generated> {
       out.push(json);
     }
 
+    // One per module you added, written only if it is not already there.
+    for name in project.gen.modules() {
+      let mut file = app::scaffold(&name);
+      file.path = format!("src/{}", file.path);
+      out.push(file);
+    }
+
     out.push(app::cargo_toml(project));
   }
   out

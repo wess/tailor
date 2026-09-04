@@ -26,6 +26,11 @@ pub struct Generated {
   /// turns "select this component" into "put the cursor here", which is the
   /// whole of *Open in Editor*.
   pub lines: BTreeMap<tailor_model::NodeId, usize>,
+  /// Write this only if it is not there. A *scaffold* is a starting point for
+  /// a file the user owns — the module they added to hold an API client or a
+  /// data type — and overwriting one on the next export would eat their work,
+  /// which is the one thing this crate exists not to do.
+  pub scaffold: bool,
 }
 
 /// Generate the file for one document.
@@ -229,6 +234,7 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
     source,
     notes,
     lines,
+    scaffold: false,
   }
 }
 
@@ -349,6 +355,7 @@ pub fn module(project: &Project) -> Generated {
     source: source.finish(),
     notes: Vec::new(),
     lines: BTreeMap::new(),
+    scaffold: false,
   }
 }
 

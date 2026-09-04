@@ -202,6 +202,19 @@ pub struct GenSettings {
   /// until something has actually been exported.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub export_dir: Option<String>,
+  /// Modules *you* write, declared by the generated `main.rs` and scaffolded
+  /// once.
+  ///
+  /// An action's body covers what a control does. This covers everything else
+  /// an app is — a data type, an API client, a parser — which otherwise had
+  /// nowhere to live, because a generated crate that only ever contains
+  /// generated files is a crate you cannot build an app in.
+  ///
+  /// Tailor writes each one once and then never touches it. The names are
+  /// here rather than discovered by scanning, because a file appearing in a
+  /// directory is not a statement of intent and a list is.
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  pub modules: Vec<String>,
 }
 
 fn default_module() -> String {
@@ -212,6 +225,35 @@ fn yes() -> bool {
   true
 }
 
+impl GenSettings {
+  /// The module names, snake-cased and deduplicated, with anything unusable
+  /// dropped.
+  ///
+  /// Filtered here rather than validated on input: the list is edited as text,
+  /// and a half-typed name should not stop the file generating. `ui` and
+  /// `theme` are the generator's own, and a second `mod theme;` would not
+  /// compile.
+  pub fn modules(&self) -> Vec<String> {
+    let taken = crate::snake_case(&self.module);
+    let mut out: Vec<String> = Vec::new();
+    for name in &self.modules {
+      // Checked before snake-casing: `snake_case` guarantees a usable
+      // identifier, so it turns "  " into "x" — a module nobody asked for.
+      if name.trim().is_empty() {
+        continue;
+      }
+      let name = crate::snake_case(name);
+      if name == taken || name == "theme" || name == "main" {
+        continue;
+      }
+      if !out.contains(&name) {
+        out.push(name);
+      }
+    }
+    out
+  }
+}
+
 impl Default for GenSettings {
   fn default() -> Self {
     GenSettings {
@@ -219,6 +261,7 @@ impl Default for GenSettings {
       module: default_module(),
       emit_app: true,
       export_dir: None,
+      modules: Vec::new(),
     }
   }
 }
@@ -414,6 +457,42 @@ impl Project {
 mod tests {
   use super::*;
   use crate::node::DEFAULT_SLOT;
+
+  #[test]
+  fn module_names_are_cleaned_and_the_generators_own_are_refused() {
+    let mut gen = GenSettings {
+      modules: vec![
+        "api client".into(),
+        "API Client".into(),
+        // `ui` is the module the components go in, and `theme` is the theme —
+        // a second `mod ui;` would not compile.
+        "ui".into(),
+        "theme".into(),
+        "main".into(),
+        "".into(),
+        "  ".into(),
+        "models".into(),
+      ],
+      ..GenSettings::default()
+    };
+    assert_eq!(gen.modules(), vec!["api_client", "models"]);
+
+    // The name follows the module setting, so renaming that frees the old one.
+    gen.module = "screens".into();
+    gen.modules = vec!["ui".into(), "screens".into()];
+    assert_eq!(gen.modules(), vec!["ui"]);
+  }
+
+  #[test]
+  fn modules_are_absent_from_a_file_that_has_none() {
+    let project = Project::new("Demo");
+    let text = project.to_json().unwrap();
+    assert!(!text.contains("modules"), "{text}");
+    assert_eq!(
+      Project::from_json(&text).unwrap().gen.modules,
+      Vec::<String>::new()
+    );
+  }
 
   #[test]
   fn a_new_project_round_trips() {

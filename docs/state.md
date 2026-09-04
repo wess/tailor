@@ -110,6 +110,9 @@ generates `// TODO`, which is the difference between a project and a mockup.
 Tailor never runs your code while you design — it places a method where the
 handler belongs. [Run](running.md) is what runs it.
 
+For anything bigger than a handler, add a
+[module](codegen.md#modules-you-write) and call into it.
+
 ## Events
 
 Select a component and connect one of its events to an action. Which events a

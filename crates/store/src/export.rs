@@ -15,6 +15,9 @@ pub struct ExportReport {
   pub written: Vec<PathBuf>,
   /// Files that already existed and were replaced.
   pub overwritten: Vec<PathBuf>,
+  /// Scaffolds that were already there and were left alone. What makes a
+  /// module you own survive the next export.
+  pub kept: Vec<PathBuf>,
   pub failed: Vec<(PathBuf, String)>,
   /// Anything the generator wanted to say about what it produced.
   pub notes: Vec<String>,
@@ -25,6 +28,9 @@ impl ExportReport {
     let mut parts = vec![format!("{} files", self.written.len())];
     if !self.overwritten.is_empty() {
       parts.push(format!("{} replaced", self.overwritten.len()));
+    }
+    if !self.kept.is_empty() {
+      parts.push(format!("{} kept", self.kept.len()));
     }
     if !self.failed.is_empty() {
       parts.push(format!("{} failed", self.failed.len()));
@@ -65,6 +71,12 @@ pub fn write_all(root: &Path, files: Vec<Generated>) -> ExportReport {
       }
     }
     let existed = path.exists();
+    // A scaffold is a starting point, not an output. Once it exists it is
+    // the user's file and an export has no business in it.
+    if file.scaffold && existed {
+      report.kept.push(path);
+      continue;
+    }
     match std::fs::write(&path, &file.source) {
       Ok(()) => {
         if existed {
@@ -110,11 +122,46 @@ mod tests {
         source: "// no".into(),
         notes: Vec::new(),
         lines: Default::default(),
+        scaffold: false,
       }],
     );
     assert!(!report.ok());
     assert!(report.written.is_empty());
     assert!(!root.parent().unwrap().join("escaped.rs").exists());
+    let _ = std::fs::remove_dir_all(&root);
+  }
+
+  #[test]
+  fn a_scaffold_is_written_once_and_then_left_alone() {
+    tailor_guise::register();
+    let root = std::env::temp_dir().join("tailor-export-scaffold");
+    let _ = std::fs::remove_dir_all(&root);
+    let mut project = Project::new("Demo");
+    project.gen.modules = vec!["api".into()];
+
+    let first = export(&root, &project);
+    let file = root.join("src/api.rs");
+    assert!(file.exists(), "the module should be scaffolded");
+    assert!(first.kept.is_empty());
+    // And `main.rs` declares it, or it would not compile.
+    let main = std::fs::read_to_string(root.join("src/main.rs")).unwrap();
+    assert!(main.contains("mod api;"), "{main}");
+
+    // Now it is yours.
+    std::fs::write(&file, "pub fn mine() {}\n").unwrap();
+    let second = export(&root, &project);
+    assert_eq!(
+      std::fs::read_to_string(&file).unwrap(),
+      "pub fn mine() {}\n",
+      "an export must not eat a file the user owns"
+    );
+    assert!(second.kept.iter().any(|p| p == &file));
+    assert!(!second.overwritten.iter().any(|p| p == &file));
+    assert!(second.summary().contains("kept"), "{}", second.summary());
+
+    // The generated half is still rewritten.
+    assert!(second.overwritten.iter().any(|p| p.ends_with("main.rs")));
+
     let _ = std::fs::remove_dir_all(&root);
   }
 

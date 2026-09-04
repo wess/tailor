@@ -40,6 +40,9 @@ impl Workbench {
     let project = Arc::clone(&self.project);
     let doc_id = self.doc_id.clone();
     let delay = self.analysis_delay;
+    // Where the project builds, so a module you own can be read from disk
+    // rather than shown as the scaffold Tailor stopped writing.
+    let path = self.path.clone();
 
     self.analysis = Some(cx.spawn(async move |this, cx| {
       if !delay.is_zero() {
@@ -55,9 +58,21 @@ impl Workbench {
           // The whole crate, not just the open document: the code pane is a
           // file strip over what a build would compile, and `main.rs` is
           // where a reader looks first.
+          let workspace = tailor_build::Workspace::resolve(path.as_deref(), &project);
           let files = tailor_codegen::project_files(&project)
             .into_iter()
-            .map(|file| (file.path, file.source))
+            .map(|file| {
+              // A scaffold is only Tailor's until it exists. After that the
+              // file on disk is the truth, and showing the scaffold instead
+              // would be showing something nobody has.
+              if file.scaffold {
+                let on_disk = workspace.root.join(&file.path);
+                if let Ok(source) = std::fs::read_to_string(&on_disk) {
+                  return (file.path, source);
+                }
+              }
+              (file.path, file.source)
+            })
             .collect();
           let problems = tailor_model::lint::check(&project);
           (generated, files, problems)
