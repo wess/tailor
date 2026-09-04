@@ -82,7 +82,7 @@ $RECYCLE.BIN/
 *.iml
 *.ipr
 *.iws
-out/
+/out/
 
 # Zed
 .zed/
@@ -148,12 +148,15 @@ temp/
 # ---------------------------------------------------------------------------
 # Build artifacts & packaging (macOS app bundles, installers, archives)
 # ---------------------------------------------------------------------------
+# Anchored to the root. Unanchored, `build/` matches `crates/build/` at any
+# depth — which is exactly what happened: a whole crate went unversioned and
+# main stopped building while every local check passed.
 *.app/
 *.dmg
 *.pkg
-dist/
-build/
-release/
+/dist/
+/build/
+/release/
 *.tar
 *.tar.gz
 *.tgz

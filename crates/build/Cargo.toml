@@ -1,0 +1,19 @@
+[package]
+name = "tailor-build"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "Compiles a Tailor design and runs it: cargo, its diagnostics, and the binary they produce."
+
+[dependencies]
+tailor-model = { workspace = true }
+tailor-codegen = { workspace = true }
+tailor-store = { workspace = true }
+serde_json = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+# The line map is generated code, and generating needs a library registered.
+tailor-guise = { workspace = true }
