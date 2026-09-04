@@ -36,6 +36,25 @@ jobs:
         id: tag
         run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
 
+      # Tailor's history was carried out of the guise repository with
+      # `git filter-repo`, which brought guise's tags with it — twenty-eight of
+      # them, on that project's version line, pointing at commits from before
+      # Tailor existed. Pushing one by accident would have built a five-year-old
+      # tree and released it under a Tailor version number.
+      #
+      # They are gone now, but the shape of the mistake is not: a tag is a name
+      # anyone can put anywhere, and this job turns it into a download. So the
+      # tag has to be on `main`.
+      - name: The tag must be on main
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if ! git merge-base --is-ancestor "$TAG" origin/main; then
+            echo "::error::$TAG is not an ancestor of main — refusing to release it."
+            echo "It points at $(git log -1 --oneline "$TAG")."
+            exit 1
+          fi
+          echo "$TAG is on main: $(git log -1 --oneline "$TAG")"
+
       # Prefer the hand-written CHANGELOG section for this version — a list of
       # commit subjects is not release notes. Falls back to generated notes for
       # a tag the changelog doesn't cover.

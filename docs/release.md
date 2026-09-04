@@ -30,6 +30,18 @@ If the release also moves to a new `guise-ui`, that is its own two-step: change
 the version *and* `cargo run -p tailor-surface` in the same commit. CI
 regenerates the surface file itself and fails on a diff.
 
+## One thing to know about tags
+
+Tailor's history came out of the guise repository with `git filter-repo`, which
+carried guise's twenty-eight tags along with the commits. They point at
+guise-era work and share a version line with Tailor's own, so `git tag v0.2.0`
+in a working copy that still had them silently did nothing and pushed
+somebody else's commit.
+
+They have been deleted, and `release.yml` now refuses a tag that is not an
+ancestor of `main` — a tag is a name anyone can put anywhere, and that job
+turns it into a download.
+
 ## What the workflow does
 
 1. **`github-release`** — opens the release as a **draft**, with notes from the
