@@ -8,6 +8,76 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
+## Unreleased
+
+### It runs
+
+Tailor could generate Rust. It could not tell you whether the Rust compiled,
+which meant the loop ended at a folder of files and an Export button. **⌘R**
+now writes the project out as a crate, builds it, and opens your app in a
+window of its own — with nothing to configure first: a project you have never
+exported gets a managed build directory, keyed by a stable hash of its path so
+a rebuild reuses what the last one compiled.
+
+What comes back is the interesting half. `cargo build --message-format=json`
+reports every diagnostic with a file and a line, and codegen has always tagged
+each node's expression with the line it landed on — so a type error in
+generated Rust resolves to the component that generated it. A row in Problems
+opens the file, scrolls to the line, and selects that component on the canvas.
+Interface Builder never closed that loop.
+
+Build and run are two phases on purpose. One `cargo run --message-format=json`
+would merge cargo's JSON with your program's stdout on one stream, and a
+program that printed a line of JSON would become a compiler error.
+
+`tailordev --build project.tailor` does the same headlessly and exits non-zero,
+which is what a CI job asking "does this design still compile" wants.
+
+### Actions have bodies
+
+The other half of Interface Builder's trick: a control is wired to a method,
+and *you write the method*. Tailor had the wiring and nowhere to write, so every
+project came out a mockup with `// TODO` where the app should be.
+
+Clicking an action now opens a Rust buffer over its body — line numbers,
+highlighting, the signature it generates above it, and what the handler can
+reach listed below: the document's state signals and the entity fields codegen
+will give it. ⌃Space completes, ranked so the document's own names beat Rust's
+keywords; nothing is offered after a `.`, because this completer does not know
+types and guessing a method would be worse than staying quiet.
+
+The body lives in the `.tailor` file. That is what makes it survive: it is
+design data, so regenerating writes the file *around* your code rather than over
+it, and no export is ever the thing being preserved.
+
+### The code pane is an editor
+
+It showed one file, read-only, highlighted by a regex. It now shows every file a
+build would compile — a strip across the top with the screen you have open, its
+components, `mod.rs`, `main.rs`, `theme.rs`, `Cargo.toml` — parsed by
+tree-sitter, the same parser Zed reads with. Unpinned it follows the canvas;
+click a file to pin it.
+
+Diagnostics underline the columns rustc named. ⌘F finds in the file with smart
+case, every hit highlighted and the active one brighter, ⏎ and ⌘G to walk them.
+
+It stays read-only, on purpose: the design is the source and the code is the
+output, and an editable buffer over a file rewritten on the next keystroke would
+be a promise Tailor cannot keep. Where you *do* write code is an action body,
+which is design data and survives.
+
+### Also
+
+- A **Product** menu: Run, Build, Stop, Clean Build Folder, Reveal Build Folder.
+- The toolbar has room — 52px with a 16px inset, and three groups of which only
+  the middle one shrinks, so a narrow window truncates the device presets rather
+  than pushing the panel toggles off the edge. Run and Export were a filled pill
+  and a bordered pill in a bar made of flat chips; both are chips now, in one
+  shape with Live, and Run is the only coloured thing in the bar.
+- Fixed: `ComponentSpec::required` was added to the provider seam in 0.1.0-beta
+  and the linter rewired to read it, but guise's catalog was never filled in —
+  so "Button has no label" and its seven siblings had silently stopped firing.
+
 ## 0.1.0-beta — 2026-09-04
 
 The first release off Tailor's own version line. It rode guise's to 1.6.0

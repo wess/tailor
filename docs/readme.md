@@ -21,6 +21,7 @@ it is output Tailor actually produced.
 | [What gets generated](codegen.md) | The output, the flavours, export, the file format, the theme |
 | [The MCP server](mcp.md) | Driving the same document from an agent |
 | [Zed & other editors](zed.md) | Jumping between a component and its code, in both directions |
+| [Running your design](running.md) | Run, Build, Stop, the console, and what the compiler says |
 | [Component libraries](libraries.md) | What a target library is, and how to add one |
 
 ## Getting it
@@ -55,6 +56,10 @@ something your app loads. The output is a Rust file you own — and the ending
 Tailor is built for is the one where you take that file and stop opening the
 builder.
 
+And it runs. **⌘R** writes the project out as a crate, compiles it, and opens
+your app in its own window; a compiler error comes back as a row you can click
+to select the component that caused it. See [running your design](running.md).
+
 ## The window
 
 Five regions, laid out the way Interface Builder and Android Studio's layout
@@ -66,7 +71,7 @@ editor lay theirs out.
 | **Outline** | The node tree. Rows are drag sources and drop targets; named slots appear as their own rows. |
 | **Canvas** (centre) | The artboard, at the device size you picked, with the document rendered inside it. |
 | **Inspector** (right) | Six tabs: Attributes, Size, Style, Motion, Connections, Identity. |
-| **Problems** (bottom) | What will not generate, and what probably was not meant. |
+| **Problems / Console** (bottom) | Two tabs. What will not generate and what probably was not meant, plus the compiler's complaints from the last build; and what the build and the running app printed. |
 
 Every panel resizes and folds away, and the layout persists. ⌥⌘1 – ⌥⌘4 toggle
 the four panels. The [canvas page](canvas.md) covers the rest, including
@@ -121,6 +126,7 @@ crates/
 │                 #   and what a component library *is* (the Library trait)
 ├── codegen/      # document -> idiomatic Rust (and the Generator trait)
 ├── store/        # project files, recents, editor settings, export, the editor bridge
+├── build/        # cargo: where a design compiles, and what the compiler said
 ├── render/       # the canvas: chrome, drop targets, the entity cache
 │                 #   (and the Renderer trait)
 ├── guise/        # guise as a target library: its catalog, presets, generator

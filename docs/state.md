@@ -78,20 +78,37 @@ and it still compiles; it just does not write back.
 
 ## Actions
 
-The same document panel takes actions: a name, and an optional body.
-
-Each becomes a method on the generated type:
+The same document panel takes actions. Each becomes a method on the generated
+type:
 
 ```rust
-pub fn add_person(&mut self, cx: &mut Context<Self>) {
-    // TODO
-    let _ = cx;
+/// Clear the form.
+pub fn submit(&mut self, cx: &mut Context<Self>) {
+    self.email.set(cx, String::new());
+    cx.notify();
 }
 ```
 
-If you typed a body, that is what is inside instead. Tailor never runs your
-code — it places a method where the handler belongs, so the file is a starting
-point rather than a stub you have to re-wire.
+**Click an action to write it.** That opens a Rust buffer over the body, with
+line numbers, highlighting, the signature it generates shown above it, and what
+the handler can reach listed below — the document's state signals, and the
+entity fields codegen will give it, `self.`-prefixed the way the method reaches
+them. The name field renames the action and follows every control wired to it;
+"What it does" becomes the doc comment.
+
+⌃Space accepts a completion and ⌃N / ⌃P walk them. What is offered is what is in
+scope, ranked above Rust's own keywords — typing `em` in a handler means
+`email`, not `emit`. Nothing is offered after a `.`: this completer does not
+know types, and guessing a method would be worse than staying quiet.
+
+**The body lives in the `.tailor` file**, not in the export. That is what makes
+it survive: it is design data like everything else, so regenerating rewrites the
+file *around* your code rather than over it. You never have to protect an export
+from the next Run. An action with no body is marked `empty` in the list and
+generates `// TODO`, which is the difference between a project and a mockup.
+
+Tailor never runs your code while you design — it places a method where the
+handler belongs. [Run](running.md) is what runs it.
 
 ## Events
 

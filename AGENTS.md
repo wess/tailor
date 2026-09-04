@@ -19,7 +19,7 @@ real rather than asserted.
 ```sh
 cargo run -p tailor-app                     # launch Tailor (binary: tailordev)
 cargo check --workspace                     # fast type-check
-cargo test --workspace                      # 219 tests
+cargo test --workspace                      # 264 tests
 cargo test -p tailor-model -p tailor-codegen -p tailor-guise   # the gpui-free half
 cargo run -p tailor-surface                 # regenerate libraries/guise.surface
 cargo build --workspace --locked            # what CI builds (on macOS)
@@ -80,6 +80,16 @@ changing the version line.
   Driven by the same catalog the canvas reads, so a component cannot render one
   way and generate another.
 - **`store/`** — project files, recents, editor settings, export.
+- **`build/`** — Run. `workspace` decides where a project compiles (its export
+  directory, else a managed one under the config dir keyed by an FNV hash of the
+  project path, so Run works on a project you never exported). `session` runs
+  `cargo build --message-format=json` and *then*, as a separate phase, the
+  binary it linked — one `cargo run` would merge cargo's JSON with the app's
+  stdout and a program printing JSON would become a compiler error. `toolchain`
+  finds cargo, which is not a given inside a `.app`: Finder gives it
+  `/usr/bin:/bin:/usr/sbin:/sbin` and rustup installs to `~/.cargo/bin`. No
+  gpui, so the whole thing is testable against a two-line crate in under a
+  second.
 - **`render/`** — the canvas, plus `Renderer`. The chrome around a node — its
   style box, its selection outline, its drop strips, its entrance replay — is
   this crate's; the component inside is the provider's. Interaction never
@@ -112,6 +122,18 @@ changing the version line.
   request the open window picks up on the poll it already runs. `extensions/zed/`
   is a separate thing — an MCP context server for Zed's agent panel — and is its
   own cargo workspace because it targets `wasm32-wasip2`.
+- **Actions carry their body** (`ActionDef::body`), and the sheet in
+  `app/src/editor/action.rs` is where it is written. The body lives in the
+  `.tailor` document rather than the export, which is what makes regeneration
+  write *around* your code instead of over it — the one thing that stops every
+  project being a mockup. Completion there offers the document's own signals and
+  entity fields above Rust's keywords, and nothing after a `.` because it does
+  not know types. ⌃Space accepts: the editor beneath owns Tab and Enter.
+- **A compiler error is a place**, not a message. `Generated::lines` maps a
+  file and a line back to a `NodeId` (`tailor_build::node_at`), so a Problems
+  row opens the file, scrolls to the line, and selects the component. The line
+  map is captured *when the build starts*, because the design may have moved on
+  by the time rustc answers.
 - **`MotionProps`** on a node is the designer's slice of `guise::anim`: an
   entrance, an easing, timings, and a stagger. `Document::motion_of` resolves
   it — a node's own motion, or its parent's with the index folded into the

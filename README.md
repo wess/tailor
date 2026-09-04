@@ -12,7 +12,8 @@ state and the actions, and export idiomatic Rust that has no dependency on
 Tailor left in it.
 
 ```sh
-cargo run -p tailor-app          # from a checkout (binary: tailordev)
+cargo run -p tailor-app                    # from a checkout (binary: tailordev)
+tailordev --build project.tailor           # compile a design, no window, CI-friendly
 ```
 
 Or take the app: every [release](https://github.com/wess/tailor/releases)
@@ -29,6 +30,8 @@ component cannot look right in the builder and wrong in the app.
 | **The workbench** | A searchable library of every placeable component, the node outline, the artboard, a five-tab inspector (Attributes, Size, Style, Connections, Identity) and a Problems panel. Every panel resizes, folds away, and remembers where you left it. |
 | **Direct manipulation** | Eight resize knobs around the selection, drag to move, snapping to the grid and to siblings' edges with guides drawn where it caught, a live size readout, and arrow-key nudging. |
 | **What comes out** | A `Render` entity when the document holds state, a `RenderOnce` builder when it does not. State variables become `Signal<T>` fields, events become `cx.listener` / `cx.subscribe`, and every resolved colour is hoisted into a `let` at the top of `render` the way guise's conventions require. |
+| **Run** | ⌘R writes the project out as a crate, compiles it, and opens your app in its own window. No setup: a project you have never exported gets a managed build directory the way Xcode's DerivedData works. A compiler error comes back as a row you can click — it opens the file, scrolls to the line, and **selects the component that generated it**. |
+| **Actions with bodies** | Wire a button's click to an action, then click the action and write the method. A Rust buffer with completion over what is actually in scope; the body lives in the `.tailor` file, so regenerating writes around your code rather than over it. |
 | **A live window** | A second window rendering the document for real, following every edit — with the guise DevTools inspector in it, and right-click-to-inspect the way a browser does it. |
 | **An MCP server** | `tailor-mcp` drives the same document model, so an agent can place components, wire state and generate Rust with no window open. It saves after every change and the app watches the file, so a screen built by an agent appears on the canvas as it is built. |
 | **An editor jump** | Both directions. **Open in Editor** (⌥⌘O) puts your cursor on the line a component generated; `tailordev --reveal <file>:<line>` goes the other way, and a Zed task binds it to a key. Zed, VS Code, Sublime, IntelliJ, Emacs and Neovim. |
@@ -40,8 +43,9 @@ Full docs live in [`docs/`](docs/readme.md).
 [Overview](docs/readme.md) · [Tutorial](docs/tutorial.md) ·
 [The canvas](docs/canvas.md) · [Components & slots](docs/components.md) ·
 [State & actions](docs/state.md) · [Generated code](docs/codegen.md) ·
-[MCP server](docs/mcp.md) · [Zed & other editors](docs/zed.md) ·
-[Component libraries](docs/libraries.md) · [Changelog](CHANGELOG.md)
+[Running your design](docs/running.md) · [MCP server](docs/mcp.md) ·
+[Zed & other editors](docs/zed.md) · [Component libraries](docs/libraries.md) ·
+[Changelog](CHANGELOG.md)
 
 The [tutorial](docs/tutorial.md) builds a complete app end to end — every code
 block in it is output Tailor actually produced.
@@ -54,6 +58,7 @@ crates/
 │                 #   and what a component library *is* (the Library trait)
 ├── codegen/      # document -> idiomatic Rust (and the Generator trait)
 ├── store/        # project files, recents, editor settings, export, the editor bridge
+├── build/        # cargo: where a design compiles, and what the compiler said
 ├── render/       # the canvas: chrome, drop targets, the entity cache
 │                 #   (and the Renderer trait)
 ├── guise/        # guise as a target library: its catalog, presets, generator
