@@ -6,7 +6,7 @@ and the app opens in a window of its own. Nothing needs configuring first.
 That loop is the difference between a mockup tool and a builder. A design that
 has never been compiled is a drawing; one that has is an app.
 
-| | |
+| Command | What it does |
 | --- | --- |
 | **Run** | ⌘R — build, then launch. Pressing it while something is running restarts it; **Stop** is its own button beside it, because "run it again" is the commonest thing you want and should not cost two clicks. |
 | **Build** | ⌘B — compile and stop there. What you press to check a change without a window appearing. |

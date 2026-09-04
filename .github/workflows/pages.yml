@@ -1,0 +1,82 @@
+name: Site
+
+# Publishes site/dist to GitHub Pages, which serves it at wess.io/tailor
+# through the account-level custom domain. The markdown under docs/ is the
+# source, so a docs change is a site change.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and let an in-progress one finish: cancelling a deploy
+# halfway leaves the site serving a mix of two builds.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        working-directory: site
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        working-directory: site
+        run: bun run build.ts
+
+      # The build writes one page per entry in render/nav.ts. A page that
+      # silently stopped being written would be a 404 nobody noticed until
+      # somebody followed a link, so check the links resolve before deploying.
+      - name: Every internal link resolves
+        working-directory: site
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          dist = pathlib.Path("dist")
+          have = {p.name for p in dist.glob("*.html")}
+          broken = []
+          for page in sorted(dist.glob("*.html")):
+              for href in re.findall(r'href="([^"]+)"', page.read_text()):
+                  if href.startswith(("http", "#", "mailto:", "theme/", "assets/")):
+                      continue
+                  target = href.split("#")[0]
+                  if target and target not in have:
+                      broken.append(f"{page.name} -> {href}")
+          if broken:
+              print("::error::broken internal links")
+              print("\n".join(sorted(set(broken))))
+              sys.exit(1)
+          print(f"{len(have)} pages, every internal link resolves")
+          PY
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -2,28 +2,56 @@
 
 # Tailor
 
-**A visual interface builder for [gpui](https://github.com/zed-industries/zed).**
+**Design it. Run it. Take the Rust.**
+
+A visual interface builder for [gpui](https://github.com/zed-industries/zed) —
+Interface Builder for Rust.
+
+[Website](https://wess.io/tailor/) ·
+[Documentation](https://wess.io/tailor/docs.html) ·
+[Tutorial](docs/tutorial.md) ·
+[Changelog](CHANGELOG.md)
+
+[![CI](https://github.com/wess/tailor/actions/workflows/ci.yml/badge.svg)](https://github.com/wess/tailor/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/wess/tailor?color=4c8dff&label=release)](https://github.com/wess/tailor/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-4c8dff)](LICENSE)
 
 </div>
 
-Tailor is a drag-and-drop interface builder shaped like Interface Builder and
-Android Studio's layout editor. Lay out a screen from real components, wire the
-state and the actions, and export idiomatic Rust that has no dependency on
-Tailor left in it.
-
-```sh
-cargo run -p tailor-app                    # from a checkout (binary: tailordev)
-tailordev --build project.tailor           # compile a design, no window, CI-friendly
-```
-
-Or take the app: every [release](https://github.com/wess/tailor/releases)
-attaches **`Tailor.dmg`**, signed and notarized, with the MCP server beside the
-executable in the bundle.
+Lay out a screen from real components, write the code behind the controls,
+press **Run**, and leave with a crate that has no dependency on Tailor in it.
 
 The canvas is not a drawing of your interface — it *is* your interface. A
 `Button` on it is a real `guise::Button`, reading the same theme, laid out by
 the same flexbox. There is no second rendering path to keep in step, so a
 component cannot look right in the builder and wrong in the app.
+
+## Install
+
+```sh
+brew install --cask wess/packages/tailor
+```
+
+Or take the app: every [release](https://github.com/wess/tailor/releases)
+attaches **`Tailor.dmg`**, signed and notarized, with the MCP server beside the
+executable in the bundle. macOS 11+.
+
+From a checkout:
+
+```sh
+cargo run -p tailor-app                    # the app (binary: tailordev)
+tailordev --build project.tailor           # compile a design, no window, CI-friendly
+```
+
+## The loop
+
+1. **Design.** Drag real components onto a canvas.
+2. **Write the code behind it.** Wire a click to an action, then write the
+   method — with completion over what is actually in scope. Your code lives in
+   the `.tailor` file, so regenerating writes *around* it.
+3. **Run.** ⌘R writes the crate, cargo builds it, your app opens. A compiler
+   error comes back as a row you can click, and it **selects the component that
+   caused it**.
 
 | Part | What it does |
 | --- | --- |
@@ -32,13 +60,17 @@ component cannot look right in the builder and wrong in the app.
 | **What comes out** | A `Render` entity when the document holds state, a `RenderOnce` builder when it does not. State variables become `Signal<T>` fields, events become `cx.listener` / `cx.subscribe`, and every resolved colour is hoisted into a `let` at the top of `render` the way guise's conventions require. |
 | **Run** | ⌘R writes the project out as a crate, compiles it, and opens your app in its own window. No setup: a project you have never exported gets a managed build directory the way Xcode's DerivedData works. A compiler error comes back as a row you can click — it opens the file, scrolls to the line, and **selects the component that generated it**. |
 | **Actions with bodies** | Wire a button's click to an action, then click the action and write the method. A Rust buffer with completion over what is actually in scope; the body lives in the `.tailor` file, so regenerating writes around your code rather than over it. |
+| **The editor** | Every file a build compiles, in a strip that follows the canvas until you pin it. Tree-sitter highlighting — the parser Zed reads with — line numbers, the compiler's underlines in the gutter, and ⌘F with smart case. |
+| **Modules you write** | An action's body is where a control's code goes; a data type or an API client goes in a module you add. Declared by `main.rs`, created once, and never written again — an export reports them as *kept*. |
+| **Open Quickly** | ⌘⇧O searches documents, generated files, actions and **the components on the canvas**, all at once. In a screen of two hundred nodes, "the submit button" is a name you already know. |
 | **A live window** | A second window rendering the document for real, following every edit — with the guise DevTools inspector in it, and right-click-to-inspect the way a browser does it. |
 | **An MCP server** | `tailor-mcp` drives the same document model, so an agent can place components, wire state and generate Rust with no window open. It saves after every change and the app watches the file, so a screen built by an agent appears on the canvas as it is built. |
 | **An editor jump** | Both directions. **Open in Editor** (⌥⌘O) puts your cursor on the line a component generated; `tailordev --reveal <file>:<line>` goes the other way, and a Zed task binds it to a key. Zed, VS Code, Sublime, IntelliJ, Emacs and Neovim. |
 
 ## Documentation
 
-Full docs live in [`docs/`](docs/readme.md).
+Full docs at [wess.io/tailor](https://wess.io/tailor/docs.html), and as markdown
+in [`docs/`](docs/readme.md).
 
 [Overview](docs/readme.md) · [Tutorial](docs/tutorial.md) ·
 [The canvas](docs/canvas.md) · [Components & slots](docs/components.md) ·
@@ -115,10 +147,21 @@ scripts/dmg.sh                                            # dist/Tailor.dmg
 ```
 
 `Cargo.lock` is committed and CI builds `--locked`, so a version bump must
-include the regenerated lockfile. Releasing is pushing a `v*` tag: the workflow
-opens a draft release with notes from the matching `## <version>` section of the
-CHANGELOG, builds and notarizes the DMG, attaches it, and only then publishes.
+include the regenerated lockfile.
+
+**Releasing is bumping the version in `Cargo.toml` and pushing to `main`.** The
+workflow makes the tag, opens a draft release with notes from the matching
+`## <version>` section of the CHANGELOG, builds and notarizes the DMG, attaches
+it, publishes, and updates the Homebrew cask. See
+[releasing](docs/release.md).
+
+The site is `site/` — markdown from `docs/` rendered by Bun, deployed to Pages
+on every push that touches either:
+
+```sh
+cd site && bun install && bun run build.ts   # -> site/dist
+```
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). © 2026 Wess Cope.

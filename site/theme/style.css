@@ -1,0 +1,717 @@
+/* Tailor's site.
+ *
+ * The app is graphite with one blue accent, and the site is the same room —
+ * so the download and the thing you downloaded do not look like two products.
+ *
+ * Dark only. Tailor is a tool you sit in front of at night, its own chrome has
+ * no light mode worth the name, and a light stylesheet nobody checks is worse
+ * than an honest `color-scheme: dark`.
+ */
+
+:root {
+  --bg: #0c0d10;
+  --surface: #131519;
+  --raised: #1b1e24;
+  --border: #24272e;
+  --text: #e7e9ee;
+  --dim: #8b93a1;
+  --faint: #5d6472;
+  --accent: #4c8dff;
+  --accent-soft: rgba(76, 141, 255, 0.14);
+  --danger: #ff6b6b;
+  --ok: #4ade80;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui,
+    sans-serif;
+  --measure: 68ch;
+  --shell: 1180px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.65 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+.skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  background: var(--raised);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.85rem clamp(1rem, 4vw, 2.5rem);
+  background: rgba(12, 13, 16, 0.82);
+  backdrop-filter: saturate(160%) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.wordmark:hover {
+  text-decoration: none;
+}
+.wordmark svg {
+  color: var(--accent);
+}
+
+.bar nav {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+.bar nav a {
+  color: var(--dim);
+  padding: 0.35rem 0.7rem;
+  border-radius: 7px;
+}
+.bar nav a:hover {
+  color: var(--text);
+  background: var(--raised);
+  text-decoration: none;
+}
+.bar nav a.here {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.bar nav a.ghost {
+  border: 1px solid var(--border);
+}
+
+/* --------------------------------------------------------------- landing */
+
+.hero {
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: clamp(3rem, 9vw, 6.5rem) clamp(1rem, 4vw, 2.5rem) 2rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 6.5vw, 4.4rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 620;
+  max-width: 16ch;
+}
+.hero h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.hero .lede {
+  margin: 1.4rem 0 0;
+  max-width: 54ch;
+  font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 2rem;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 9px;
+  font-weight: 550;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+}
+.btn:hover {
+  text-decoration: none;
+}
+.btn.primary {
+  background: var(--accent);
+  color: #07101f;
+}
+.btn.primary:hover {
+  filter: brightness(1.08);
+}
+.btn.quiet {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--surface);
+}
+.btn.quiet:hover {
+  border-color: var(--faint);
+}
+.cta code {
+  font-family: var(--mono);
+  font-variant-ligatures: none;
+  font-size: 0.85rem;
+  color: var(--dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.6rem 0.85rem;
+  border-radius: 9px;
+}
+
+/* The hero artifact: a design and the Rust it makes, side by side. That seam
+   is the whole product, so it is the picture rather than a screenshot. */
+.seam {
+  max-width: var(--shell);
+  margin: 3rem auto;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+}
+.seam-frame {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.9);
+}
+.seam-frame > * {
+  min-width: 0;
+}
+.seam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.seam-body {
+  padding: 1.1rem;
+}
+.seam-right {
+  border-left: 1px solid var(--border);
+  background: #0a0b0e;
+}
+.seam pre {
+  margin: 0;
+  font-family: var(--mono);
+  font-variant-ligatures: none;
+  font-size: 0.775rem;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+
+/* A tiny mock of the canvas: real boxes, not an image, so it stays sharp and
+   weighs nothing. */
+.mock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border-radius: 9px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 1rem;
+}
+.mock .row {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+.mock .title {
+  height: 11px;
+  width: 42%;
+  border-radius: 3px;
+  background: var(--text);
+  opacity: 0.85;
+}
+.mock .line {
+  height: 8px;
+  border-radius: 3px;
+  background: var(--faint);
+  opacity: 0.5;
+}
+.mock .field {
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  flex: 1;
+}
+.mock .button {
+  height: 30px;
+  width: 96px;
+  border-radius: 7px;
+  background: var(--accent);
+  position: relative;
+}
+.mock .selected {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* --------------------------------------------------------------- sections */
+
+/* Margin rather than padding between sections: adjacent margins collapse and
+   adjacent paddings add up, and two 6rem paddings is a screen of nothing. */
+.band {
+  max-width: var(--shell);
+  margin: clamp(3.5rem, 8vw, 5.5rem) auto;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+}
+.band h2 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.6rem, 3.4vw, 2.1rem);
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+.band .sub {
+  margin: 0 0 2.5rem;
+  color: var(--dim);
+  max-width: 58ch;
+}
+
+.grid {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  overflow: hidden;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.grid > article {
+  background: var(--surface);
+  padding: 1.5rem;
+}
+.grid h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.grid h3 svg {
+  color: var(--accent);
+  flex: none;
+}
+.grid p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.925rem;
+  line-height: 1.6;
+}
+.grid kbd {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.05em 0.4em;
+  color: var(--text);
+}
+
+/* The three-step loop. */
+.loop {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  counter-reset: step;
+}
+.loop > li {
+  list-style: none;
+  border-left: 2px solid var(--border);
+  padding: 0.1rem 0 0.1rem 1.1rem;
+}
+.loop > li::before {
+  counter-increment: step;
+  content: counter(step);
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+.loop h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+.loop p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.925rem;
+}
+
+.note {
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+  padding: 1.6rem;
+  color: var(--dim);
+  max-width: var(--measure);
+}
+.note strong {
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------------ docs */
+
+.docs {
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: 2.5rem clamp(1rem, 4vw, 2.5rem) 5rem;
+  align-items: start;
+}
+
+.side {
+  position: sticky;
+  top: 5rem;
+  font-size: 0.9rem;
+}
+.side h4 {
+  margin: 1.4rem 0 0.45rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.side h4:first-child {
+  margin-top: 0;
+}
+.side a {
+  display: block;
+  color: var(--dim);
+  padding: 0.28rem 0.6rem;
+  margin-left: -0.6rem;
+  border-radius: 6px;
+}
+.side a:hover {
+  color: var(--text);
+  background: var(--surface);
+  text-decoration: none;
+}
+.side a.here {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.prose {
+  max-width: var(--measure);
+  min-width: 0;
+}
+.prose h1 {
+  margin: 0 0 1.6rem;
+  font-size: clamp(1.9rem, 4vw, 2.5rem);
+  letter-spacing: -0.03em;
+  font-weight: 620;
+  line-height: 1.15;
+}
+.prose h2 {
+  margin: 3rem 0 0.8rem;
+  padding-top: 0.4rem;
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  border-top: 1px solid var(--border);
+}
+.prose h3 {
+  margin: 2rem 0 0.6rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+.prose p,
+.prose li {
+  color: #cbd1dc;
+}
+.prose li {
+  margin: 0.3rem 0;
+}
+.prose strong {
+  color: var(--text);
+  font-weight: 600;
+}
+/* `--cask` and `->` have to read as the characters they are; several mono
+   faces ligate them into something else. */
+code,
+pre,
+kbd {
+  font-variant-ligatures: none;
+}
+
+.prose code {
+  font-family: var(--mono);
+  font-size: 0.855em;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.08em 0.35em;
+}
+.prose pre {
+  font-variant-ligatures: none;
+  background: #08090c;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+.prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+.prose blockquote {
+  margin: 1.4rem 0;
+  padding: 0.1rem 0 0.1rem 1.1rem;
+  border-left: 2px solid var(--accent);
+  color: var(--dim);
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 0.92rem;
+  display: block;
+  overflow-x: auto;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: var(--surface);
+  font-weight: 600;
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2.5rem 0;
+}
+.prose img {
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.prose .anchor {
+  color: var(--faint);
+  opacity: 0;
+  margin-left: 0.4rem;
+  font-weight: 400;
+}
+.prose h2:hover .anchor,
+.prose h3:hover .anchor {
+  opacity: 1;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+.pager span {
+  display: block;
+  color: var(--faint);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* Docs index cards. */
+.index-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  margin-bottom: 2.5rem;
+}
+.index-grid a {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 1.1rem 1.2rem;
+  color: var(--text);
+}
+.index-grid a:hover {
+  border-color: var(--faint);
+  text-decoration: none;
+}
+.index-grid strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+.index-grid span {
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------- footer */
+
+.foot {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 3rem clamp(1rem, 4vw, 2.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+  justify-content: space-between;
+  max-width: var(--shell);
+  margin: 4rem auto 0;
+  border-radius: 14px 14px 0 0;
+}
+.foot p {
+  color: var(--dim);
+  max-width: 42ch;
+  font-size: 0.92rem;
+  margin: 0.5rem 0 0;
+}
+.foot .cols {
+  display: flex;
+  gap: 3rem;
+  flex-wrap: wrap;
+}
+.foot h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.foot .cols a {
+  display: block;
+  color: var(--dim);
+  font-size: 0.92rem;
+  padding: 0.12rem 0;
+}
+.foot .cols a:hover {
+  color: var(--text);
+}
+
+/* -------------------------------------------------------------- syntax */
+
+.hljs-keyword,
+.hljs-meta {
+  color: #c792ea;
+}
+.hljs-string,
+.hljs-regexp {
+  color: #a5e075;
+}
+.hljs-number,
+.hljs-literal {
+  color: #f9a86a;
+}
+.hljs-title,
+.hljs-title.function_ {
+  color: #6aa9ff;
+}
+.hljs-type,
+.hljs-title.class_,
+.hljs-built_in {
+  color: #ffd479;
+}
+.hljs-comment {
+  color: #5d6472;
+  font-style: italic;
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-property {
+  color: #7fd3c1;
+}
+.hljs-punctuation,
+.hljs-operator {
+  color: #9aa3b2;
+}
+
+/* -------------------------------------------------------------- narrow */
+
+@media (max-width: 900px) {
+  .seam-frame {
+    grid-template-columns: 1fr;
+  }
+  .seam-right {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .docs {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    position: static;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media (max-width: 620px) {
+  .bar nav a:not(.ghost) {
+    display: none;
+  }
+  .foot .cols {
+    gap: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

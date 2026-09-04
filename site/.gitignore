@@ -1,0 +1,5 @@
+# Bun's own; the lockfile is committed so CI can `--frozen-lockfile`.
+node_modules/
+# Built output. The workflow builds it; committing it would mean two sources
+# of truth for what the site says.
+dist/
