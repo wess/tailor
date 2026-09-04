@@ -60,11 +60,28 @@ impl Root {
       let mut recents = Recents::load();
       recents.touch(path, &project.name);
       recents.save();
+      self.recents = recents.clone();
+      refresh_menus(&recents, cx);
     }
     let settings = self.settings.clone();
     let toasts = self.toasts.clone();
     let workbench = cx.new(|cx| Workbench::new(project, path, settings, toasts, cx));
     self.workbench = Some(workbench);
+    cx.notify();
+  }
+
+  /// Open the nth entry of the recents list, if it is still there.
+  fn open_recent(&mut self, index: usize, cx: &mut Context<Self>) {
+    let Some(recent) = self.recents.entries.get(index).cloned() else {
+      return;
+    };
+    self.load(recent.path, cx);
+  }
+
+  fn clear_recents(&mut self, cx: &mut Context<Self>) {
+    self.recents = Recents::default();
+    self.recents.save();
+    refresh_menus(&self.recents, cx);
     cx.notify();
   }
 
@@ -106,6 +123,7 @@ impl Root {
         let mut recents = Recents::load();
         recents.remove(&path);
         recents.save();
+        refresh_menus(&recents, cx);
         self
           .toasts
           .failed(format!("Could not open that project: {err}"), cx);
@@ -149,6 +167,50 @@ impl Root {
     }));
     root = root.on_action(cx.listener(|this, _: &CloseProject, _, cx| {
       this.close_project(cx);
+    }));
+
+    // Window management. gpui 0.2.2's only system submenu is Services, so
+    // these are ordinary actions over the window handle.
+    root = root.on_action(
+      cx.listener(|_, _: &MinimizeWindow, window: &mut Window, _| {
+        window.minimize_window();
+      }),
+    );
+    root = root.on_action(cx.listener(|_, _: &ZoomWindow, window: &mut Window, _| {
+      window.zoom_window();
+    }));
+    root = root.on_action(
+      cx.listener(|_, _: &ToggleFullScreen, window: &mut Window, _| {
+        window.toggle_fullscreen();
+      }),
+    );
+
+    // About opens the settings sheet on its About page, which is where the
+    // version and the settings path already live — a second window saying the
+    // same thing would be a second place to keep it right.
+    root = root.on_action(cx.listener(|this, _: &AboutTailor, window, cx| {
+      this.with_workbench(window, cx, |workbench, _window, cx| {
+        workbench.open_about(cx);
+      });
+    }));
+
+    // File → Open Recent. One arm per slot, because a `no_json` action
+    // carries nothing and the index has to live in the name.
+    macro_rules! recent {
+            ($($action:ty => $index:expr),* $(,)?) => {
+                $(
+                    root = root.on_action(cx.listener(|this, _: &$action, _, cx| {
+                        this.open_recent($index, cx);
+                    }));
+                )*
+            };
+        }
+    recent!(
+        OpenRecent0 => 0, OpenRecent1 => 1, OpenRecent2 => 2, OpenRecent3 => 3,
+        OpenRecent4 => 4, OpenRecent5 => 5, OpenRecent6 => 6, OpenRecent7 => 7,
+    );
+    root = root.on_action(cx.listener(|this, _: &ClearRecents, _, cx| {
+      this.clear_recents(cx);
     }));
 
     forward!(
@@ -315,6 +377,7 @@ impl Root {
               .update(cx, |this, cx| {
                 this.recents.remove(&forget);
                 this.recents.save();
+                refresh_menus(&this.recents, cx);
                 cx.notify();
               })
               .ok();
@@ -325,4 +388,12 @@ impl Root {
     self.menu = Some(menu);
     cx.notify();
   }
+}
+
+/// Rebuild the menu bar so **File → Open Recent** matches the list.
+///
+/// A menu is a snapshot: `set_menus` is the only way to move it on, and the
+/// recents list changes whenever a project is opened, saved or forgotten.
+pub(crate) fn refresh_menus(recents: &Recents, cx: &mut gpui::App) {
+  cx.set_menus(crate::menus(&recents.entries));
 }

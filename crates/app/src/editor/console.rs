@@ -16,17 +16,47 @@ use super::Workbench;
 use crate::theme;
 
 impl Workbench {
+  /// Every line, as text. What you paste into an issue.
+  pub fn copy_console(&mut self, cx: &mut Context<Self>) {
+    if self.build.console.is_empty() {
+      self.toasts.info("Nothing in the console", cx);
+      return;
+    }
+    let text: String = self
+      .build
+      .console
+      .iter()
+      .map(|line| line.text.as_str())
+      .collect::<Vec<_>>()
+      .join("\n");
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+    self.toasts.info("Copied the console", cx);
+  }
+
+  pub fn clear_console(&mut self, cx: &mut Context<Self>) {
+    self.build.console.clear();
+    cx.notify();
+  }
+
   pub(super) fn render_console(&mut self, cx: &mut Context<Self>) -> gpui::AnyElement {
     let chrome = theme::colors(cx);
 
     if self.build.console.is_empty() {
       return div()
+        .id("console-empty")
         .flex()
         .flex_col()
         .items_center()
         .justify_center()
         .gap(px(6.))
         .flex_grow()
+        .on_mouse_down(
+          gpui::MouseButton::Right,
+          cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+            cx.stop_propagation();
+            this.open_console_menu(event.position, window, cx);
+          }),
+        )
         .text_size(px(12.))
         .text_color(chrome.dimmed)
         .child("Nothing has run yet.")
@@ -54,6 +84,13 @@ impl Workbench {
       .flex_col()
       .flex_grow()
       .overflow_y_scroll()
+      .on_mouse_down(
+        gpui::MouseButton::Right,
+        cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+          cx.stop_propagation();
+          this.open_console_menu(event.position, window, cx);
+        }),
+      )
       // Anchored to the bottom, the way a terminal is: a build scrolls
       // itself, and the newest line is the one being waited for.
       .child(div().flex_grow())

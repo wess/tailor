@@ -31,9 +31,32 @@ const ABOUT: &str = "about";
 impl Workbench {
   /// Open the preferences sheet, or close it if it is already up.
   pub fn toggle_settings(&mut self, cx: &mut Context<Self>) {
-    if self.settings_sheet.take().is_some() {
-      cx.notify();
-      return;
+    self.open_settings_on(None, cx);
+  }
+
+  /// **Tailor → About Tailor**. The version and the settings path already
+  /// live on the sheet's About page; a second window saying the same thing
+  /// would be a second place to keep it right.
+  pub fn open_about(&mut self, cx: &mut Context<Self>) {
+    self.open_settings_on(Some(ABOUT), cx);
+  }
+
+  fn open_settings_on(&mut self, page: Option<&'static str>, cx: &mut Context<Self>) {
+    // Already open on the page that was asked for: close it, the way a
+    // toggle does. Open on a different page: move to that page instead.
+    if let Some(view) = self.settings_sheet.clone() {
+      match page {
+        Some(page) if view.read(cx).active_page().map(|id| id.as_ref()) != Some(page) => {
+          view.update(cx, |view, cx| view.set_page(page, cx));
+          cx.notify();
+          return;
+        }
+        _ => {
+          self.settings_sheet = None;
+          cx.notify();
+          return;
+        }
+      }
     }
     let weak = cx.entity().downgrade();
     let view = cx.new(|cx| {
@@ -43,6 +66,7 @@ impl Workbench {
         .page_icon(PANELS, "Panels", IconName::PanelLeft)
         .page_icon(ABOUT, "About", IconName::Info)
         .searchable(true)
+        .active(page.unwrap_or(GENERAL))
         .sidebar_width(170.0)
         .content({
           let weak = weak.clone();

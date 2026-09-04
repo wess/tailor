@@ -19,7 +19,7 @@ mod toasts;
 use gpui::prelude::*;
 use gpui::{
   px, size, App, Application, Bounds, KeyBinding, Menu, MenuItem, OsAction, SharedString,
-  TitlebarOptions, WindowBounds, WindowOptions,
+  SystemMenuType, TitlebarOptions, WindowBounds, WindowOptions,
 };
 use guise::prelude::*;
 
@@ -37,6 +37,9 @@ macro_rules! actions {
 
 actions!(
   // Application
+  // `AboutTailor`, not `About`: guise's prelude has a component by that
+  // name, and an ambiguous action is a confusing way to fail.
+  AboutTailor,
   Quit,
   Hide,
   HideOthers,
@@ -52,6 +55,26 @@ actions!(
   NewComponent,
   ExportCode,
   CloseProject,
+  // File → Open Recent. Eight slots rather than one action carrying an
+  // index: a payload action needs `schemars`, and a whole dependency for a
+  // submenu is a bad trade. Nobody sees the names.
+  OpenRecent0,
+  OpenRecent1,
+  OpenRecent2,
+  OpenRecent3,
+  OpenRecent4,
+  OpenRecent5,
+  OpenRecent6,
+  OpenRecent7,
+  ClearRecents,
+  // Window
+  MinimizeWindow,
+  ZoomWindow,
+  ToggleFullScreen,
+  // Help
+  ShowShortcuts,
+  ShowReleaseNotes,
+  ReportIssue,
   // Edit
   Undo,
   Redo,
@@ -195,12 +218,71 @@ fn menu(name: &'static str, items: Vec<MenuItem>) -> Menu {
 
 /// The menu bar, grouped the way an interface builder's is: what you have open,
 /// what you are editing, what the canvas is doing.
-fn menus() -> Vec<Menu> {
+/// File → Open Recent, built from the list on disk.
+///
+/// Rebuilt whenever the list changes, because a menu is a snapshot and
+/// `set_menus` is the only way to move it on.
+fn recent_menu(recents: &[tailor_store::Recent]) -> Menu {
+  let slots: [MenuItem; 8] = [
+    MenuItem::action("", OpenRecent0),
+    MenuItem::action("", OpenRecent1),
+    MenuItem::action("", OpenRecent2),
+    MenuItem::action("", OpenRecent3),
+    MenuItem::action("", OpenRecent4),
+    MenuItem::action("", OpenRecent5),
+    MenuItem::action("", OpenRecent6),
+    MenuItem::action("", OpenRecent7),
+  ];
+  let mut items: Vec<MenuItem> = slots
+    .into_iter()
+    .zip(recents.iter())
+    .map(|(slot, recent)| match slot {
+      MenuItem::Action { action, .. } => MenuItem::Action {
+        name: SharedString::from(recent_label(recent, recents)),
+        action,
+        os_action: None,
+      },
+      other => other,
+    })
+    .collect();
+  if items.is_empty() {
+    // An empty submenu is a dead end; say why it is empty.
+    items.push(MenuItem::action("No Recent Projects", ClearRecents));
+  } else {
+    items.push(MenuItem::separator());
+    items.push(MenuItem::action("Clear Menu", ClearRecents));
+  }
+  Menu {
+    name: SharedString::new_static("Open Recent"),
+    items,
+  }
+}
+
+/// A recent project's name, with its file name when the name alone would not
+/// tell two of them apart. Four rows reading "Dashboard" is a list you cannot
+/// use, and the file name is what differs — the list is keyed by path, and
+/// several projects in one folder is the ordinary case.
+fn recent_label(recent: &tailor_store::Recent, all: &[tailor_store::Recent]) -> String {
+  let shared = all.iter().filter(|other| other.name == recent.name).count() > 1;
+  if !shared {
+    return recent.name.clone();
+  }
+  match recent.path.file_stem() {
+    Some(file) => format!("{} — {}", recent.name, file.to_string_lossy()),
+    None => recent.name.clone(),
+  }
+}
+
+fn menus(recents: &[tailor_store::Recent]) -> Vec<Menu> {
   vec![
     menu(
       "Tailor",
       vec![
+        MenuItem::action("About Tailor", AboutTailor),
+        MenuItem::separator(),
         MenuItem::action("Settings…", OpenSettings),
+        MenuItem::separator(),
+        MenuItem::os_submenu("Services", SystemMenuType::Services),
         MenuItem::separator(),
         MenuItem::action("Hide Tailor", Hide),
         MenuItem::action("Hide Others", HideOthers),
@@ -214,6 +296,7 @@ fn menus() -> Vec<Menu> {
       vec![
         MenuItem::action("New Project", NewProject),
         MenuItem::action("Open…", OpenProject),
+        MenuItem::Submenu(recent_menu(recents)),
         MenuItem::separator(),
         MenuItem::action("New Screen", NewScreen),
         MenuItem::action("New Component", NewComponent),
@@ -286,7 +369,6 @@ fn menus() -> Vec<Menu> {
         MenuItem::action("Build", BuildProject),
         MenuItem::action("Stop", StopProject),
         MenuItem::separator(),
-        MenuItem::separator(),
         MenuItem::action("Debug", UseDebug),
         MenuItem::action("Release", UseRelease),
         MenuItem::separator(),
@@ -317,7 +399,26 @@ fn menus() -> Vec<Menu> {
         MenuItem::action("Show Layout Bounds", ToggleOutlines),
       ],
     ),
-    menu("Help", vec![MenuItem::action("Documentation", ShowDocs)]),
+    // macOS puts window management in its own menu, and an app without one
+    // reads as unfinished however good the rest is.
+    menu(
+      "Window",
+      vec![
+        MenuItem::action("Minimize", MinimizeWindow),
+        MenuItem::action("Zoom", ZoomWindow),
+        MenuItem::action("Enter Full Screen", ToggleFullScreen),
+      ],
+    ),
+    menu(
+      "Help",
+      vec![
+        MenuItem::action("Tailor Documentation", ShowDocs),
+        MenuItem::action("Keyboard Shortcuts", ShowShortcuts),
+        MenuItem::separator(),
+        MenuItem::action("Release Notes", ShowReleaseNotes),
+        MenuItem::action("Report an Issue", ReportIssue),
+      ],
+    ),
   ]
 }
 
@@ -347,6 +448,9 @@ fn keys() -> Vec<KeyBinding> {
     KeyBinding::new("cmd-.", StopProject, None),
     KeyBinding::new("cmd-shift-k", CleanBuild, None),
     KeyBinding::new("cmd-q", Quit, None),
+    KeyBinding::new("cmd-w", CloseProject, None),
+    KeyBinding::new("cmd-m", MinimizeWindow, None),
+    KeyBinding::new("ctrl-cmd-f", ToggleFullScreen, None),
     KeyBinding::new("cmd-h", Hide, None),
     KeyBinding::new("alt-cmd-h", HideOthers, None),
     KeyBinding::new("cmd-,", OpenSettings, None),
@@ -556,12 +660,22 @@ fn main() {
     theme::install_manager(&settings, cx);
 
     cx.bind_keys(keys());
-    cx.set_menus(menus());
+    cx.set_menus(menus(&tailor_store::Recents::load().entries));
     cx.on_action::<Quit>(|_, cx| cx.quit());
     cx.on_action::<Hide>(|_, cx| cx.hide());
     cx.on_action::<HideOthers>(|_, cx| cx.hide_other_apps());
     cx.on_action::<ShowAll>(|_, cx| cx.unhide_other_apps());
-    cx.on_action::<ShowDocs>(|_, cx| cx.open_url("https://github.com/wess/tailor"));
+    // The Help menu. Every one of these is a URL, so they are app-level:
+    // they work with no project open, which is when you are most likely to
+    // want them.
+    cx.on_action::<ShowDocs>(|_, cx| cx.open_url("https://wess.io/tailor/"));
+    cx.on_action::<ShowShortcuts>(|_, cx| {
+      cx.open_url("https://wess.io/tailor/canvas.html#shortcuts")
+    });
+    cx.on_action::<ShowReleaseNotes>(|_, cx| {
+      cx.open_url("https://github.com/wess/tailor/releases")
+    });
+    cx.on_action::<ReportIssue>(|_, cx| cx.open_url("https://github.com/wess/tailor/issues/new"));
 
     let bounds = Bounds::centered(None, size(px(1440.0), px(900.0)), cx);
     cx.open_window(

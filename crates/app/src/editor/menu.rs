@@ -533,6 +533,22 @@ impl Workbench {
           action(&weak, |this, _window, cx| this.copy_code(cx)),
         )
         .item_icon(
+          IconName::SquareArrowOutUpRight,
+          "Open in Editor",
+          action(&weak, |this, window, cx| this.open_in_editor(window, cx)),
+        )
+        .item_icon(
+          IconName::Search,
+          "Find in this file…",
+          action(&weak, |this, window, cx| this.find_in_code(window, cx)),
+        )
+        .divider()
+        .item_icon(
+          IconName::Play,
+          "Run",
+          action(&weak, |this, window, cx| this.run_project(window, cx)),
+        )
+        .item_icon(
           IconName::FolderOutput,
           "Export the project…",
           action(&weak, |this, window, cx| this.export_code(window, cx)),
@@ -542,6 +558,56 @@ impl Workbench {
           IconName::PanelRight,
           "Hide the code",
           action(&weak, |this, window, cx| this.mode_design(window, cx)),
+        )
+    });
+    menu.update(cx, |menu, cx| menu.show(position, window, cx));
+    self.menu = Some(menu);
+    cx.notify();
+  }
+
+  /// The console's menu. The one panel that had none, because it is the one
+  /// panel that did not exist when the others got theirs.
+  pub fn open_console_menu(
+    &mut self,
+    position: Point<Pixels>,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) {
+    let weak = cx.entity().downgrade();
+    let running = self.build.status.busy();
+    let menu = cx.new(move |cx| {
+      ContextMenu::new(cx)
+        .width(230.0)
+        .item_icon(
+          IconName::Copy,
+          "Copy the output",
+          action(&weak, |this, _window, cx| this.copy_console(cx)),
+        )
+        .item_icon(
+          IconName::Trash2,
+          "Clear",
+          action(&weak, |this, _window, cx| this.clear_console(cx)),
+        )
+        .divider()
+        .item_icon(
+          if running {
+            IconName::Square
+          } else {
+            IconName::Play
+          },
+          if running { "Stop" } else { "Run" },
+          action(&weak, move |this, window, cx| {
+            if running {
+              this.stop_project(window, cx)
+            } else {
+              this.run_project(window, cx)
+            }
+          }),
+        )
+        .item_icon(
+          IconName::FolderOpen,
+          "Reveal the build folder",
+          action(&weak, |this, window, cx| this.reveal_build(window, cx)),
         )
     });
     menu.update(cx, |menu, cx| menu.show(position, window, cx));
