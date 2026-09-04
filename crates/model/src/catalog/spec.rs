@@ -166,7 +166,7 @@ pub struct ComponentSpec {
   pub kind: &'static str,
   /// The name shown in the palette and the layers tree.
   pub title: &'static str,
-  /// The guise type the generator prints. Empty for `Ctor::Special` kinds
+  /// The library type the generator prints. Empty for `Ctor::Special` kinds
   /// that are not a single type (a frame is a `div`).
   pub rust: &'static str,
   pub category: Category,
@@ -182,10 +182,26 @@ pub struct ComponentSpec {
   /// Applied when the component is first placed — the sensible starting size
   /// or padding that makes a fresh drop look like something.
   pub on_place: Option<fn(&mut Node)>,
-  /// Extra `use` lines the generated file needs. The prelude covers almost
-  /// everything; `flex/` is the exception, because its names deliberately
-  /// overlap `layout/` and it is not glob-exported.
+  /// Extra `use` lines the generated file needs. The library's prelude covers
+  /// almost everything; guise's `flex/` is the exception, because its names
+  /// deliberately overlap `layout/` and it is not glob-exported.
   pub imports: &'static [&'static str],
+
+  // --- What an agent needs that a person reading the palette does not ---
+  //
+  // A person picks a component from a row of icons and a one-line blurb, and
+  // finds out the rest by dropping one on the canvas and looking. An agent
+  // gets one shot from a text description, so the difference between the
+  // right component and a plausible wrong one has to be written down.
+  /// When to reach for this rather than something adjacent, and what it is
+  /// *not* for. Empty means the blurb is the whole story.
+  pub docs: &'static str,
+  /// One idiomatic snippet, as the generator would print it.
+  pub example: &'static str,
+  /// Other names for this thing. A person scanning a palette recognises a
+  /// "Combobox" on sight; an agent asked for a "dropdown" or a "typeahead"
+  /// has to be able to find it.
+  pub aliases: &'static [&'static str],
 }
 
 impl ComponentSpec {

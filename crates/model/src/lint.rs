@@ -322,25 +322,7 @@ fn check_document(project: &Project, doc: &Document, out: &mut Vec<Problem>) {
 /// brings in. The catalog knows every component's Rust name; the rest is what
 /// a generated file also names.
 pub fn shadows_guise(name: &str) -> bool {
-  const ALSO: &[&str] = &[
-    "Signal",
-    "Binding",
-    "Theme",
-    "Size",
-    "Variant",
-    "ColorName",
-    "Color",
-    "Align",
-    "Justify",
-    "Glyph",
-    "IconName",
-    "Window",
-    "App",
-  ];
-  ALSO.contains(&name)
-    || catalog::all()
-      .iter()
-      .any(|spec| !spec.rust.is_empty() && spec.rust == name)
+  crate::library::Library::shadows(catalog::guise(), name)
 }
 
 /// Only the problems that belong to one document.

@@ -78,6 +78,11 @@ pub fn guise() -> Surface {
   }
 }
 
+/// The guise version this workspace resolves — what the canvas renders with.
+pub fn guise_version() -> String {
+  locked_version("guise-ui")
+}
+
 /// The version of a package as `Cargo.lock` resolves it. The lockfile is
 /// committed and CI builds `--locked`, so this is the version that will
 /// actually be compiled against.

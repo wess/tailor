@@ -13,6 +13,7 @@ pub mod spec;
 
 pub use spec::{Category, ComponentSpec, Ctor, DynamicSlots, SlotRef, SlotSpec, CHILDREN};
 
+use crate::library::{Library, TokenPaths};
 use std::sync::OnceLock;
 
 /// A spec with every optional field empty. `comp!` fills in the rest.
@@ -39,6 +40,9 @@ pub const fn base(
     events: &[],
     on_place: None,
     imports: &[],
+    docs: "",
+    example: "",
+    aliases: &[],
   }
 }
 
@@ -88,50 +92,102 @@ fn registry() -> &'static Vec<&'static ComponentSpec> {
   })
 }
 
+/// guise, as a [`Library`].
+///
+/// The tables in this module still describe guise specifically; this is the
+/// interface every consumer goes through, so that when a second provider
+/// arrives nothing above it has to learn what a library is.
+pub struct Guise;
+
+/// The guise library. `&'static` because a catalog outlives every document.
+pub fn guise() -> &'static dyn Library {
+  &Guise
+}
+
+impl Library for Guise {
+  fn id(&self) -> &'static str {
+    "guise"
+  }
+
+  fn label(&self) -> &'static str {
+    "guise"
+  }
+
+  fn krate(&self) -> &'static str {
+    "guise-ui"
+  }
+
+  fn version_req(&self) -> &'static str {
+    // What Tailor renders with. Generated code asks for the same thing, or an
+    // export compiles against a library that is not the one you previewed.
+    "1.6"
+  }
+
+  fn prelude(&self) -> &'static [&'static str] {
+    &["use gpui::prelude::*;", "use guise::prelude::*;"]
+  }
+
+  fn components(&self) -> &'static [&'static ComponentSpec] {
+    registry()
+  }
+
+  fn presets(&self) -> &'static [crate::project::ThemePreset] {
+    crate::project::THEME_PRESETS
+  }
+
+  fn token_paths(&self) -> TokenPaths {
+    TokenPaths {
+      size: "Size",
+      variant: "Variant",
+      color: "ColorName",
+      align: "Align",
+      justify: "Justify",
+    }
+  }
+
+  fn reserved(&self) -> &'static [&'static str] {
+    // The prelude exports more than components: a document named `Theme` or
+    // `Size` shadows the token type every generated file uses.
+    &[
+      "Signal",
+      "Binding",
+      "Theme",
+      "Size",
+      "Variant",
+      "ColorName",
+      "Color",
+      "Align",
+      "Justify",
+      "Glyph",
+      "IconName",
+      "Window",
+      "App",
+    ]
+  }
+}
+
+// The free functions every caller still uses, now one line each over the
+// `Library` implementation above. They are what threading a library handle
+// through the app will replace call site by call site; until then this is the
+// single implementation rather than a second one that can drift.
+
 /// Every component, in palette order.
 pub fn all() -> &'static [&'static ComponentSpec] {
-  registry()
+  guise().components()
 }
 
 pub fn get(kind: &str) -> Option<&'static ComponentSpec> {
-  registry().iter().copied().find(|spec| spec.kind == kind)
+  guise().get(kind)
 }
 
 /// The specs in one category.
 pub fn in_category(category: Category) -> Vec<&'static ComponentSpec> {
-  registry()
-    .iter()
-    .copied()
-    .filter(|spec| spec.category == category)
-    .collect()
+  guise().in_category(category)
 }
 
-/// Palette search: matches the title, the kind, or the blurb, title first.
+/// Palette search: matches the title, the kind, an alias, or the blurb.
 pub fn search(query: &str) -> Vec<&'static ComponentSpec> {
-  let needle = query.trim().to_lowercase();
-  if needle.is_empty() {
-    return registry().to_vec();
-  }
-  let mut scored: Vec<(u8, &'static ComponentSpec)> = registry()
-    .iter()
-    .copied()
-    .filter_map(|spec| {
-      let title = spec.title.to_lowercase();
-      if title == needle {
-        Some((0, spec))
-      } else if title.starts_with(&needle) {
-        Some((1, spec))
-      } else if title.contains(&needle) || spec.kind.contains(&needle) {
-        Some((2, spec))
-      } else if spec.blurb.to_lowercase().contains(&needle) {
-        Some((3, spec))
-      } else {
-        None
-      }
-    })
-    .collect();
-  scored.sort_by_key(|(rank, spec)| (*rank, spec.title));
-  scored.into_iter().map(|(_, spec)| spec).collect()
+  guise().search(query)
 }
 
 #[cfg(test)]
@@ -197,6 +253,52 @@ mod tests {
         );
       }
     }
+  }
+
+  #[test]
+  fn an_alias_finds_its_component() {
+    // The whole point of aliases: an agent asked for a "dropdown" has to land
+    // on the component a person would have recognised from the palette.
+    for spec in all() {
+      for alias in spec.aliases {
+        let hits = crate::catalog::search(alias);
+        assert!(
+          hits.iter().any(|hit| hit.kind == spec.kind),
+          "{} lists the alias {alias:?}, which finds it nothing",
+          spec.kind
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn no_alias_collides_with_another_components_title() {
+    // An alias that is some other component's name would rank that component
+    // first and quietly shadow the one claiming the alias.
+    let titles: Vec<String> = all().iter().map(|s| s.title.to_lowercase()).collect();
+    for spec in all() {
+      for alias in spec.aliases {
+        assert!(
+          !titles.contains(&alias.to_lowercase()) || spec.title.eq_ignore_ascii_case(alias),
+          "{} claims the alias {alias:?}, which is another component's name",
+          spec.kind
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn the_generated_dependency_matches_what_tailor_renders_with() {
+    // Generated code asks for `version_req`; the canvas draws with whatever
+    // Cargo.lock resolved. If those drift, an export compiles against a
+    // library that is not the one you previewed.
+    let req = crate::library::Library::version_req(guise());
+    let pinned = crate::surface::guise_version();
+    assert!(
+      pinned.starts_with(req),
+      "generated code asks for {} {req}, but Tailor renders with {pinned}",
+      crate::library::Library::krate(guise())
+    );
   }
 
   #[test]

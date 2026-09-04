@@ -12,6 +12,7 @@ pub mod catalog;
 pub mod doc;
 pub mod history;
 pub mod id;
+pub mod library;
 pub mod lint;
 pub mod motion;
 pub mod node;
