@@ -854,7 +854,7 @@ fn a_stale_background_result_is_discarded(cx: &mut TestAppContext) {
   // finish out of order.
   workbench.update(cx, |this, cx| {
     let stale = this.revision.wrapping_sub(1);
-    this.apply_analysis(stale, ("// nonsense".into(), Vec::new()), cx);
+    this.apply_analysis(stale, ("// nonsense".into(), Vec::new(), Vec::new()), cx);
   });
   workbench.update(cx, |this, _| {
     assert_eq!(this.generated, current, "a stale result was applied");
@@ -863,7 +863,7 @@ fn a_stale_background_result_is_discarded(cx: &mut TestAppContext) {
   // The current revision does apply.
   workbench.update(cx, |this, cx| {
     let now = this.revision;
-    this.apply_analysis(now, ("// fresh".into(), Vec::new()), cx);
+    this.apply_analysis(now, ("// fresh".into(), Vec::new(), Vec::new()), cx);
   });
   workbench.update(cx, |this, _| assert_eq!(this.generated, "// fresh"));
 }
@@ -1077,15 +1077,18 @@ fn a_build_moves_through_its_states_and_a_diagnostic_lands_on_its_component(
 
     // The error points at the component that generated the line — the whole
     // reason the line map is captured.
-    let problem = this.build.problems.first().expect("one problem");
-    assert_eq!(problem.node, Some(button));
-    assert_eq!(problem.severity, tailor_model::Severity::Error);
+    let built = this.build.problems.first().expect("one problem");
+    assert_eq!(built.problem.node, Some(button));
+    assert_eq!(built.problem.severity, tailor_model::Severity::Error);
     assert!(
-      problem.message.starts_with("[E0308] "),
+      built.problem.message.starts_with("[E0308] "),
       "{}",
-      problem.message
+      built.problem.message
     );
-    assert_eq!(problem.doc_id, "main");
+    assert_eq!(built.problem.doc_id, "main");
+    // The row knows where to go: the file and the line the compiler named.
+    assert_eq!(built.file, file);
+    assert_eq!(built.line, line);
 
     // A warning-free build that is only half of a Run keeps going.
     let finished = this.apply_build_event(
@@ -1182,12 +1185,100 @@ fn the_problem_list_carries_the_compiler_and_the_linter_together(cx: &mut TestAp
 
     // A build with no line for that file still shows the message, with the
     // location as the hint under it.
-    let problem = &this.build.problems[0];
-    assert_eq!(problem.node, None);
-    assert_eq!(problem.fix, "src/main.rs:1:1");
+    let built = &this.build.problems[0];
+    assert_eq!(built.problem.node, None);
+    assert_eq!(built.problem.fix, "src/main.rs:1:1");
 
     // Starting another build clears the last one's problems but not the lint.
     this.build.problems.clear();
     assert_eq!(this.problems.len(), lints);
+  });
+}
+
+/// The code pane follows the canvas until you pin it somewhere else.
+#[gpui::test]
+fn the_code_pane_follows_the_open_document_and_can_be_pinned(cx: &mut TestAppContext) {
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  settle(cx);
+
+  // A second screen, so there is somewhere to follow to.
+  workbench.update(cx, |this, cx| this.add_document(DocKind::Screen, cx));
+  settle(cx);
+
+  workbench.update(cx, |this, _| {
+    // Every file the crate has, not just the open document's.
+    let paths: Vec<&str> = this.code.files.iter().map(|(p, _)| p.as_str()).collect();
+    assert!(paths.iter().any(|p| p.ends_with("main.rs")), "{paths:?}");
+    assert!(paths.iter().any(|p| p.ends_with("theme.rs")), "{paths:?}");
+    assert!(paths.contains(&"Cargo.toml"), "{paths:?}");
+
+    // Unpinned, it shows whatever the canvas is on.
+    assert!(this.code.pinned.is_none());
+    let showing = this.showing_file().expect("a file for the open document");
+    let name = tailor_model::snake_case(&this.doc().unwrap().name);
+    assert!(showing.ends_with(&format!("{name}.rs")), "{showing}");
+  });
+
+  // Switching documents moves the pane with it.
+  let first = workbench.update(cx, |this, _| this.project.docs[0].id.clone());
+  workbench.update(cx, |this, cx| this.open_document(&first, cx));
+  settle(cx);
+  workbench.update(cx, |this, _| {
+    let showing = this.showing_file().unwrap();
+    assert!(showing.ends_with("main_screen.rs"), "{showing}");
+  });
+
+  // Pinning holds it there instead.
+  workbench.update(cx, |this, _| {
+    this.code.pinned = Some("src/main.rs".into());
+    assert_eq!(this.showing_file().as_deref(), Some("src/main.rs"));
+  });
+  let second = workbench.update(cx, |this, _| this.project.docs[1].id.clone());
+  workbench.update(cx, |this, cx| this.open_document(&second, cx));
+  settle(cx);
+  workbench.update(cx, |this, _| {
+    assert_eq!(
+      this.showing_file().as_deref(),
+      Some("src/main.rs"),
+      "a pinned pane should not follow the canvas"
+    );
+  });
+
+  // A pin on a file that stops existing goes back to following, rather than
+  // showing nothing.
+  workbench.update(cx, |this, cx| {
+    this.code.pinned = Some("src/ui/gone.rs".into());
+    this.refresh(cx);
+  });
+  settle(cx);
+  workbench.update(cx, |this, _| {
+    assert!(this.code.pinned.is_none());
+    assert!(this.showing_file().is_some());
+  });
+}
+
+/// A compiler error is a place, not just a message.
+#[gpui::test]
+fn revealing_a_diagnostic_pins_its_file_and_puts_the_caret_on_the_line(cx: &mut TestAppContext) {
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  settle(cx);
+
+  workbench.update_in(cx, |this, window, cx| {
+    // Cargo reports the path relative to the crate root; it has to land.
+    this.reveal_in_code("src/main.rs", Some(4), window, cx);
+    assert_eq!(this.code.pinned.as_deref(), Some("src/main.rs"));
+    assert!(this.settings.is_open(tailor_store::Panel::Code));
+
+    let cursor = this.code_view.read(cx).model().cursor();
+    assert_eq!(cursor.line, 3, "1-based from rustc, 0-based in the editor");
+
+    // An absolute path from a diagnostic still matches the generated one.
+    this.reveal_in_code("/builds/demo/src/theme.rs", Some(2), window, cx);
+    assert_eq!(this.code.pinned.as_deref(), Some("src/theme.rs"));
+
+    // A file the project does not generate is left alone rather than
+    // blanking the pane.
+    this.reveal_in_code("src/nowhere.rs", Some(1), window, cx);
+    assert_eq!(this.code.pinned.as_deref(), Some("src/theme.rs"));
   });
 }

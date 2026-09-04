@@ -13,6 +13,7 @@ pub mod code;
 pub mod commands;
 pub mod console;
 pub mod docs;
+pub mod find;
 pub mod grab;
 pub mod inspector;
 pub mod live;
@@ -185,6 +186,8 @@ pub struct Workbench {
   /// Building and running the project: the session, the console, and what the
   /// compiler had to say about it.
   pub build: run::Build,
+  /// The code pane: every generated file, and which one is showing.
+  pub code: code::CodePane,
   /// Which half of the bottom pane is showing.
   pub bottom: run::Bottom,
   /// The canvas's focus. Not decoration: gpui builds the dispatch path from
@@ -217,11 +220,21 @@ impl Workbench {
         .size(Size::Sm)
     });
     let code_view = cx.new(|cx| {
-      Editor::new(cx)
-        .language(Language::Rust)
+      let editor = Editor::new(cx)
         .read_only(true)
         .line_numbers(true)
-        .font_size(12.0)
+        .font_size(12.0);
+      // Tree-sitter parses the file; `Language::Rust` is a regex tokenizer
+      // that guesses at it. The fallback is not dead code — a grammar and a
+      // query from mismatched crate versions fail to compile together, and
+      // that should cost highlighting rather than the pane.
+      match guise::editor::TreeSitterHighlighter::new(
+        tree_sitter_rust::LANGUAGE.into(),
+        tree_sitter_rust::HIGHLIGHTS_QUERY,
+      ) {
+        Ok(rust) => editor.highlighter(rust),
+        Err(_) => editor.language(Language::Rust),
+      }
     });
 
     let mut subs = Vec::new();
@@ -275,6 +288,7 @@ impl Workbench {
       landscape: false,
       motion_epoch: 0,
       build: run::Build::default(),
+      code: code::CodePane::default(),
       bottom: run::Bottom::default(),
       focus: cx.focus_handle(),
       focused: false,

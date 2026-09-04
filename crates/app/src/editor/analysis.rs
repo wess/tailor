@@ -21,6 +21,10 @@ use std::time::Duration;
 use gpui::Context;
 use tailor_model::lint::Problem;
 
+/// What one background pass produces: the open document's source, every file
+/// the project generates, and the lint result.
+pub type Analysis = (String, Vec<(String, String)>, Vec<Problem>);
+
 use super::Workbench;
 
 /// How long an edit has to settle before the code and the lint are recomputed.
@@ -48,8 +52,15 @@ impl Workbench {
             .doc(&doc_id)
             .map(|doc| tailor_codegen::preview(&project, doc).source)
             .unwrap_or_default();
+          // The whole crate, not just the open document: the code pane is a
+          // file strip over what a build would compile, and `main.rs` is
+          // where a reader looks first.
+          let files = tailor_codegen::project_files(&project)
+            .into_iter()
+            .map(|file| (file.path, file.source))
+            .collect();
           let problems = tailor_model::lint::check(&project);
-          (generated, problems)
+          (generated, files, problems)
         })
         .await;
       this
@@ -61,7 +72,7 @@ impl Workbench {
   pub(crate) fn apply_analysis(
     &mut self,
     revision: u64,
-    (generated, problems): (String, Vec<Problem>),
+    (generated, files, problems): Analysis,
     cx: &mut Context<Self>,
   ) {
     // Something newer landed while this was running.
@@ -69,12 +80,19 @@ impl Workbench {
       return;
     }
     self.problems = problems;
-    if generated != self.generated {
-      self.generated = generated;
-      let text = self.generated.clone();
-      self
-        .code_view
-        .update(cx, |editor, cx| editor.set_text(&text, cx));
+    let changed = generated != self.generated || files != self.code.files;
+    self.generated = generated;
+    self.code.files = files;
+    // A pin on a file that no longer exists — a screen was renamed or
+    // deleted — goes back to following the canvas rather than showing
+    // nothing.
+    if let Some(pinned) = self.code.pinned.clone() {
+      if !self.code.files.iter().any(|(path, _)| *path == pinned) {
+        self.code.pinned = None;
+      }
+    }
+    if changed {
+      self.sync_code_view(cx);
     }
     cx.notify();
   }

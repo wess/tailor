@@ -81,6 +81,17 @@ pub struct ConsoleLine {
   pub text: String,
 }
 
+/// A compiler complaint, as the Problems panel wants it.
+///
+/// The `Problem` is what gets rendered; the file and line beside it are what
+/// makes the row *go* somewhere — the code pane scrolls to the line, and the
+/// canvas selects whatever generated it.
+pub struct BuildProblem {
+  pub problem: Problem,
+  pub file: String,
+  pub line: usize,
+}
+
 /// Everything the workbench knows about building and running.
 #[derive(Default)]
 pub struct Build {
@@ -90,7 +101,10 @@ pub struct Build {
   /// Compiler diagnostics as problems, resolved back to the nodes that
   /// generated them. Kept apart from the lint pass's list, which is recomputed
   /// on every edit and would otherwise wipe these on the next keystroke.
-  pub problems: Vec<Problem>,
+  pub problems: Vec<BuildProblem>,
+  /// The same messages unflattened, for the editor's gutter — it wants
+  /// columns, which a `Problem` does not carry.
+  pub diagnostics: Vec<tailor_build::Diagnostic>,
   /// Where each node ended up, captured at the moment of the build. Read to
   /// map a diagnostic back to a node — and captured then, not now, because the
   /// design may have moved on while the compiler was working.
@@ -171,6 +185,7 @@ impl Workbench {
     let workspace = Workspace::resolve(self.path.as_deref(), &self.project);
     self.build.console.clear();
     self.build.problems.clear();
+    self.build.diagnostics.clear();
     self.build.status = Status::Building;
     self.build.workspace = Some(workspace.clone());
     // The bottom pane opens on the console: a build you cannot see is a
@@ -247,6 +262,9 @@ impl Workbench {
     if finished {
       self.build.session = None;
     }
+    // The gutter is part of the file, so it is redrawn with it rather than
+    // waiting for the next analysis.
+    self.sync_code_view(cx);
     cx.notify();
     !finished
   }
@@ -316,6 +334,7 @@ impl Workbench {
       return;
     }
 
+    self.build.diagnostics.push(diagnostic.clone());
     let node = tailor_build::node_at(&self.build.lines, &diagnostic.file, diagnostic.line);
     // Which document the file belongs to, so clicking the problem can open it.
     let doc_id = node
@@ -334,12 +353,16 @@ impl Workbench {
       .as_deref()
       .map(|code| format!("[{code}] "))
       .unwrap_or_default();
-    self.build.problems.push(Problem {
-      severity,
-      doc_id,
-      node,
-      message: format!("{code}{}", diagnostic.message),
-      fix: diagnostic.location(),
+    self.build.problems.push(BuildProblem {
+      problem: Problem {
+        severity,
+        doc_id,
+        node,
+        message: format!("{code}{}", diagnostic.message),
+        fix: diagnostic.location(),
+      },
+      file: diagnostic.file.clone(),
+      line: diagnostic.line,
     });
   }
 }

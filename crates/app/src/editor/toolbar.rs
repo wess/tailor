@@ -36,9 +36,12 @@ impl Workbench {
       .flex_row()
       .items_center()
       .justify_between()
-      .h(px(44.))
-      .px(px(10.))
-      .gap(px(10.))
+      // Roomy on purpose: the toolbar is the one row that is always there,
+      // and a cramped one makes the whole window feel cramped. 52 is the
+      // height a 28px control sits in with air above and below it.
+      .h(px(52.))
+      .px(px(16.))
+      .gap(px(14.))
       .bg(chrome.surface)
       .border_b(px(1.))
       .border_color(chrome.border)
@@ -46,8 +49,9 @@ impl Workbench {
       .child(
         div()
           .flex()
+          .flex_none()
           .items_center()
-          .gap(px(4.))
+          .gap(px(3.))
           .child(
             self.tool_button("save", "save", "Save", true, cx, |this, window, cx| {
               this.save(window, cx)
@@ -87,15 +91,20 @@ impl Workbench {
             |this, window, cx| this.unwrap_selection(window, cx),
           )),
       )
-      // Middle: what the canvas is showing.
+      // Middle: what the canvas is showing. The one group allowed to shrink —
+      // on a narrow window the device presets truncate, rather than pushing
+      // the panel toggles off the right edge where nobody can reach them.
       .child(
         div()
           .flex()
+          .min_w(px(0.))
+          .overflow_hidden()
           .items_center()
           .gap(px(10.))
           .child(
             div()
               .flex()
+              .flex_none()
               .gap(px(1.))
               .p(px(2.))
               .rounded(px(7.))
@@ -110,10 +119,10 @@ impl Workbench {
                   ))))
                   .flex()
                   .items_center()
-                  .gap(px(5.))
-                  .px(px(9.))
-                  .py(px(4.))
-                  .rounded(px(5.))
+                  .gap(px(6.))
+                  .px(px(11.))
+                  .py(px(5.))
+                  .rounded(px(6.))
                   .when(selected, |d| d.bg(chrome.surface))
                   .text_size(px(12.))
                   .text_color(if selected { chrome.text } else { chrome.dimmed })
@@ -128,6 +137,8 @@ impl Workbench {
           .child(
             div()
               .flex()
+              .min_w(px(0.))
+              .overflow_hidden()
               .gap(px(2.))
               .children(PRESETS.iter().map(|(name, _, _)| {
                 let name = *name;
@@ -136,9 +147,9 @@ impl Workbench {
                   .id(ElementId::Name(SharedString::from(format!(
                     "preset-{name}"
                   ))))
-                  .px(px(8.))
-                  .py(px(4.))
-                  .rounded(px(5.))
+                  .px(px(10.))
+                  .py(px(5.))
+                  .rounded(px(6.))
                   .text_size(px(12.))
                   .when(selected, |d| d.bg(chrome.raised))
                   .text_color(if selected { chrome.text } else { chrome.dimmed })
@@ -148,55 +159,49 @@ impl Workbench {
                   }))
               })),
           )
-          .child(self.tool_button(
+          .child(div().flex_none().child(self.tool_button(
             "rotate",
             "rotate-cw",
             "Rotate device",
             true,
             cx,
             |this, window, cx| this.toggle_orientation(window, cx),
-          ))
+          )))
           .child(
             div()
+              .flex_none()
               .text_size(px(11.))
               .text_color(chrome.dimmed)
               .child(SharedString::from(format!("{width:.0} × {height:.0}"))),
           ),
       )
-      // Right: the live window, the export, and the panels.
+      // Right: run, the live window, the export, and the panels. Fixed —
+      // these are the controls you must always be able to hit.
       .child(
         div()
           .flex()
+          .flex_none()
           .items_center()
-          .gap(px(4.))
-          .child(
-            div()
-              .id("live")
-              .flex()
-              .items_center()
-              .gap(px(6.))
-              .px(px(9.))
-              .py(px(5.))
-              .rounded(px(6.))
-              .text_size(px(12.))
-              .when(live_open, |d| {
-                d.bg(chrome.accent_soft).text_color(chrome.accent)
-              })
-              .when(!live_open, |d| d.text_color(chrome.dimmed))
-              .hover(move |style| style.text_color(chrome.text))
-              .child(icon("monitor-play"))
-              .child("Live")
-              .tooltip(tooltip("Open a live window that follows every edit"))
-              .on_click(cx.listener(|this, _, window, cx| this.open_live_window(window, cx))),
-          )
+          .gap(px(6.))
+          .child(self.chip(
+            "live",
+            "monitor-play",
+            "Live",
+            live_open,
+            "Open a live window that follows every edit",
+            cx,
+            |this, window, cx| this.open_live_window(window, cx),
+          ))
           .child(self.run_button(cx))
-          .child(
-            Button::new("export", "Export")
-              .variant(Variant::Default)
-              .size(Size::Sm)
-              .left_section(Icon::new(IconName::FileCode2).size(Size::Xs))
-              .on_click(cx.listener(|this, _, window, cx| this.export_code(window, cx))),
-          )
+          .child(self.chip(
+            "export",
+            "file-code-2",
+            "Export",
+            false,
+            "Write the project out as a crate",
+            cx,
+            |this, window, cx| this.export_code(window, cx),
+          ))
           .child(divider(chrome.border))
           .child(self.panel_toggle(
             "p-library",
@@ -249,7 +254,7 @@ impl Workbench {
       .flex()
       .items_center()
       .justify_center()
-      .size(px(28.))
+      .size(px(30.))
       .rounded(px(6.))
       .text_color(if enabled {
         chrome.dimmed
@@ -282,7 +287,7 @@ impl Workbench {
       .flex()
       .items_center()
       .justify_center()
-      .size(px(28.))
+      .size(px(30.))
       .rounded(px(6.))
       .when(on, |d| d.bg(chrome.raised).text_color(chrome.text))
       .when(!on, |d| d.text_color(chrome.dimmed))
@@ -316,8 +321,8 @@ impl Workbench {
       .flex_row()
       .items_center()
       .justify_between()
-      .h(px(26.))
-      .px(px(10.))
+      .h(px(28.))
+      .px(px(16.))
       .gap(px(12.))
       .bg(chrome.surface)
       .border_t(px(1.))
@@ -375,8 +380,43 @@ impl Workbench {
   }
 }
 
+impl Workbench {
+  /// The toolbar's one button shape: an icon, a word, and a soft background
+  /// when it is on. Everything on the right-hand side is one of these, which
+  /// is what stops the bar reading as three different toolbars.
+  #[allow(clippy::too_many_arguments)]
+  fn chip(
+    &self,
+    id: &'static str,
+    glyph: &'static str,
+    label: &'static str,
+    on: bool,
+    hint: &'static str,
+    cx: &mut Context<Self>,
+    action: fn(&mut Workbench, &mut gpui::Window, &mut Context<Workbench>),
+  ) -> impl IntoElement {
+    let chrome = theme::colors(cx);
+    div()
+      .id(id)
+      .flex()
+      .items_center()
+      .gap(px(6.))
+      .px(px(10.))
+      .py(px(6.))
+      .rounded(px(6.))
+      .text_size(px(12.))
+      .when(on, |d| d.bg(chrome.accent_soft).text_color(chrome.accent))
+      .when(!on, |d| d.text_color(chrome.dimmed))
+      .hover(move |style| style.bg(chrome.raised).text_color(chrome.text))
+      .child(icon(glyph))
+      .child(label)
+      .tooltip(tooltip(hint))
+      .on_click(cx.listener(move |this, _, window, cx| action(this, window, cx)))
+  }
+}
+
 fn divider(color: gpui::Hsla) -> impl IntoElement {
-  div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(color)
+  div().w(px(1.)).h(px(20.)).mx(px(8.)).bg(color)
 }
 
 impl Workbench {
@@ -388,23 +428,52 @@ impl Workbench {
   fn run_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
     let chrome = theme::colors(cx);
     let busy = self.build.status.busy();
+    let idle = self.build.status == crate::editor::run::Status::Idle;
     let status = self.build.status.label();
 
-    let (label, glyph, hint) = if busy {
-      ("Stop", IconName::Square, "Stop the running app")
+    let (label, glyph) = if busy {
+      ("Stop", IconName::Square)
     } else {
-      ("Run", IconName::Play, "Build this project and run it")
+      ("Run", IconName::Play)
+    };
+
+    // Stop is the one thing in the toolbar that should stand out while it is
+    // there, so it gets the danger colour; Run gets the accent. Neither gets
+    // a fill — a filled button in a bar of flat chips reads as pasted on.
+    let tint = if busy { chrome.danger } else { chrome.accent };
+    let wash = if busy {
+      let mut wash = chrome.danger;
+      wash.a = 0.14;
+      wash
+    } else {
+      chrome.accent_soft
     };
 
     div()
       .flex()
+      .flex_none()
       .items_center()
       .gap(px(6.))
       .child(
-        Button::new("run", label)
-          .variant(Variant::Filled)
-          .size(Size::Sm)
-          .left_section(Icon::new(glyph).size(Size::Xs))
+        div()
+          .id("run")
+          .flex()
+          .items_center()
+          .gap(px(6.))
+          .px(px(10.))
+          .py(px(6.))
+          .rounded(px(6.))
+          .text_size(px(12.))
+          .bg(wash)
+          .text_color(tint)
+          .hover(move |style| style.bg(chrome.raised))
+          .child(Icon::new(glyph).size(Size::Xs))
+          .child(label)
+          .tooltip(tooltip(if busy {
+            "Stop the running app"
+          } else {
+            "Build this project and run it"
+          }))
           .on_click(cx.listener(move |this, _, window, cx| {
             if this.build.status.busy() {
               this.stop_project(window, cx);
@@ -413,23 +482,26 @@ impl Workbench {
             }
           })),
       )
-      .child(
-        div()
-          .id("build-status")
-          .max_w(px(220.))
-          .overflow_hidden()
-          .text_size(px(10.))
-          .text_color(match self.build.status {
-            crate::editor::run::Status::Failed(_) => chrome.danger,
-            crate::editor::run::Status::Running => chrome.accent,
-            _ => chrome.dimmed,
-          })
-          .child(SharedString::from(status))
-          .tooltip(tooltip(hint))
-          .on_click(cx.listener(|this, _, _window, cx| {
-            this.bottom = crate::editor::run::Bottom::Console;
-            cx.notify();
-          })),
-      )
+      .when(!idle, |d| {
+        d.child(
+          div()
+            .id("build-status")
+            .flex_none()
+            .max_w(px(150.))
+            .overflow_hidden()
+            .text_size(px(10.))
+            .text_color(match self.build.status {
+              crate::editor::run::Status::Failed(_) => chrome.danger,
+              crate::editor::run::Status::Running => chrome.accent,
+              _ => chrome.dimmed,
+            })
+            .child(SharedString::from(status))
+            .tooltip(tooltip("Show the console"))
+            .on_click(cx.listener(|this, _, _window, cx| {
+              this.bottom = crate::editor::run::Bottom::Console;
+              cx.notify();
+            })),
+        )
+      })
   }
 }

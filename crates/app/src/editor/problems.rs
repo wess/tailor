@@ -27,6 +27,10 @@ struct Row {
   fix: String,
   doc_id: String,
   node: Option<tailor_model::NodeId>,
+  /// Where in the generated code, for the rows that came from the compiler.
+  /// Clicking one of those scrolls the code pane to the line as well as
+  /// selecting the component.
+  at: Option<(String, usize)>,
 }
 
 /// The error and warning tallies, beside the panel's name.
@@ -76,19 +80,23 @@ impl Workbench {
   /// Every problem, from both sources. The compiler's come first: they are the
   /// ones that just stopped a build.
   fn rows(&self) -> Vec<Row> {
-    self
+    let compiler = self
       .build
       .problems
       .iter()
-      .chain(self.problems.iter())
+      .map(|built| (&built.problem, Some((built.file.clone(), built.line))));
+    let lint = self.problems.iter().map(|problem| (problem, None));
+    compiler
+      .chain(lint)
       .enumerate()
-      .map(|(index, problem)| Row {
+      .map(|(index, (problem, at))| Row {
         index,
         severity: problem.severity,
         message: problem.message.clone(),
         fix: problem.fix.clone(),
         doc_id: problem.doc_id.clone(),
         node: problem.node,
+        at,
       })
       .collect()
   }
@@ -194,7 +202,7 @@ impl Workbench {
             Severity::Warning => chrome.warning,
             Severity::Info => chrome.dimmed,
           };
-          let (doc_id, node) = (row.doc_id, row.node);
+          let (doc_id, node, at) = (row.doc_id, row.node, row.at);
           let menu_doc = doc_id.clone();
           let menu_message = row.message.clone();
           div()
@@ -223,10 +231,17 @@ impl Workbench {
                     .child(SharedString::from(row.fix)),
                 ),
             )
-            .on_click(cx.listener(move |this, _, _window, cx| {
-              this.open_document(&doc_id, cx);
+            .on_click(cx.listener(move |this, _, window, cx| {
+              if !doc_id.is_empty() {
+                this.open_document(&doc_id, cx);
+              }
               if let Some(node) = node {
                 this.select_only(node, cx);
+              }
+              // A compiler error also knows the line it is on. Going there is
+              // the half Interface Builder never had.
+              if let Some((file, line)) = &at {
+                this.reveal_in_code(file, Some(*line), window, cx);
               }
             }))
             .on_mouse_down(

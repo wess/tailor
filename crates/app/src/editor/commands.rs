@@ -1254,9 +1254,29 @@ impl Workbench {
     }
   }
 
+  /// Copy whatever the code pane is showing — which is not always the open
+  /// document's file, now that the pane is a strip over the whole crate.
   pub fn copy_code(&mut self, cx: &mut Context<Self>) {
-    cx.write_to_clipboard(ClipboardItem::new_string(self.generated.clone()));
-    self.toasts.info("Copied the generated component", cx);
+    let showing = self.showing_file();
+    let (text, what) = match showing {
+      Some(path) => {
+        let source = self
+          .code
+          .files
+          .iter()
+          .find(|(candidate, _)| *candidate == path)
+          .map(|(_, source)| source.clone())
+          .unwrap_or_default();
+        let name = path.rsplit('/').next().unwrap_or(&path).to_string();
+        (source, format!("Copied {name}"))
+      }
+      None => (
+        self.generated.clone(),
+        "Copied the generated component".into(),
+      ),
+    };
+    cx.write_to_clipboard(ClipboardItem::new_string(text));
+    self.toasts.info(what, cx);
   }
 }
 

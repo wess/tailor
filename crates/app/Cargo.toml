@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 gpui = { workspace = true }
 guise-ui = { workspace = true }
+tree-sitter-rust = { workspace = true }
 tailor-model = { workspace = true }
 tailor-codegen = { workspace = true }
 tailor-store = { workspace = true }
