@@ -246,6 +246,13 @@ impl Workbench {
       cx.notify();
       return;
     }
+    // The reverse jump — `tailordev --reveal <file>:<line>` — resolves a file
+    // through this index. A build writes the same tree an export does, so it
+    // should leave the same trail: without this, --reveal only works on
+    // projects you have explicitly exported.
+    if let Some(path) = self.path.clone() {
+      tailor_store::ExportIndex::record(&workspace.root, &path);
+    }
     self.build.push(
       Phase::Build,
       format!(

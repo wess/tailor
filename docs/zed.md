@@ -7,9 +7,18 @@ across two apps.
 - **Component → code.** Select something in Tailor, **View → Open in Editor**
   (⌥⌘O). Your editor opens the generated file with the cursor on that
   component's line.
+
+  If the code pane is showing a file, that wins — you are looking at it, and
+  ⌥⌘O opens it at the caret. That is also the way to *edit* a
+  [module you own](codegen.md#modules-you-write): Tailor's pane is read-only,
+  and a data model wants a real editor.
 - **Code → component.** Put the cursor on a line of generated Rust in Zed and
   run **Reveal in Tailor**. Tailor comes forward with that component selected,
   on the canvas and in the outline.
+
+Either direction works on a project you have only ever **run**, not just one
+you have exported: Run writes the same tree and leaves the same trail in the
+index, so there is nothing to set up first.
 
 Neither direction needs an extension, an agent, or a network. There is a
 [Zed extension](#the-extension-optional) as well, but it is for a different

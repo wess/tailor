@@ -1130,22 +1130,34 @@ impl Workbench {
     .detach();
   }
 
-  /// Open the selected node's generated line in your editor.
+  /// Open what you are looking at in your editor.
   ///
   /// No editor can host Tailor — Zed's extensions cannot draw, and the others
-  /// are further away still. But every one of them has a CLI that takes a
-  /// path and a position, which is the whole of the jump. The line comes from
-  /// the map the generator builds while it writes the file.
+  /// are further away still. But every one of them has a CLI that takes a path
+  /// and a position, which is the whole of the jump.
+  ///
+  /// Two things it can mean, in this order. If the code pane is showing a
+  /// file, that file at the caret — which is the only way to *edit* a module
+  /// you own, since the pane itself is read-only. Otherwise the selected
+  /// node's generated line, from the map the generator builds while it writes
+  /// the file.
   pub fn open_in_editor(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    let workspace = tailor_build::Workspace::resolve(self.path.as_deref(), &self.project);
+
+    // What the code pane is showing wins: you are looking at it.
+    if let Some(relative) = self.showing_file() {
+      let path = workspace.root.join(&relative);
+      if path.exists() {
+        let line = self.code_view.read(cx).model().cursor().line + 1;
+        self.jump(&path, &relative, line, cx);
+        return;
+      }
+    }
+
     let Some(id) = self.selection.first().copied() else {
-      self.toasts.info("Select a component first", cx);
-      return;
-    };
-    let Some(directory) = self.project.gen.export_dir.clone() else {
-      self.toasts.info(
-        "Export the project first — that is what creates the file",
-        cx,
-      );
+      self
+        .toasts
+        .info("Select a component, or open a file in the code pane", cx);
       return;
     };
     let Some(doc) = self.doc() else { return };
@@ -1157,27 +1169,29 @@ impl Workbench {
         .info("That node does not appear in the generated file", cx);
       return;
     };
-    let path = PathBuf::from(&directory)
-      .join("src")
-      .join(&self.project.gen.module)
-      .join(&generated.path);
+    let relative = format!("src/{}/{}", self.project.gen.module, generated.path);
+    let path = workspace.root.join(&relative);
 
     if !path.exists() {
-      self.toasts.failed(
-        format!("{} is not there — export again?", path.display()),
+      // Run or Export is what creates it, and Run needs no setup — so this is
+      // a nudge rather than a dead end.
+      self.toasts.info(
+        format!(
+          "{} is not written yet — press Run, or export the project",
+          generated.path
+        ),
         cx,
       );
       return;
     }
+    self.jump(&path, &relative, line, cx);
+  }
 
+  fn jump(&mut self, path: &std::path::Path, shown: &str, line: usize, cx: &mut Context<Self>) {
     let editor = self.settings.editor.clone();
-    match open_in_editor(&editor, &path, line) {
+    match open_in_editor(&editor, path, line) {
       Ok(()) => self.toasts.info(
-        format!(
-          "{}:{line} in {}",
-          generated.path,
-          tailor_store::editor_title(&editor)
-        ),
+        format!("{shown}:{line} in {}", tailor_store::editor_title(&editor)),
         cx,
       ),
       Err(err) => self.toasts.failed(err, cx),

@@ -26,6 +26,13 @@ something nobody has.
 `ui`, `theme` and `main` are refused, because they are the generator's own and
 a second `mod theme;` does not compile.
 
+**Open in Editor** (⌥⌘O) follows the code pane when it is showing a file,
+opening it at the caret — which is how you edit a module you own, since the
+pane is read-only. It also no longer insists on an export directory: it uses
+the same workspace Run does, and a build now leaves the same trail in the
+export index, so both directions of the jump work on a project you have only
+ever run.
+
 ## 0.2.0 — 2026-09-04
 
 Tailor could draw an interface and print the Rust for it. It could not tell you

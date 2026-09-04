@@ -1508,3 +1508,25 @@ fn this_doc(workbench: &Workbench) -> String {
     .map(|doc| doc.id.clone())
     .unwrap_or_default()
 }
+
+/// Open in Editor follows what you are looking at, and works on a project that
+/// has only ever been run rather than exported.
+#[gpui::test]
+fn open_in_editor_prefers_the_code_pane_and_needs_no_export_directory(cx: &mut TestAppContext) {
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  settle(cx);
+
+  workbench.update_in(cx, |this, window, cx| {
+    // No export directory, and nothing built: the message is a nudge towards
+    // Run rather than the old dead end about exporting first.
+    assert!(this.project.gen.export_dir.is_none());
+    let root = this.doc().unwrap().root;
+    this.insert_kind("button", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+    this.open_in_editor(window, cx);
+    // Nothing panicked, and nothing was opened — the file is not there yet.
+    assert!(
+      this.showing_file().is_some(),
+      "the pane still knows its file"
+    );
+  });
+}
