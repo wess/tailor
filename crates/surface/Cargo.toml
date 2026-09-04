@@ -1,0 +1,15 @@
+[package]
+name = "tailor-surface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "Regenerates the surface file describing a target library's components."
+
+[[bin]]
+name = "tailor-surface"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { workspace = true }

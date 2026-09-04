@@ -545,51 +545,42 @@ mod tests {
     );
   }
 
-  /// The model is guise-free on purpose, so [`PRESETS`] is a copy. This reads
-  /// guise's own source and fails when the copy drifts — the same ratchet the
-  /// catalog coverage test uses.
+  /// The model is guise-free on purpose, so [`THEME_PRESETS`] is a copy. This
+  /// checks it against `libraries/guise.surface` — the record of what the
+  /// pinned guise actually ships — and fails when the copy drifts. Same
+  /// ratchet as the catalog's coverage test, same source.
   #[test]
   fn presets_match_guise() {
-    let path =
-      std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../guise/src/theme/presets.rs");
-    let source =
-      std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-
-    // `pub const PRESET_NAMES: [&str; 6] = [ "catppuccin", ... ];`
-    let start = source
-      .find("PRESET_NAMES")
-      .expect("guise names its presets");
-    let list = &source[start..];
-    let open = list.find('[').expect("a list");
-    let open = open + 1 + list[open + 1..].find('[').expect("the values");
-    let close = list[open..].find(']').expect("a closed list") + open;
-    let names: Vec<&str> = list[open + 1..close]
-      .split(',')
-      .map(|piece| piece.trim().trim_matches('"'))
-      .filter(|piece| !piece.is_empty())
-      .collect();
+    let theirs = crate::surface::guise().presets;
 
     let ours: Vec<&str> = THEME_PRESETS.iter().map(|preset| preset.id).collect();
+    let names: Vec<&str> = theirs.iter().map(|(id, _, _)| id.as_str()).collect();
     assert_eq!(
       ours, names,
-      "PRESETS has drifted from guise's PRESET_NAMES — update the table"
+      "THEME_PRESETS has drifted from guise's PRESET_NAMES — update the table"
     );
 
-    // And each one's scheme, which is the half a name list cannot carry.
+    // The constructor and the scheme, which are the halves a name list cannot
+    // carry: the ids run together where the Rust names do not, and a preset is
+    // a variation of one scheme or the other.
     for preset in THEME_PRESETS {
-      let at = source
-        .find(&format!("pub fn {}() -> Theme {{", preset.rust))
-        .unwrap_or_else(|| panic!("guise no longer defines {}()", preset.rust));
-      let body = &source[at..at + 80];
+      let (_, ctor, scheme) = theirs
+        .iter()
+        .find(|(id, _, _)| id == preset.id)
+        .expect("checked above");
+      assert_eq!(
+        &preset.rust, ctor,
+        "{} generates Theme::{}() but guise defines Theme::{ctor}()",
+        preset.id, preset.rust
+      );
       let expected = match preset.scheme {
-        Scheme::Dark => "Theme::dark()",
-        Scheme::Light => "Theme::light()",
+        Scheme::Dark => "dark",
+        Scheme::Light => "light",
       };
-      assert!(
-        body.contains(expected),
+      assert_eq!(
+        scheme, expected,
         "{} is {:?} here but not in guise",
-        preset.id,
-        preset.scheme
+        preset.id, preset.scheme
       );
     }
   }

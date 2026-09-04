@@ -1,0 +1,167 @@
+# guise-ui 1.6.0 — the component surface Tailor catalogues against.
+#
+# Regenerate with `cargo run -p tailor-surface`, which reads the version
+# pinned in Cargo.lock. Do that in the same commit as a version bump: the
+# `version` line below is checked against the lockfile, so a stale file
+# fails the tests rather than going unnoticed.
+#
+# component <Type> <file>            a RenderOnce builder or a Render entity
+# preset    <id> <constructor> <scheme>
+
+version 1.6.0
+
+component AIChatView ai/chatview.rs
+component AICitation ai/citation.rs
+component AIComposer ai/composer.rs
+component AICost ai/cost.rs
+component AIMessage ai/message.rs
+component AIModelPicker ai/modelpicker.rs
+component AIReasoning ai/reasoning.rs
+component AISettings ai/settings.rs
+component AISources ai/sources.rs
+component AIStreamingText ai/streamingtext.rs
+component AIThinking ai/thinking.rs
+component AITokenMeter ai/tokenmeter.rs
+component AIToolCall ai/toolcall.rs
+component About about.rs
+component Accordion data/accordion.rs
+component ActionIcon actionicon.rs
+component Alert feedback/alert.rs
+component Align flex/container.rs
+component Anchor anchor.rs
+component Animated anim/animated.rs
+component AppShell layout/appshell.rs
+component AreaChart chart/area.rs
+component Autocomplete input/autocomplete.rs
+component Avatar data/avatar.rs
+component AvatarGroup data/avatargroup.rs
+component Badge badge.rs
+component BarChart chart/bar.rs
+component Blockquote blockquote.rs
+component Breadcrumbs nav/breadcrumbs.rs
+component Button button.rs
+component Calendar input/calendar.rs
+component Card card.rs
+component Carousel carousel.rs
+component Center flex/container.rs
+component Checkbox input/checkbox.rs
+component CheckboxGroup input/checkboxgroup.rs
+component Chip chip.rs
+component CloseButton closebutton.rs
+component Code code.rs
+component Collapse transition.rs
+component ColorInput input/colorinput.rs
+component Column flex/rowcolumn.rs
+component Combobox input/combobox.rs
+component ConfirmModal overlay/confirm.rs
+component Container flex/container.rs
+component ContextMenu overlay/contextmenu.rs
+component CopyButton copybutton.rs
+component DatePicker input/datepicker.rs
+component DevTools devtools/mod.rs
+component Divider divider.rs
+component Draggable dnd/draggable.rs
+component Drawer overlay/drawer.rs
+component DropTarget dnd/droptarget.rs
+component Dropzone input/dropzone.rs
+component Editor editor/editor.rs
+component Expanded flex/flexible.rs
+component Field input/field.rs
+component FileInput input/fileinput.rs
+component Flexible flex/flexible.rs
+component Glyph icon/mod.rs
+component GpuView gpuview.rs
+component Group layout/group.rs
+component HoverCard overlay/hovercard.rs
+component Icon icon/mod.rs
+component Image image.rs
+component Indicator indicator.rs
+component Kbd kbd.rs
+component LineChart chart/line.rs
+component List data/list.rs
+component Loader feedback/loader.rs
+component LoadingOverlay overlay/loading.rs
+component Mark mark.rs
+component Markdown markdown/view.rs
+component MarkdownEditor markdown/editor.rs
+component Menu overlay/menu.rs
+component MenuBar overlay/menubar.rs
+component Modal overlay/modal.rs
+component NavLink nav/navlink.rs
+component NavigationMenu nav/navigationmenu.rs
+component Notification feedback/notification.rs
+component NumberInput input/number.rs
+component OverlayHost overlay/host.rs
+component Padding flex/container.rs
+component Pagination nav/pagination.rs
+component PaneGroup panegroup/group.rs
+component Panel panel.rs
+component Paper paper.rs
+component PasswordInput input/password.rs
+component PieChart chart/pie.rs
+component PinInput input/pin.rs
+component Popover overlay/popover.rs
+component Positioned flex/stack.rs
+component Presence anim/presence.rs
+component Progress feedback/progress.rs
+component Radio input/radio.rs
+component RadioGroup input/radiogroup.rs
+component RangeSlider input/rangeslider.rs
+component Rating input/rating.rs
+component ResizeHandles windowcontrols.rs
+component RingProgress feedback/ringprogress.rs
+component Row flex/rowcolumn.rs
+component ScatterChart chart/scatter.rs
+component ScrollArea scrollarea.rs
+component SegmentedControl input/segmented.rs
+component Select input/select.rs
+component SettingsRow settings/row.rs
+component SettingsSection settings/section.rs
+component SettingsView settings/view.rs
+component SimpleGrid layout/grid.rs
+component SizedBox flex/flexible.rs
+component Skeleton skeleton.rs
+component Slider input/slider.rs
+component SortableList dnd/sortable.rs
+component Space layout/space.rs
+component Spacer flex/flexible.rs
+component Sparkline chart/sparkline.rs
+component SplitPanel splitpanel.rs
+component Spoiler spoiler.rs
+component Spotlight overlay/spotlight.rs
+component Stack flex/stack.rs
+component StatusBar nav/statusbar.rs
+component Stepper nav/stepper.rs
+component Switch input/switch.rs
+component TabBar data/tabbar.rs
+component TabDrag panegroup/drag.rs
+component Table data/table.rs
+component Tabs data/tabs.rs
+component TagsInput input/tags.rs
+component Text text.rs
+component TextArea input/textarea.rs
+component TextInput input/text.rs
+component ThemeIcon themeicon.rs
+component ThemePicker themepicker.rs
+component TimePicker input/timepicker.rs
+component Timeline data/timeline.rs
+component Title title.rs
+component ToastStack feedback/toast.rs
+component Tooltip overlay/tooltip.rs
+component Tour overlay/tour.rs
+component Transfer input/transfer.rs
+component Transition transition.rs
+component TreeView data/tree.rs
+component UpdateNotice update/notice.rs
+component UpdatePrompt update/prompt.rs
+component VirtualList data/virtuallist.rs
+component WebView webview.rs
+component WindowControls windowcontrols.rs
+component Wrap flex/wrap.rs
+
+preset catppuccin catppuccin dark
+preset nord nord dark
+preset tokyonight tokyonight dark
+preset gruvbox gruvbox dark
+preset dracula dracula dark
+preset solarizedlight solarized_light light

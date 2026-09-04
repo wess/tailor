@@ -220,16 +220,21 @@ mod tests {
 ///
 /// "The catalog is the single source of truth" used to be enforced by nobody,
 /// so every guise release widened the gap in silence — the `ai/` module, all of
-/// `settings/` and every open-state overlay went missing that way. This reads
-/// guise's own source (it is the next crate over in the workspace) and turns
-/// that drift into a failing test: adding a component now costs either a
-/// catalog entry or one line here saying why not.
+/// `settings/` and every open-state overlay went missing that way. This turns
+/// that drift into a failing test: adding a component costs either a catalog
+/// entry or one line here saying why not.
+///
+/// What it reads is `libraries/guise.surface`, generated from the published
+/// crate by `cargo run -p tailor-surface`. That used to be a walk of the next
+/// crate over in the same workspace; out on its own, Tailor depends on guise
+/// through crates.io like anyone else, and the surface file is how a pinned
+/// dependency still gets to fail the build when it grows a component.
 #[cfg(test)]
 mod coverage {
   use std::collections::BTreeMap;
-  use std::path::{Path, PathBuf};
 
   use super::all;
+  use crate::surface;
 
   /// Components guise ships that the catalog deliberately does not offer, and
   /// the reason. Keep the reason honest: it is the only record of the call.
@@ -322,95 +327,9 @@ mod coverage {
     ("GpuView", "draws a GpuScene the host builds"),
   ];
 
-  fn guise_src() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../guise/src")
-  }
-
-  fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    let entries = std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
-    for entry in entries.flatten() {
-      let path = entry.path();
-      if path.is_dir() {
-        rust_files(&path, out);
-      } else if path.extension().is_some_and(|ext| ext == "rs") {
-        // The entity test harness declares throwaway components of its own.
-        if path.file_name().is_some_and(|name| name != "apptests.rs") {
-          out.push(path);
-        }
-      }
-    }
-  }
-
-  /// Every component type guise defines: a `RenderOnce` builder (`derive(…
-  /// IntoElement …)`) or a stateful entity (`impl Render for`) — the two
-  /// component patterns, which is exactly what the catalog can offer.
+  /// Every component type guise defines, by name.
   fn library() -> BTreeMap<String, String> {
-    let mut files = Vec::new();
-    rust_files(&guise_src(), &mut files);
-    assert!(
-      files.len() > 100,
-      "found only {} guise sources — did the layout move?",
-      files.len()
-    );
-
-    let mut found = BTreeMap::new();
-    for path in files {
-      let source = std::fs::read_to_string(&path).expect("read guise source");
-      let where_ = path
-        .strip_prefix(guise_src())
-        .unwrap_or(&path)
-        .display()
-        .to_string();
-      for name in derived_components(&source).chain(rendered_components(&source)) {
-        found.insert(name, where_.clone());
-      }
-    }
-    found
-  }
-
-  /// `#[derive(.., IntoElement)] pub struct Button` -> `Button`.
-  fn derived_components(source: &str) -> impl Iterator<Item = String> + '_ {
-    source.match_indices("#[derive(").filter_map(|(at, _)| {
-      let rest = &source[at..];
-      let close = rest.find(")]")?;
-      if !rest[..close].contains("IntoElement") {
-        return None;
-      }
-      type_name_after(&rest[close + 2..])
-    })
-  }
-
-  /// `impl Render for Select` -> `Select`.
-  fn rendered_components(source: &str) -> impl Iterator<Item = String> + '_ {
-    source
-      .match_indices("impl Render for ")
-      .filter_map(|(at, keyword)| identifier(&source[at + keyword.len()..]))
-  }
-
-  /// The `struct`/`enum` name that follows, skipping any further attributes.
-  fn type_name_after(rest: &str) -> Option<String> {
-    for line in rest.lines().take(6) {
-      let line = line.trim();
-      for keyword in ["pub struct ", "pub enum ", "struct ", "enum "] {
-        if let Some(tail) = line.strip_prefix(keyword) {
-          return identifier(tail);
-        }
-      }
-    }
-    None
-  }
-
-  fn identifier(text: &str) -> Option<String> {
-    let name: String = text
-      .trim_start()
-      .chars()
-      .take_while(|c| c.is_alphanumeric() || *c == '_')
-      .collect();
-    name
-      .chars()
-      .next()
-      .is_some_and(|c| c.is_ascii_uppercase())
-      .then_some(name)
+    surface::guise().components
   }
 
   #[test]

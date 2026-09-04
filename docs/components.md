@@ -173,10 +173,10 @@ holding a literal. See [state, bindings and actions](tailorstate.md).
 If you are working on Tailor itself: the catalog is the single source of truth,
 and adding a component is two edits that have to happen together.
 
-1. One `comp!` entry in `crates/tailor/model/src/catalog/`: the kind, the Rust
+1. One `comp!` entry in `crates/model/src/catalog/`: the kind, the Rust
    type, the category, the blurb, the constructor shape, the props with their
    types and defaults, the slots, the events.
-2. One arm in `crates/tailor/render/src/nodes/build.rs`, which turns a node of
+2. One arm in `crates/render/src/nodes/build.rs`, which turns a node of
    that kind into a live guise component for the canvas.
 
 `PropSpec::emit` decides what the generator prints for each prop — a method

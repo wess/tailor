@@ -26,7 +26,7 @@ has no dependency on Tailor left in it.
 
 ## Before you start
 
-Get Tailor: every [release](https://github.com/wess/guise/releases) attaches
+Get Tailor: every [release](https://github.com/wess/tailor/releases) attaches
 `Tailor.dmg`. From a checkout, `cargo run -p tailor-app`.
 
 You do not need to know guise to follow this. You do need a Rust toolchain at

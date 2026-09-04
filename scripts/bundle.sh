@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build Tailor (release) and assemble dist/Tailor.app. The binary is the
-# `tailordev` bin from crates/tailor/app, shipped as `tailor`; the icon comes
+# `tailordev` bin from crates/app, shipped as `tailor`; the icon comes
 # from assets/icon.icns; the version is read from the workspace Cargo.toml.
 # Codesigns with CODESIGN_IDENTITY if set (a real Developer ID for a notarizable
 # build), otherwise ad-hoc ("-") so it still runs locally.

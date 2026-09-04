@@ -1,0 +1,52 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/model",
+    "crates/codegen",
+    "crates/store",
+    "crates/render",
+    "crates/app",
+    "crates/mcp",
+    "crates/surface",
+]
+
+[workspace.package]
+version = "1.6.0"
+edition = "2021"
+license = "MIT"
+authors = ["Wess Cope <opensource@wess.io>"]
+repository = "https://github.com/wess/tailor"
+homepage = "https://github.com/wess/tailor"
+keywords = ["gpui", "ui", "builder", "designer"]
+categories = ["development-tools"]
+
+[workspace.dependencies]
+gpui = "0.2.2"
+
+# The component library Tailor is built with, and the first library it targets.
+# Pinned to a published version rather than a path: Tailor is a consumer of
+# guise like any other app, and the boundary is only real if it goes through
+# crates.io. `guise.catalog.json` in `crates/model` is regenerated against this
+# version — bumping one means regenerating the other.
+guise-ui = "1.6.0"
+
+tailor-model = { path = "crates/model" }
+tailor-codegen = { path = "crates/codegen" }
+tailor-store = { path = "crates/store" }
+tailor-render = { path = "crates/render" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+dirs = "6"
+
+[profile.dev]
+debug = "limited"
+
+# `panic = "abort"` drops ~1.5 MB of landing pads and unwind tables. It costs
+# nothing in behaviour: gpui only catches panics in its test harness, which
+# Cargo builds under the test profile with unwinding forced back on.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

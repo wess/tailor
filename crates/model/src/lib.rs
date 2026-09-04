@@ -19,6 +19,8 @@ pub mod project;
 pub mod props;
 pub mod state;
 pub mod style;
+#[cfg(test)]
+pub mod surface;
 pub mod tokens;
 
 pub use catalog::{Category, ComponentSpec, Ctor, SlotRef, SlotSpec};

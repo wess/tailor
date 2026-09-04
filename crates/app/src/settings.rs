@@ -497,7 +497,7 @@ fn about(cx: &mut App) -> AnyElement {
           .size(Size::Sm)
           .left_section(Icon::new(IconName::BookOpen).size(Size::Xs))
           .on_click(|_, _window, cx| {
-            cx.open_url("https://github.com/wess/guise/blob/main/docs/tailor.md")
+            cx.open_url("https://github.com/wess/tailor/blob/main/docs/readme.md")
           }),
       ),
     )

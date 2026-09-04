@@ -428,7 +428,7 @@ fn main() {
     cx.on_action::<Hide>(|_, cx| cx.hide());
     cx.on_action::<HideOthers>(|_, cx| cx.hide_other_apps());
     cx.on_action::<ShowAll>(|_, cx| cx.unhide_other_apps());
-    cx.on_action::<ShowDocs>(|_, cx| cx.open_url("https://github.com/wess/guise"));
+    cx.on_action::<ShowDocs>(|_, cx| cx.open_url("https://github.com/wess/tailor"));
 
     let bounds = Bounds::centered(None, size(px(1440.0), px(900.0)), cx);
     cx.open_window(

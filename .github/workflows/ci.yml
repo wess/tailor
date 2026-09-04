@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # macOS, because Tailor is a gpui app and gpui targets the native renderer.
+  # `--locked` matters more here than in a library: the surface ratchet checks
+  # `libraries/guise.surface` against the version Cargo.lock resolves, so a
+  # drifting lockfile would quietly change what the tests are asserting.
+  check:
+    name: build · test · clippy
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --workspace --locked
+      - name: Test
+        run: cargo test --workspace --locked
+      # Advisory: surfaces lints without failing the pipeline.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+        continue-on-error: true
+
+  # The surface file is generated, so it can go stale in exactly one way: a
+  # guise bump lands without a regeneration. The unit tests catch a stale
+  # *version*; this catches a stale *body* — a patch release that added a
+  # component would otherwise pass, since the version line still matches.
+  surface:
+    name: surface file is current
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Regenerate
+        run: cargo run --locked -p tailor-surface
+      - name: Check for drift
+        run: |
+          if ! git diff --quiet -- libraries/; then
+            echo "::error::libraries/ is out of date — run 'cargo run -p tailor-surface' and commit the result."
+            git --no-pager diff -- libraries/
+            exit 1
+          fi
+
+  # Advisory formatting check (does not block — run `cargo fmt` to apply).
+  fmt:
+    name: rustfmt (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format check
+        run: cargo fmt --all --check
+        continue-on-error: true

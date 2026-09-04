@@ -21,7 +21,7 @@ it is output Tailor actually produced.
 
 ## Getting it
 
-Every [release](https://github.com/wess/guise/releases) attaches **`Tailor.dmg`**
+Every [release](https://github.com/wess/tailor/releases) attaches **`Tailor.dmg`**
 — drag it to Applications. The bundle carries the app as `tailor` and the MCP
 server as `tailor-mcp` beside it, and it is signed and notarized when the
 release was built with a Developer ID.
@@ -112,14 +112,16 @@ them.
 ## The workspace
 
 ```
-crates/tailor/
+crates/
 ├── model/     # the document: catalog, node tree, tokens, state, file format
 ├── codegen/   # document -> idiomatic guise Rust
 ├── store/     # project files, recents, editor settings, export, the editor bridge
 ├── render/    # document -> live guise components (the canvas)
 ├── app/       # the gpui workbench
-└── mcp/       # an MCP server over the same document model
+├── mcp/       # an MCP server over the same document model
+└── surface/   # regenerates libraries/*.surface (a dev tool, not shipped)
 
+libraries/       # what each target library ships, as a checked-in file
 extensions/zed/  # a Zed context server for tailor-mcp — its own cargo
                  # workspace, because it targets wasm32-wasip2
 ```
@@ -144,12 +146,12 @@ If you are working on Tailor itself, the catalog in `tailor-model` is read by
 four consumers: the Library lists it, the inspector builds a control per prop,
 the renderer builds the real component, and the generator prints it.
 
-1. Add an entry to the right file under `crates/tailor/model/src/catalog/`,
+1. Add an entry to the right file under `crates/model/src/catalog/`,
    using the `comp!` macro: seven positional facts, then any field that differs
    from the defaults.
-2. Add an arm to `crates/tailor/render/src/nodes/build.rs`.
+2. Add an arm to `crates/render/src/nodes/build.rs`.
 3. That is all — unless the constructor is not one chained call, in which case
-   add an arm to `Emitter::special` in `crates/tailor/codegen/src/node.rs` too.
+   add an arm to `Emitter::special` in `crates/codegen/src/node.rs` too.
 
 `PropSpec::emit` is what keeps the three in step: `Emit::Method("size")`
 generates `.size(..)`, `Emit::Flag("fill")` generates `.fill()` when the bool is
