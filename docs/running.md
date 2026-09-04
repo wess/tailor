@@ -8,11 +8,12 @@ has never been compiled is a drawing; one that has is an app.
 
 | | |
 | --- | --- |
-| **Run** | ⌘R — build, then launch. The button becomes **Stop** while it runs. |
+| **Run** | ⌘R — build, then launch. Pressing it while something is running restarts it; **Stop** is its own button beside it, because "run it again" is the commonest thing you want and should not cost two clicks. |
 | **Build** | ⌘B — compile and stop there. What you press to check a change without a window appearing. |
 | **Stop** | ⌘. — kill whatever is running. |
 | **Clean Build Folder** | ⌘⇧K — throw away `target/`. The escape hatch for the one failure that is not in your design. |
 | **Reveal Build Folder** | Opens it in Finder. |
+| **Debug / Release** | Which build cargo makes. Debug is the default and what Run should almost always use: it compiles in a second where release takes a minute. Release is what you check before shipping — the manifest Tailor generates sets `lto = "fat"`, `codegen-units = 1` and `strip`, which on a gpui app is the difference between a 25 MB binary and a 4 MB one. |
 
 All of them are on the **Product** menu, where Xcode puts them and for the same
 reason: building is not editing.
@@ -46,6 +47,10 @@ artifacts and no absolute local paths appearing beside it.
 
 The bottom pane has two tabs. **Problems** is what will not generate and what
 probably was not meant; **Console** is what the build and the app printed.
+
+The app runs with `RUST_BACKTRACE=1`, because a panic that says "run with
+RUST_BACKTRACE=1" is a dead end when the console is the only place you can see
+it.
 
 Lines are tagged. `build` is cargo — its progress, and rustc's diagnostics with
 their caret diagrams. `app` is your program's own stdout and stderr. They are

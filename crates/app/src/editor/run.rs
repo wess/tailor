@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{Context, Task};
-use tailor_build::session::{Event, Intent, Outcome, Phase, Session};
+use tailor_build::session::{Event, Intent, Outcome, Phase, Profile, Session};
 use tailor_build::{LineMap, Workspace};
 use tailor_model::lint::{Problem, Severity as LintSeverity};
 
@@ -73,6 +73,16 @@ impl Status {
       Status::Stopped => "Stopped".into(),
     }
   }
+
+  /// The same, saying which build it was. A release build takes a minute
+  /// where a debug one takes a second, and knowing which you asked for is the
+  /// difference between waiting and wondering.
+  pub fn labelled(&self, profile: tailor_build::Profile) -> String {
+    match self {
+      Status::Building if profile == tailor_build::Profile::Release => "Building release…".into(),
+      other => other.label(),
+    }
+  }
 }
 
 /// One line in the console, tagged with what produced it.
@@ -110,6 +120,9 @@ pub struct Build {
   /// design may have moved on while the compiler was working.
   pub lines: LineMap,
   pub workspace: Option<Workspace>,
+  /// Debug or release. Remembered for the session rather than the project: it
+  /// is a thing you are doing right now, not a property of the design.
+  pub profile: Profile,
   /// The poll. Held so that dropping it stops the draining.
   poll: Option<Task<()>>,
 }
@@ -126,8 +139,31 @@ impl Build {
 
 impl Workbench {
   /// ⌘R — build the project and launch it.
+  ///
+  /// Pressing it while something is running restarts, the way Xcode's play
+  /// button does. Stop is its own button beside it rather than a state this
+  /// one flips into, because "run it again" is the commonest thing you want
+  /// and it should not cost two clicks.
   pub fn run_project(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) {
     self.start_build(Intent::Run, cx);
+  }
+
+  /// Product → Debug / Release.
+  pub fn use_debug(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) {
+    self.set_profile(Profile::Debug, cx);
+  }
+
+  pub fn use_release(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) {
+    self.set_profile(Profile::Release, cx);
+  }
+
+  pub fn set_profile(&mut self, profile: Profile, cx: &mut Context<Self>) {
+    if self.build.profile == profile {
+      return;
+    }
+    self.build.profile = profile;
+    self.toasts.info(format!("{} builds", profile.label()), cx);
+    cx.notify();
   }
 
   /// ⌘B — compile it and stop there.
@@ -212,10 +248,15 @@ impl Workbench {
     }
     self.build.push(
       Phase::Build,
-      format!("{} → {}", self.project.name, workspace.root.display()),
+      format!(
+        "{} · {} → {}",
+        self.project.name,
+        self.build.profile.label().to_lowercase(),
+        workspace.root.display()
+      ),
     );
 
-    match Session::start(&workspace, intent) {
+    match Session::start(&workspace, intent, self.build.profile) {
       Ok(session) => {
         self.build.session = Some(session);
         self.drain_soon(cx);

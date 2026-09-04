@@ -117,6 +117,8 @@ actions!(
   StopProject,
   CleanBuild,
   RevealBuild,
+  UseDebug,
+  UseRelease,
   ToggleOrientation,
   OpenLiveWindow,
   ToggleDevTools,
@@ -127,7 +129,7 @@ actions!(
 /// Compile a project and print what happened. The exit code is the answer: 0
 /// built, 1 did not, 2 could not try.
 fn build_headless(path: &std::path::Path) -> i32 {
-  use tailor_build::session::{Event, Intent, Outcome, Phase, Session};
+  use tailor_build::session::{Event, Intent, Outcome, Phase, Profile, Session};
   use tailor_build::Workspace;
 
   let project = match tailor_store::open(path) {
@@ -148,7 +150,9 @@ fn build_headless(path: &std::path::Path) -> i32 {
   }
   eprintln!("{} → {}", project.name, workspace.root.display());
 
-  let session = match Session::start(&workspace, Intent::Build) {
+  // Debug: a check is about whether it compiles, and release costs a minute
+  // to answer the same question.
+  let session = match Session::start(&workspace, Intent::Build, Profile::Debug) {
     Ok(session) => session,
     Err(err) => {
       eprintln!("{err}");
@@ -280,6 +284,10 @@ fn menus() -> Vec<Menu> {
         MenuItem::action("Run", RunProject),
         MenuItem::action("Build", BuildProject),
         MenuItem::action("Stop", StopProject),
+        MenuItem::separator(),
+        MenuItem::separator(),
+        MenuItem::action("Debug", UseDebug),
+        MenuItem::action("Release", UseRelease),
         MenuItem::separator(),
         MenuItem::action("Clean Build Folder", CleanBuild),
         MenuItem::action("Reveal Build Folder", RevealBuild),

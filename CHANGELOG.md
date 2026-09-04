@@ -68,7 +68,13 @@ which is design data and survives.
 
 ### Also
 
-- A **Product** menu: Run, Build, Stop, Clean Build Folder, Reveal Build Folder.
+- A **Product** menu: Run, Build, Stop, Debug/Release, Clean Build Folder,
+  Reveal Build Folder. Release is what you check before shipping — the manifest
+  Tailor generates already asks for `lto = "fat"` and `strip`, which is a 4 MB
+  binary where debug is 25 MB.
+- Run restarts while something is running, and Stop is its own button beside
+  it. The app runs with `RUST_BACKTRACE=1`: a panic that says "run with
+  RUST_BACKTRACE=1" is a dead end when the console is the only place to see it.
 - The toolbar has room — 52px with a 16px inset, and three groups of which only
   the middle one shrinks, so a narrow window truncates the device presets rather
   than pushing the panel toggles off the edge. Run and Export were a filled pill

@@ -429,31 +429,19 @@ impl Workbench {
     let chrome = theme::colors(cx);
     let busy = self.build.status.busy();
     let idle = self.build.status == crate::editor::run::Status::Idle;
-    let status = self.build.status.label();
+    let status = self.build.status.labelled(self.build.profile);
 
-    let (label, glyph) = if busy {
-      ("Stop", IconName::Square)
-    } else {
-      ("Run", IconName::Play)
-    };
+    let profile = self.build.profile;
 
-    // Stop is the one thing in the toolbar that should stand out while it is
-    // there, so it gets the danger colour; Run gets the accent. Neither gets
-    // a fill — a filled button in a bar of flat chips reads as pasted on.
-    let tint = if busy { chrome.danger } else { chrome.accent };
-    let wash = if busy {
-      let mut wash = chrome.danger;
-      wash.a = 0.14;
-      wash
-    } else {
-      chrome.accent_soft
-    };
+    // No fill — a filled button in a bar of flat chips reads as pasted on.
+    let mut danger_wash = chrome.danger;
+    danger_wash.a = 0.14;
 
     div()
       .flex()
       .flex_none()
       .items_center()
-      .gap(px(6.))
+      .gap(px(4.))
       .child(
         div()
           .id("run")
@@ -464,24 +452,38 @@ impl Workbench {
           .py(px(6.))
           .rounded(px(6.))
           .text_size(px(12.))
-          .bg(wash)
-          .text_color(tint)
+          .bg(chrome.accent_soft)
+          .text_color(chrome.accent)
           .hover(move |style| style.bg(chrome.raised))
-          .child(Icon::new(glyph).size(Size::Xs))
-          .child(label)
-          .tooltip(tooltip(if busy {
-            "Stop the running app"
+          .child(Icon::new(IconName::Play).size(Size::Xs))
+          .child(if busy { "Restart" } else { "Run" })
+          .tooltip(tooltip(if profile == tailor_build::Profile::Release {
+            "Build in release and run it"
           } else {
             "Build this project and run it"
           }))
-          .on_click(cx.listener(move |this, _, window, cx| {
-            if this.build.status.busy() {
-              this.stop_project(window, cx);
-            } else {
-              this.run_project(window, cx);
-            }
-          })),
+          .on_click(cx.listener(|this, _, window, cx| this.run_project(window, cx))),
       )
+      // Stop stands beside Run rather than replacing it: restarting is the
+      // commonest thing you want while something is running, and it should
+      // not cost two clicks.
+      .when(busy, |d| {
+        d.child(
+          div()
+            .id("stop")
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(px(30.))
+            .rounded(px(6.))
+            .bg(danger_wash)
+            .text_color(chrome.danger)
+            .hover(move |style| style.bg(chrome.raised))
+            .child(Icon::new(IconName::Square).size(Size::Xs))
+            .tooltip(tooltip("Stop the running app"))
+            .on_click(cx.listener(|this, _, window, cx| this.stop_project(window, cx))),
+        )
+      })
       .when(!idle, |d| {
         d.child(
           div()

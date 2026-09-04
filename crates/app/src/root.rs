@@ -167,6 +167,8 @@ impl Root {
         StopProject => stop_project,
         CleanBuild => clean_build,
         RevealBuild => reveal_build,
+        UseDebug => use_debug,
+        UseRelease => use_release,
         NewScreen => new_screen,
         NewComponent => new_component,
         Undo => undo,
