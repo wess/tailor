@@ -16,7 +16,7 @@ members = [
 [workspace.package]
 # Tailor rode guise's version line to 1.6.0 inside that repository. Out on its
 # own it starts its own, at the number the work is actually at.
-version = "0.1.0-beta"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 authors = ["Wess Cope <opensource@wess.io>"]

@@ -243,7 +243,7 @@ inspector's sections fold individually and stay folded across selections.
 | Undo / redo | ⌘Z / ⇧⌘Z |
 | Duplicate | ⌘D |
 | Delete | ⌫ |
-| Select parent | Esc |
+| Select parent (on the canvas) | Esc |
 | Rename | ↵ |
 | Embed in frame | ⇧⌘E |
 | Unwrap | ⇧⌘U |
@@ -256,6 +256,12 @@ inspector's sections fold individually and stay folded across selections.
 | Show grid / snap to grid / layout bounds | ⌘' / ⇧⌘' / ⇧⌘B |
 | Nudge / nudge by the grid | Arrows / ⇧Arrows |
 | Save / Save as / Export | ⌘S / ⇧⌘S / ⌘E |
+| Run / Build / Stop | ⌘R / ⌘B / ⌘. |
+| Clean build folder | ⇧⌘K |
+| Open Quickly | ⇧⌘O |
+| Find in code / next / previous | ⌘F / ⌘G / ⇧⌘G |
+| Accept a completion / walk them | ⌃Space / ⌃N ⌃P |
+| Dismiss whatever is open | Esc |
 
 ## Undo
 

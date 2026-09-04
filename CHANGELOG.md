@@ -8,7 +8,17 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
-## Unreleased
+## 0.2.0 — 2026-09-04
+
+Tailor could draw an interface and print the Rust for it. It could not tell you
+whether that Rust compiled, and there was nowhere to write what a button
+*does* — so what came out was a very good mockup.
+
+This release closes both. **⌘R** builds the design and runs it, and what the
+compiler says comes back pointing at the component that caused it. **An action
+has a body**, written in the app and stored in the `.tailor` file, so
+regenerating writes around your code rather than over it. Between them, a
+design becomes an app.
 
 ### It runs
 
