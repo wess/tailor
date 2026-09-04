@@ -62,6 +62,10 @@ impl Workbench {
       .flex()
       .flex_col()
       .flex_grow()
+      // The canvas is the point of the window, and in Split mode the panels
+      // beside it add up to more than a 1440-wide window has: it was getting
+      // ninety pixels. It keeps a floor and the code pane gives way instead.
+      .min_w(px(320.))
       .overflow_scroll()
       .bg(chrome.body)
       // Clicking the field, not the artboard, deselects.

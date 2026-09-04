@@ -26,6 +26,11 @@ something nobody has.
 `ui`, `theme` and `main` are refused, because they are the generator's own and
 a second `mod theme;` does not compile.
 
+In Split mode the canvas was down to ninety pixels of a 1440-wide window: the
+four panels' default widths added up to more than there was. The canvas has a
+floor and the code pane gives way instead, and the code pane's default is 420
+rather than 520 — a default that does not fit is a default that is wrong.
+
 **Open in Editor** (⌥⌘O) follows the code pane when it is showing a file,
 opening it at the caret — which is how you edit a module you own, since the
 pane is read-only. It also no longer insists on an export directory: it uses

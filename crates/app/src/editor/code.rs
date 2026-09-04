@@ -230,7 +230,9 @@ impl Workbench {
 
     div()
       .w(px(self.settings.size(Panel::Code)))
-      .flex_none()
+      // Not `flex_none`: this is the pane that yields when the window is too
+      // narrow for everything, down to the width its own splitter allows.
+      .min_w(px(Panel::Code.range().0))
       .h_full()
       .flex()
       .flex_col()

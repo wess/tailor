@@ -237,7 +237,10 @@ impl Default for Settings {
       palette_width: 260.0,
       outline_width: 248.0,
       inspector_width: 300.0,
-      code_width: 520.0,
+      // 260 + 248 + 300 + 420 leaves ~210 of a 1440-wide window for the
+      // canvas in Split mode, which is tight but is a canvas. At 520 it was
+      // ninety pixels.
+      code_width: 420.0,
       problems_height: 180.0,
       folded: Vec::new(),
     }
