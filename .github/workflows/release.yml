@@ -1,21 +1,59 @@
 name: Release
 
-# Runs when a version tag (v*) is pushed, or manually for a given tag. It
-# releases Tailor: a signed, notarized .app in a .dmg, with notes lifted from
-# the CHANGELOG section for the version.
+# Releasing is bumping the version in Cargo.toml and pushing to main. The tag
+# is made here rather than by hand, which is the point: a tag typed into a
+# terminal is a name anyone can put anywhere, and this workflow turns one into
+# a signed, notarized download. (Tailor's history came out of the guise
+# repository with `git filter-repo`, which brought twenty-eight of that
+# project's tags with it — `git tag v0.2.0` did nothing at all and the push
+# put a five-year-old commit on the remote under Tailor's next version.)
+#
+# The notes are lifted from the matching `## <version>` section of the
+# CHANGELOG, so that section *is* the release notes.
 on:
   push:
-    tags: ["v*"]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to release (e.g. v0.1.0-beta)"
-        required: true
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
+  # Release when the workspace version has no tag yet. Idempotent for both a
+  # push and a manual run, where a HEAD~1 diff would miss the second.
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.decide.outputs.changed }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the workspace version
+        id: version
+        run: |
+          VERSION=$(sed -n 's/^version = "\([0-9][^"]*\)".*/\1/p' Cargo.toml | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version in Cargo.toml"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to release
+        id: decide
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "${TAG} is already released — nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   # Create the GitHub Release, with notes from the CHANGELOG.
   #
   # Created as a draft and published by the `publish` job once the DMG has
@@ -24,36 +62,20 @@ jobs:
   # notarization run with none of its assets attached yet.
   github-release:
     runs-on: ubuntu-latest
+    needs: check-version
+    if: needs.check-version.outputs.changed == 'true'
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ needs.check-version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Resolve the tag
-        id: tag
-        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
-
-      # Tailor's history was carried out of the guise repository with
-      # `git filter-repo`, which brought guise's tags with it — twenty-eight of
-      # them, on that project's version line, pointing at commits from before
-      # Tailor existed. Pushing one by accident would have built a five-year-old
-      # tree and released it under a Tailor version number.
-      #
-      # They are gone now, but the shape of the mistake is not: a tag is a name
-      # anyone can put anywhere, and this job turns it into a download. So the
-      # tag has to be on `main`.
-      - name: The tag must be on main
+      - name: Tag this commit
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          if ! git merge-base --is-ancestor "$TAG" origin/main; then
-            echo "::error::$TAG is not an ancestor of main — refusing to release it."
-            echo "It points at $(git log -1 --oneline "$TAG")."
-            exit 1
-          fi
-          echo "$TAG is on main: $(git log -1 --oneline "$TAG")"
+          TAG="${{ needs.check-version.outputs.tag }}"
+          git tag -a "$TAG" -m "Version ${{ needs.check-version.outputs.version }}"
+          git push origin "$TAG"
 
       # Prefer the hand-written CHANGELOG section for this version — a list of
       # commit subjects is not release notes. Falls back to generated notes for
@@ -61,8 +83,7 @@ jobs:
       - name: Extract the changelog section
         id: notes
         run: |
-          VERSION="${{ steps.tag.outputs.tag }}"
-          VERSION="${VERSION#v}"
+          VERSION="${{ needs.check-version.outputs.version }}"
           if [ -f CHANGELOG.md ] && awk -v v="## $VERSION" '$0 ~ "^"v" " || $0 == v {found=1} END {exit !found}' CHANGELOG.md; then
             awk -v v="## $VERSION" '
               $0 ~ "^"v" " || $0 == v {inside=1; next}
@@ -78,7 +99,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
+          TAG="${{ needs.check-version.outputs.tag }}"
           # A semver pre-release (v0.1.0-beta) is marked as one, so it never
           # becomes what `releases/latest` reports.
           PRERELEASE=""
@@ -93,7 +114,8 @@ jobs:
 
   # Tailor as a macOS app: build, sign, notarize, staple, package.
   macos:
-    needs: github-release
+    needs: [check-version, github-release]
+    if: needs.check-version.outputs.changed == 'true'
     runs-on: macos-latest
     # Signing and notarization are gated separately, because they need different
     # credentials and one can be set up without the other. With a Developer ID
@@ -191,9 +213,10 @@ jobs:
   # release whose remaining jobs were deliberately stopped.
   publish:
     runs-on: ubuntu-latest
-    needs: [github-release, macos]
+    needs: [check-version, github-release, macos]
     if: |
       !cancelled()
+      && needs.check-version.outputs.changed == 'true'
       && needs.github-release.result == 'success'
       && needs.macos.result == 'success'
     steps:
@@ -201,3 +224,86 @@ jobs:
         run: gh release edit "${{ needs.github-release.outputs.tag }}" --draft=false --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # `brew install --cask wess/packages/tailor`, the same tap the other apps
+  # use. Runs after `publish` because the cask needs the DMG's digest, and the
+  # DMG is only downloadable once the release is live.
+  homebrew:
+    runs-on: ubuntu-latest
+    needs: [check-version, publish]
+    if: |
+      !cancelled()
+      && needs.check-version.outputs.changed == 'true'
+      && needs.publish.result == 'success'
+      && !contains(needs.check-version.outputs.version, '-')
+    steps:
+      - name: Download the DMG and take its digest
+        id: dmg
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          URL="https://github.com/wess/tailor/releases/download/v${VERSION}/Tailor.dmg"
+          for attempt in $(seq 1 30); do
+            if curl -fsSL -o /tmp/Tailor.dmg "${URL}" 2>/dev/null; then
+              break
+            fi
+            echo "Waiting for Tailor.dmg… (${attempt}/30)"
+            sleep 10
+          done
+          # `curl -f` still creates the file on an HTTP error, so without this
+          # a run that exhausted every retry would hash a zero-byte file and
+          # publish the empty digest as a working cask.
+          if [ ! -s /tmp/Tailor.dmg ]; then
+            echo "::error::Tailor.dmg never became downloadable from ${URL}"
+            exit 1
+          fi
+          echo "sha=$(sha256sum /tmp/Tailor.dmg | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the tap
+        uses: actions/checkout@v4
+        with:
+          repository: wess/homebrew-packages
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Write the cask
+        run: |
+          mkdir -p tap/Casks
+          cat > tap/Casks/tailor.rb << 'RUBY'
+          cask "tailor" do
+            version "VERSION_PLACEHOLDER"
+            sha256 "SHA_PLACEHOLDER"
+
+            url "https://github.com/wess/tailor/releases/download/v#{version}/Tailor.dmg"
+            name "Tailor"
+            desc "Visual interface builder for gpui: design it, run it, take the Rust"
+            homepage "https://github.com/wess/tailor"
+
+            depends_on macos: :big_sur
+
+            app "Tailor.app"
+            # The MCP server ships beside the app inside the bundle; this is
+            # what puts it on PATH for an agent that wants to drive Tailor.
+            binary "#{appdir}/Tailor.app/Contents/MacOS/tailor-mcp"
+
+            zap trash: [
+              "~/Library/Application Support/tailor",
+              "~/Library/Preferences/io.wess.tailor.plist",
+              "~/Library/Saved Application State/io.wess.tailor.savedState",
+            ]
+          end
+          RUBY
+          sed -i "s/VERSION_PLACEHOLDER/${{ needs.check-version.outputs.version }}/g" tap/Casks/tailor.rb
+          sed -i "s/SHA_PLACEHOLDER/${{ steps.dmg.outputs.sha }}/g" tap/Casks/tailor.rb
+
+      - name: Push it
+        run: |
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/tailor.rb
+          if git diff --cached --quiet; then
+            echo "Cask unchanged — nothing to push."
+          else
+            git commit -m "Update tailor to v${{ needs.check-version.outputs.version }}"
+            git push
+          fi
