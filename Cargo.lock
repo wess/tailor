@@ -6200,7 +6200,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-app"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6218,7 +6218,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-build"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dirs 6.0.0",
  "serde_json",
@@ -6230,7 +6230,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-codegen"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "tailor-guise",
  "tailor-model",
@@ -6238,7 +6238,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-guise"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "tailor-codegen",
  "tailor-model",
@@ -6246,7 +6246,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-guiserender"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6257,7 +6257,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-mcp"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -6269,7 +6269,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-model"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -6277,7 +6277,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-render"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6287,7 +6287,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dirs 6.0.0",
  "serde",
@@ -6299,7 +6299,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-surface"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde_json",
 ]

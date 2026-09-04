@@ -8,7 +8,10 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
-## Unreleased
+## 0.3.0 — 2026-09-04
+
+Somewhere to put the rest of the app, the menus a Mac app is expected to have,
+and a website.
 
 ### Modules you write
 
@@ -37,6 +40,46 @@ pane is read-only. It also no longer insists on an export directory: it uses
 the same workspace Run does, and a build now leaves the same trail in the
 export index, so both directions of the jump work on a project you have only
 ever run.
+
+### The menus a Mac app has
+
+An audit of every action against every menu found the twelve that appear in
+neither, and all twelve are correctly keyboard-only. What was missing was the
+other kind of gap.
+
+- **Tailor** gains *About Tailor*, which opens the settings sheet on its About
+  page, and the system **Services** submenu.
+- **File** gains **Open Recent** — eight slots and a Clear Menu, rebuilt
+  whenever the list moves, disambiguated by file name when two projects share
+  one.
+- **Window** is new: Minimize (⌘M), Zoom, Enter Full Screen (⌃⌘F). macOS
+  recognises it and adds its own tiling items. ⌘W closes the project.
+- **Help** gains Keyboard Shortcuts, Release Notes and Report an Issue, all
+  app-level so they work with no project open.
+
+The console had no right-click menu, because it did not exist when the other
+nine surfaces got theirs. It has Copy the output, Clear, Run/Stop and Reveal
+the build folder; the code pane's gained Open in Editor, Find in this file,
+and Run.
+
+### A website
+
+[wess.io/tailor](https://wess.io/tailor/) — the markdown under `docs/`
+rendered as a site, deployed on any push that touches it. The landing page's
+hero is a design beside the Rust it generates, drawn as markup rather than
+photographed, because that seam is the product and a screenshot of it would
+start going out of date immediately.
+
+### Releasing
+
+Releasing is bumping the version in `Cargo.toml` and pushing to `main`; the
+workflow makes the tag. A tag typed into a terminal is a name anyone can put
+anywhere, and that job turns one into a signed, notarized download — this
+release is the first one cut that way.
+
+And a Homebrew cask, in the same tap as the other apps:
+`brew install --cask wess/packages/tailor`. It puts `tailor-mcp` on `PATH`
+from inside the bundle, which is what an agent needs to drive Tailor.
 
 ## 0.2.0 — 2026-09-04
 
