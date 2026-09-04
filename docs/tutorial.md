@@ -400,7 +400,7 @@ that the file will generate and the generated file will compile.
 
 ## 12. Watching it run
 
-⌘⇧L opens the **live window**: the document at its real device size, no canvas
+⌘⇧L opens the **live window**: the document at its real size, no canvas
 chrome, every component interactive. Type in the search field. Toggle the
 switch. It updates on the same edit that updates the canvas, so you can leave it
 on a second display while you work.

@@ -179,8 +179,6 @@ pub struct Workbench {
   pub file_seen: Option<std::time::SystemTime>,
   /// Whether the "changed on disk" warning has already been said.
   pub warned_about_file: bool,
-  /// Portrait or landscape for the current device preset.
-  pub landscape: bool,
   /// Bumped to replay the canvas's entrance animations. Editing any motion
   /// setting bumps it, so an adjustment plays back the moment it is made.
   pub motion_epoch: usize,
@@ -288,7 +286,6 @@ impl Workbench {
       persist_settings: true,
       file_seen: None,
       warned_about_file: false,
-      landscape: false,
       motion_epoch: 0,
       build: run::Build::default(),
       code: code::CodePane::default(),

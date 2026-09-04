@@ -1672,6 +1672,29 @@ impl Workbench {
       },
     );
 
+    // The artboard's size, which is the window the generated app opens at.
+    let (canvas_w, canvas_h) = (doc.canvas.width, doc.canvas.height);
+    let width_field = self.field(
+      format!("doc/{doc_id}/width"),
+      trim_float(canvas_w as f64),
+      cx,
+      move |this, text, cx| {
+        let width = number(&text) as f32;
+        let height = this.doc().map(|doc| doc.canvas.height).unwrap_or(canvas_h);
+        this.set_canvas_size(width, height, cx);
+      },
+    );
+    let height_field = self.field(
+      format!("doc/{doc_id}/height"),
+      trim_float(canvas_h as f64),
+      cx,
+      move |this, text, cx| {
+        let height = number(&text) as f32;
+        let width = this.doc().map(|doc| doc.canvas.width).unwrap_or(canvas_w);
+        this.set_canvas_size(width, height, cx);
+      },
+    );
+
     let kind = doc.kind;
     let scheme = self.project.theme.scheme;
     let primary = self.project.theme.primary;
@@ -1687,6 +1710,22 @@ impl Workbench {
       "Document",
       vec![
         labelled("Name", name_field.into_any_element(), cx),
+        // gpui targets desktop, so this is a window size rather than a device
+        // — there is no second form factor to switch between.
+        div()
+          .flex()
+          .gap(px(8.))
+          .child(
+            div()
+              .flex_grow()
+              .child(labelled("Width", width_field.into_any_element(), cx)),
+          )
+          .child(
+            div()
+              .flex_grow()
+              .child(labelled("Height", height_field.into_any_element(), cx)),
+          )
+          .into_any_element(),
         labelled(
           "Kind",
           chip_row(

@@ -8,7 +8,6 @@
 use gpui::prelude::*;
 use gpui::{div, px, Context, ElementId, SharedString};
 use guise::prelude::*;
-use tailor_model::PRESETS;
 use tailor_store::{CanvasMode, Panel};
 
 use super::{icon, Workbench};
@@ -18,10 +17,6 @@ impl Workbench {
   pub(super) fn render_toolbar(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
     let chrome = theme::colors(cx);
     let mode = self.settings.canvas_mode;
-    let preset = self
-      .doc()
-      .map(|doc| doc.canvas.preset.clone())
-      .unwrap_or_default();
     let (width, height) = self
       .doc()
       .map(|doc| (doc.canvas.width, doc.canvas.height))
@@ -134,45 +129,28 @@ impl Workbench {
               })),
           )
           .child(divider(chrome.border))
+          // The window your app opens at. gpui is desktop-only, so this is a
+          // size rather than a device — clicking it puts the cursor in the
+          // Document inspector, where it is set.
           .child(
             div()
-              .flex()
-              .min_w(px(0.))
-              .overflow_hidden()
-              .gap(px(2.))
-              .children(PRESETS.iter().map(|(name, _, _)| {
-                let name = *name;
-                let selected = name == preset;
-                div()
-                  .id(ElementId::Name(SharedString::from(format!(
-                    "preset-{name}"
-                  ))))
-                  .px(px(10.))
-                  .py(px(5.))
-                  .rounded(px(6.))
-                  .text_size(px(12.))
-                  .when(selected, |d| d.bg(chrome.raised))
-                  .text_color(if selected { chrome.text } else { chrome.dimmed })
-                  .child(SharedString::from(name))
-                  .on_click(cx.listener(move |this, _, _window, cx| {
-                    this.set_preset(name, cx);
-                  }))
-              })),
-          )
-          .child(div().flex_none().child(self.tool_button(
-            "rotate",
-            "rotate-cw",
-            "Rotate device",
-            true,
-            cx,
-            |this, window, cx| this.toggle_orientation(window, cx),
-          )))
-          .child(
-            div()
+              .id("canvas-size")
               .flex_none()
+              .px(px(6.))
+              .py(px(3.))
+              .rounded(px(5.))
               .text_size(px(11.))
               .text_color(chrome.dimmed)
-              .child(SharedString::from(format!("{width:.0} × {height:.0}"))),
+              .hover(move |style| style.bg(chrome.raised).text_color(chrome.text))
+              .child(SharedString::from(format!("{width:.0} × {height:.0}")))
+              .tooltip(tooltip("The window size this design opens at"))
+              .on_click(cx.listener(|this, _, _window, cx| {
+                // Nothing selected is what shows the Document inspector, and
+                // that is where the size lives.
+                this.selection.clear();
+                this.inspector = super::Inspector::Attributes;
+                cx.notify();
+              })),
           ),
       )
       // Right: run, the live window, the export, and the panels. Fixed —

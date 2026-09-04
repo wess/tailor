@@ -42,9 +42,6 @@ impl DocKind {
 pub struct Canvas {
   pub width: f32,
   pub height: f32,
-  /// The preset this size came from, so the toolbar can show it selected.
-  #[serde(default, skip_serializing_if = "String::is_empty")]
-  pub preset: String,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub background: Option<ColorSpec>,
 }
@@ -54,21 +51,10 @@ impl Default for Canvas {
     Canvas {
       width: 960.0,
       height: 640.0,
-      preset: "desktop".into(),
       background: None,
     }
   }
 }
-
-/// The device presets the canvas toolbar offers.
-pub const PRESETS: &[(&str, f32, f32)] = &[
-  ("desktop", 1280.0, 800.0),
-  ("laptop", 960.0, 640.0),
-  ("tablet", 768.0, 1024.0),
-  ("phone", 390.0, 844.0),
-  ("panel", 420.0, 560.0),
-  ("square", 600.0, 600.0),
-];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Document {

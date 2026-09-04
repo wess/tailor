@@ -1,8 +1,9 @@
 # Tailor: the canvas
 
 The canvas is where a design is made, and it is the part of Tailor that behaves
-most like Interface Builder: an artboard at a device size, a selection with
-knobs on it, a grid to catch drags, and four ways to look at the same document.
+most like Interface Builder: an artboard at the size your window opens at, a
+selection with knobs on it, a grid to catch drags, and four ways to look at the
+same document.
 
 Everything here is about *this* page. For what you can place, see
 [components and slots](components.md); for what the design becomes, see
@@ -11,14 +12,18 @@ Everything here is about *this* page. For what you can place, see
 ## The artboard
 
 The canvas holds one artboard, at the size the document says, and it scrolls.
-Device presets sit across the toolbar — desktop, laptop, tablet, phone, panel,
-square — with a rotate button beside them, and the size is editable if none of
-them is what you want.
+That size is the window your app opens at — **Width** and **Height** in the
+Document inspector, shown in the toolbar beside the canvas modes.
 
-There is no magnification. gpui 0.2.2 has no transform for an arbitrary element
-tree, so a zoom would scale some pixels and not others — text laid out at one
-size and drawn at another, borders that stop being hairlines. Presets, rotate
-and scroll are what the framework can do honestly.
+One size, not a rack of device presets: gpui targets the desktop, so there is
+no second form factor to design for. If it ever grows a wasm backend there will
+be a browser to think about, and that is the point at which a second size means
+something.
+
+There is no magnification either. gpui 0.2.2 has no transform for an arbitrary
+element tree, so a zoom would scale some pixels and not others — text laid out
+at one size and drawn at another, borders that stop being hairlines. Resizing
+the artboard and scrolling are what the framework can do honestly.
 
 The grid behind the artboard is a canvas affordance, not part of the design: it
 never appears in the export. ⌘' shows or hides it; its spacing is a setting.
@@ -147,7 +152,7 @@ Between them you can restructure a whole screen from the keyboard.
 
 ## The live window
 
-⌘⇧L opens a second OS window showing the document at its real device size, with
+⌘⇧L opens a second OS window showing the document at its real size, with
 no canvas chrome and every component interactive. It updates on the same edit
 that updates the canvas — leave it on a second display and watch the app take
 shape while you work. It is the closest a compiled language gets to a live
@@ -171,7 +176,7 @@ inspector first if it was closed — the tree is recorded by the frames that
 follow, so the pick waits for one rather than answering from an empty tree.
 
 The inspector takes its room from the *window*, not from the design: opening it
-makes the window bigger and leaves the document at its device size. Squeezing
+makes the window bigger and leaves the document at its own size. Squeezing
 the design to make space would defeat the one thing this window is for.
 
 It is closed until you ask for it — the recorder behind the Elements tree only

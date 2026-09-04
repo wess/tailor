@@ -218,7 +218,6 @@ impl Root {
         NudgeRightBig => nudge_right_big,
         NudgeUpBig => nudge_up_big,
         NudgeDownBig => nudge_down_big,
-        ToggleOrientation => toggle_orientation,
         OpenLiveWindow => open_live_window,
         ToggleDevTools => toggle_devtools,
         OpenInEditor => open_in_editor,

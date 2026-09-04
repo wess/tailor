@@ -69,7 +69,7 @@ editor lay theirs out.
 | --- | --- |
 | **Library** (left) | Every component you can place, searchable, grouped by category, plus the components you built in this project. |
 | **Outline** | The node tree. Rows are drag sources and drop targets; named slots appear as their own rows. |
-| **Canvas** (centre) | The artboard, at the device size you picked, with the document rendered inside it. |
+| **Canvas** (centre) | The artboard, at the size your app's window opens at, with the document rendered inside it. |
 | **Inspector** (right) | Six tabs: Attributes, Size, Style, Motion, Connections, Identity. |
 | **Problems / Console** (bottom) | Two tabs. What will not generate and what probably was not meant, plus the compiler's complaints from the last build; and what the build and the running app printed. |
 

@@ -80,6 +80,12 @@ which is design data and survives.
   than pushing the panel toggles off the edge. Run and Export were a filled pill
   and a bordered pill in a bar made of flat chips; both are chips now, in one
   shape with Live, and Run is the only coloured thing in the bar.
+- The device presets are gone — desktop, laptop, tablet, phone, panel, square,
+  and the rotate button. gpui targets the desktop, so five of the six were a
+  size with a lie on it. The artboard is one size, set as **Width** and
+  **Height** in the Document inspector, which is the window the generated app
+  opens at. `Canvas::preset` left the file format with them; a project that
+  still carries one loads and ignores it.
 - Fixed: `ComponentSpec::required` was added to the provider seam in 0.1.0-beta
   and the linter rewired to read it, but guise's catalog was never filled in —
   so "Button has no label" and its seven siblings had silently stopped firing.

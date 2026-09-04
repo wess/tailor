@@ -27,7 +27,7 @@ pub mod style;
 pub mod tokens;
 
 pub use catalog::{Category, ComponentSpec, Ctor, SlotRef, SlotSpec};
-pub use doc::{Canvas, DocKind, Document, PRESETS};
+pub use doc::{Canvas, DocKind, Document};
 pub use history::History;
 pub use id::{IdGen, NodeId};
 pub use library::Library;

@@ -958,38 +958,15 @@ impl Workbench {
     cx.notify();
   }
 
-  pub fn toggle_orientation(&mut self, _w: &mut Window, cx: &mut Context<Self>) {
-    self.landscape = !self.landscape;
-    let landscape = self.landscape;
-    self.edit_doc("Rotate", cx, move |doc| {
-      let (width, height) = (doc.canvas.width, doc.canvas.height);
-      let portrait = height >= width;
-      if portrait == landscape {
-        doc.canvas.width = height;
-        doc.canvas.height = width;
-      }
-    });
-  }
-
-  pub fn set_preset(&mut self, preset: &str, cx: &mut Context<Self>) {
-    let Some((_, width, height)) = tailor_model::PRESETS
-      .iter()
-      .find(|(name, _, _)| *name == preset)
-      .copied()
-    else {
-      return;
-    };
-    let landscape = self.landscape;
-    let preset = preset.to_string();
-    self.edit_doc("Device", cx, move |doc| {
-      doc.canvas.preset = preset;
-      if landscape && height > width {
-        doc.canvas.width = height;
-        doc.canvas.height = width;
-      } else {
-        doc.canvas.width = width;
-        doc.canvas.height = height;
-      }
+  /// Resize the artboard. The window your app opens at, and the only size
+  /// there is: gpui targets desktop, so there is no second form factor to
+  /// switch between.
+  pub fn set_canvas_size(&mut self, width: f32, height: f32, cx: &mut Context<Self>) {
+    let width = width.clamp(120.0, 8000.0);
+    let height = height.clamp(120.0, 8000.0);
+    self.edit_doc("Canvas size", cx, move |doc| {
+      doc.canvas.width = width;
+      doc.canvas.height = height;
     });
   }
 
