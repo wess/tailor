@@ -271,9 +271,13 @@ impl Workbench {
 }
 
 impl Workbench {
-  /// Escape, from the keymap. The action forwarder hands every command a
-  /// window; this one has no use for it.
-  pub fn dismiss_find(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+  /// Escape. Puts away whatever is on top: the action sheet if it is open,
+  /// otherwise the find bar. One key, one meaning, and never both at once.
+  pub fn dismiss(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    if self.action_editor.is_some() {
+      self.close_action(cx);
+      return;
+    }
     self.close_find(cx);
   }
 }

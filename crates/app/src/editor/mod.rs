@@ -7,6 +7,7 @@
 //! would mean six copies of "tell the workbench, then tell everyone else". One
 //! owner, `cx.notify()`, done.
 
+pub mod action;
 pub mod analysis;
 pub mod canvas;
 pub mod code;
@@ -188,6 +189,8 @@ pub struct Workbench {
   pub build: run::Build,
   /// The code pane: every generated file, and which one is showing.
   pub code: code::CodePane,
+  /// The action editor, while it is open.
+  pub action_editor: Option<action::ActionEditor>,
   /// Which half of the bottom pane is showing.
   pub bottom: run::Bottom,
   /// The canvas's focus. Not decoration: gpui builds the dispatch path from
@@ -289,6 +292,7 @@ impl Workbench {
       motion_epoch: 0,
       build: run::Build::default(),
       code: code::CodePane::default(),
+      action_editor: None,
       bottom: run::Bottom::default(),
       focus: cx.focus_handle(),
       focused: false,
@@ -614,6 +618,7 @@ impl Render for Workbench {
       .children(self.render_guides(cx))
       .children(self.render_readout(cx))
       .children(self.menu.clone())
+      .children(self.render_action_editor(cx))
       .children(self.render_settings_sheet(cx))
   }
 }

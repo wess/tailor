@@ -105,9 +105,12 @@ actions!(
   NudgeUpBig,
   NudgeDownBig,
   FindInCode,
-  CloseFind,
+  Dismiss,
   FindNext,
   FindPrevious,
+  AcceptSuggestion,
+  NextSuggestion,
+  PreviousSuggestion,
   // Product
   RunProject,
   BuildProject,
@@ -318,10 +321,16 @@ fn keys() -> Vec<KeyBinding> {
     KeyBinding::new("cmd-shift-s", SaveAs, None),
     KeyBinding::new("cmd-e", ExportCode, None),
     KeyBinding::new("cmd-f", FindInCode, None),
-    // Global, not canvas-scoped: the find field has focus when this matters,
-    // so the canvas's own escape (Select Parent) never sees it. Closing a bar
-    // that is not open does nothing.
-    KeyBinding::new("escape", CloseFind, None),
+    // Global, not canvas-scoped: a field has focus when this matters, so the
+    // canvas's own escape (Select Parent) never sees it. Dismissing nothing
+    // does nothing.
+    KeyBinding::new("escape", Dismiss, None),
+    // The completion popup. Not Tab or Enter: the code editor under it owns
+    // both, and taking them would cost indentation and newlines to buy a
+    // shortcut.
+    KeyBinding::new("ctrl-space", AcceptSuggestion, None),
+    KeyBinding::new("ctrl-n", NextSuggestion, None),
+    KeyBinding::new("ctrl-p", PreviousSuggestion, None),
     KeyBinding::new("cmd-g", FindNext, None),
     KeyBinding::new("cmd-shift-g", FindPrevious, None),
     KeyBinding::new("cmd-r", RunProject, None),

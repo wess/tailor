@@ -678,6 +678,11 @@ impl Workbench {
   }
 
   fn after_history(&mut self, cx: &mut Context<Self>) {
+    // The action sheet holds a buffer over a body the document may no longer
+    // have. Closing it is the honest answer — re-syncing would mean deciding
+    // between what was undone and what is being typed, and both answers are
+    // wrong half the time.
+    self.close_action(cx);
     // The document the tab was on may not exist in the restored project.
     if self.project.doc(&self.doc_id).is_none() {
       self.doc_id = self

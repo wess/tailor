@@ -1282,3 +1282,140 @@ fn revealing_a_diagnostic_pins_its_file_and_puts_the_caret_on_the_line(cx: &mut 
     assert_eq!(this.code.pinned.as_deref(), Some("src/theme.rs"));
   });
 }
+
+/// The action editor: the half of Interface Builder that writes the method.
+#[gpui::test]
+fn an_action_body_is_edited_in_the_document_and_survives_regeneration(cx: &mut TestAppContext) {
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  settle(cx);
+
+  // A button wired to an action, which is the shape this is for.
+  workbench.update(cx, |this, cx| {
+    let root = this.doc().unwrap().root;
+    this.insert_kind("button", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+    this.add_action(cx);
+  });
+  settle(cx);
+
+  let name = workbench.update(cx, |this, _| this.doc().unwrap().actions[0].name.clone());
+
+  workbench.update_in(cx, |this, window, cx| {
+    this.open_action(0, window, cx);
+    let editor = this.action_editor.as_ref().expect("the sheet is open");
+    assert_eq!(editor.index, 0);
+    // What a handler can reach is listed for you: the document's one signal
+    // is not there yet, but the button is not an entity either, so scope is
+    // empty until there is something to reach.
+    assert!(editor.scope.iter().all(|(n, _)| n.starts_with("self.")));
+
+    // Typing into the buffer writes through to the document. `edit` rather
+    // than `set_text`, because that is what a keystroke goes through —
+    // `set_text` is the host loading a buffer and deliberately does not echo
+    // back, or every sync would be an edit.
+    let body = editor.body.clone();
+    body.update(cx, |buffer, cx| {
+      buffer.edit(window, cx, |model| model.insert("self.count += 1;"));
+      buffer.edit(window, cx, |model| model.newline());
+      buffer.edit(window, cx, |model| model.insert("cx.notify();"));
+    });
+  });
+  settle(cx);
+
+  workbench.update(cx, |this, _| {
+    let action = &this.doc().unwrap().actions[0];
+    assert_eq!(action.name, name);
+    assert!(action.body.contains("cx.notify();"), "{}", action.body);
+    // And it is in the generated file, not just the document — which is the
+    // whole point: regenerating writes around the body rather than over it.
+    assert!(
+      this.generated.contains("cx.notify();"),
+      "the body never reached the code:\n{}",
+      this.generated
+    );
+    assert!(this.generated.contains(&format!("pub fn {name}(")));
+  });
+
+  // Renaming follows every control wired to the old name.
+  workbench.update(cx, |this, cx| {
+    let button = this.doc().unwrap().children_of(this.doc().unwrap().root)[0];
+    this.edit_doc("wire", cx, move |doc| {
+      if let Some(node) = doc.node_mut(button) {
+        node.events.insert("click".into(), "handle".into());
+      }
+    });
+  });
+  settle(cx);
+  workbench.update(cx, |this, cx| {
+    this.rename_action_for_test(0, "submit", cx);
+  });
+  settle(cx);
+  workbench.update(cx, |this, _| {
+    let doc = this.doc().unwrap();
+    assert_eq!(doc.actions[0].name, "submit");
+    let button = doc.children_of(doc.root)[0];
+    assert_eq!(
+      doc
+        .node(button)
+        .unwrap()
+        .events
+        .get("click")
+        .map(String::as_str),
+      Some("submit"),
+      "renaming an action should follow the controls wired to it"
+    );
+  });
+
+  // Escape puts the sheet away.
+  workbench.update_in(cx, |this, window, cx| {
+    this.dismiss(window, cx);
+    assert!(this.action_editor.is_none());
+  });
+}
+
+/// The completer offers what is actually reachable, and accepting one replaces
+/// the partial word rather than appending to it.
+#[gpui::test]
+fn a_completion_replaces_the_word_being_typed(cx: &mut TestAppContext) {
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  settle(cx);
+
+  workbench.update(cx, |this, cx| {
+    this.add_variable(cx);
+    this.add_action(cx);
+  });
+  settle(cx);
+
+  workbench.update_in(cx, |this, window, cx| {
+    this.open_action(0, window, cx);
+    let editor = this.action_editor.as_ref().unwrap();
+    // The document's own signal is in scope, `self.`-prefixed the way the
+    // generated method reaches it.
+    assert!(
+      editor
+        .scope
+        .iter()
+        .any(|(n, kind)| n.starts_with("self.") && kind == "signal"),
+      "{:?}",
+      editor.scope
+    );
+
+    let body = editor.body.clone();
+    body.update(cx, |buffer, cx| {
+      buffer.edit(window, cx, |model| model.insert("let x = notif"))
+    });
+    this.refresh_suggestions_for_test(cx);
+
+    let state = this.action_editor.as_ref().unwrap();
+    assert_eq!(state.prefix, "notif");
+    assert_eq!(state.suggestions[0].text, "cx.notify();");
+
+    this.accept_suggestion(window, cx);
+    let text = this.action_editor.as_ref().unwrap().body.read(cx).text();
+    assert_eq!(
+      text, "let x = cx.notify();",
+      "the partial word should be replaced, not appended to"
+    );
+    // The popup closes once something is accepted.
+    assert!(this.action_editor.as_ref().unwrap().suggestions.is_empty());
+  });
+}

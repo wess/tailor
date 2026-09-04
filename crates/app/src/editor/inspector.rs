@@ -1480,8 +1480,10 @@ impl Workbench {
     );
 
     for (index, action) in actions.iter().enumerate() {
+      let lines = action.body.lines().filter(|l| !l.trim().is_empty()).count();
       blocks.push(
         div()
+          .id(ElementId::Name(SharedString::from(format!("act-{index}"))))
           .flex()
           .items_center()
           .justify_between()
@@ -1489,6 +1491,11 @@ impl Workbench {
           .py(px(5.))
           .rounded(px(6.))
           .bg(chrome.raised)
+          .hover(move |style| style.bg(chrome.surface))
+          .tooltip(tooltip("Write what this action does"))
+          .on_click(cx.listener(move |this, _, window, cx| {
+            this.open_action(index, window, cx);
+          }))
           .child(
             div()
               .flex()
@@ -1499,6 +1506,22 @@ impl Workbench {
                 div()
                   .text_size(px(12.))
                   .child(SharedString::from(action.name.clone())),
+              )
+              // An action with no body generates `// TODO`, and saying so
+              // here is what stops a project shipping as a mockup.
+              .child(
+                div()
+                  .text_size(px(10.))
+                  .text_color(if lines == 0 {
+                    chrome.warning
+                  } else {
+                    chrome.dimmed
+                  })
+                  .child(SharedString::from(match lines {
+                    0 => "empty".to_string(),
+                    1 => "1 line".to_string(),
+                    n => format!("{n} lines"),
+                  })),
               ),
           )
           .child(
@@ -1508,13 +1531,18 @@ impl Workbench {
               ))))
               .text_color(chrome.dimmed)
               .child(icon("trash-2"))
-              .on_click(cx.listener(move |this, _, _window, cx| {
-                this.edit_doc("Remove action", cx, move |doc| {
-                  if index < doc.actions.len() {
-                    doc.actions.remove(index);
-                  }
-                });
-              })),
+              .on_click(
+                cx.listener(move |this, event: &gpui::ClickEvent, _window, cx| {
+                  // The row opens the editor; the bin must not do both.
+                  let _ = event;
+                  cx.stop_propagation();
+                  this.edit_doc("Remove action", cx, move |doc| {
+                    if index < doc.actions.len() {
+                      doc.actions.remove(index);
+                    }
+                  });
+                }),
+              ),
           )
           .into_any_element(),
       );
