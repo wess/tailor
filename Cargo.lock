@@ -6198,11 +6198,24 @@ dependencies = [
  "guise-ui",
  "serde",
  "serde_json",
+ "tailor-build",
  "tailor-codegen",
  "tailor-guise",
  "tailor-guiserender",
  "tailor-model",
  "tailor-render",
+ "tailor-store",
+]
+
+[[package]]
+name = "tailor-build"
+version = "0.1.0-beta"
+dependencies = [
+ "dirs 6.0.0",
+ "serde_json",
+ "tailor-codegen",
+ "tailor-guise",
+ "tailor-model",
  "tailor-store",
 ]
 

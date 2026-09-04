@@ -11,6 +11,7 @@ pub mod analysis;
 pub mod canvas;
 pub mod code;
 pub mod commands;
+pub mod console;
 pub mod docs;
 pub mod grab;
 pub mod inspector;
@@ -20,6 +21,7 @@ pub mod outline;
 pub mod palette;
 pub mod panels;
 pub mod problems;
+pub mod run;
 pub mod toolbar;
 pub mod watch;
 
@@ -180,6 +182,11 @@ pub struct Workbench {
   /// Bumped to replay the canvas's entrance animations. Editing any motion
   /// setting bumps it, so an adjustment plays back the moment it is made.
   pub motion_epoch: usize,
+  /// Building and running the project: the session, the console, and what the
+  /// compiler had to say about it.
+  pub build: run::Build,
+  /// Which half of the bottom pane is showing.
+  pub bottom: run::Bottom,
   /// The canvas's focus. Not decoration: gpui builds the dispatch path from
   /// whatever is focused, and an app where nothing is focused has no path —
   /// so every action registered on an element goes unreachable and the whole
@@ -267,6 +274,8 @@ impl Workbench {
       warned_about_file: false,
       landscape: false,
       motion_epoch: 0,
+      build: run::Build::default(),
+      bottom: run::Bottom::default(),
       focus: cx.focus_handle(),
       focused: false,
       subs,

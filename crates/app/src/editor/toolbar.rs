@@ -189,9 +189,10 @@ impl Workbench {
               .tooltip(tooltip("Open a live window that follows every edit"))
               .on_click(cx.listener(|this, _, window, cx| this.open_live_window(window, cx))),
           )
+          .child(self.run_button(cx))
           .child(
             Button::new("export", "Export")
-              .variant(Variant::Filled)
+              .variant(Variant::Default)
               .size(Size::Sm)
               .left_section(Icon::new(IconName::FileCode2).size(Size::Xs))
               .on_click(cx.listener(|this, _, window, cx| this.export_code(window, cx))),
@@ -376,4 +377,59 @@ impl Workbench {
 
 fn divider(color: gpui::Hsla) -> impl IntoElement {
   div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(color)
+}
+
+impl Workbench {
+  /// Run, or Stop while something is running.
+  ///
+  /// One button rather than two, because at any moment exactly one of them is
+  /// the thing you want — and a Stop that is greyed out most of the time is a
+  /// worse answer than a button that changes.
+  fn run_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    let chrome = theme::colors(cx);
+    let busy = self.build.status.busy();
+    let status = self.build.status.label();
+
+    let (label, glyph, hint) = if busy {
+      ("Stop", IconName::Square, "Stop the running app")
+    } else {
+      ("Run", IconName::Play, "Build this project and run it")
+    };
+
+    div()
+      .flex()
+      .items_center()
+      .gap(px(6.))
+      .child(
+        Button::new("run", label)
+          .variant(Variant::Filled)
+          .size(Size::Sm)
+          .left_section(Icon::new(glyph).size(Size::Xs))
+          .on_click(cx.listener(move |this, _, window, cx| {
+            if this.build.status.busy() {
+              this.stop_project(window, cx);
+            } else {
+              this.run_project(window, cx);
+            }
+          })),
+      )
+      .child(
+        div()
+          .id("build-status")
+          .max_w(px(220.))
+          .overflow_hidden()
+          .text_size(px(10.))
+          .text_color(match self.build.status {
+            crate::editor::run::Status::Failed(_) => chrome.danger,
+            crate::editor::run::Status::Running => chrome.accent,
+            _ => chrome.dimmed,
+          })
+          .child(SharedString::from(status))
+          .tooltip(tooltip(hint))
+          .on_click(cx.listener(|this, _, _window, cx| {
+            this.bottom = crate::editor::run::Bottom::Console;
+            cx.notify();
+          })),
+      )
+  }
 }

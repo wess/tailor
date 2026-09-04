@@ -4,6 +4,7 @@ members = [
     "crates/model",
     "crates/codegen",
     "crates/store",
+    "crates/build",
     "crates/render",
     "crates/guise",
     "crates/guiserender",
@@ -37,6 +38,7 @@ guise-ui = "1.6.0"
 tailor-model = { path = "crates/model" }
 tailor-codegen = { path = "crates/codegen" }
 tailor-store = { path = "crates/store" }
+tailor-build = { path = "crates/build" }
 tailor-render = { path = "crates/render" }
 
 # The guise provider: everything Tailor knows about the library it draws,

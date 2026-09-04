@@ -28,6 +28,7 @@ pub static SPECS: &[ComponentSpec] = &[
           color_value("color", "Color", Emit::Method("color"), ColorToken::Gray),
           boolean("dimmed", "Dimmed", Emit::Flag("dimmed"), false),
       ],
+      required: &[("content", "Type into Content, or bind it to a state variable.")],
   ),
   comp!(
       "title", "Title", "Title", Typography, "heading",
@@ -38,6 +39,7 @@ pub static SPECS: &[ComponentSpec] = &[
           int("order", "Order", Emit::Method("order"), || PropValue::Int(2)),
           color_value("color", "Color", Emit::Method("color"), ColorToken::Gray),
       ],
+      required: &[("content", "Type into Content, or bind it to a state variable.")],
   ),
   comp!(
       "anchor", "Link", "Anchor", Typography, "link",
@@ -50,6 +52,7 @@ pub static SPECS: &[ComponentSpec] = &[
           text("href", "URL", Emit::None),
       ],
       events: &[tailor_model::node::CLICK],
+      required: &[("label", "Set one in the Attributes inspector.")],
   ),
   comp!(
       "code", "Inline code", "Code", Typography, "code",

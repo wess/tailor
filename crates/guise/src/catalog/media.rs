@@ -21,4 +21,5 @@ pub static SPECS: &[ComponentSpec] = &[comp!(
         enums("fit", "Fit", Emit::Method("fit"), "ObjectFit",
             &["fill", "contain", "cover", "none"], || PropValue::Choice("cover".into())),
     ],
+    required: &[("source", "Point it at a file path or a URL.")],
 )];

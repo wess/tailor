@@ -19,6 +19,7 @@ guise-ui = { workspace = true }
 tailor-model = { workspace = true }
 tailor-codegen = { workspace = true }
 tailor-store = { workspace = true }
+tailor-build = { workspace = true }
 tailor-render = { workspace = true }
 tailor-guise = { workspace = true }
 tailor-guiserender = { workspace = true }

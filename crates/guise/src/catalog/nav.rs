@@ -41,6 +41,7 @@ pub static SPECS: &[ComponentSpec] = &[
           boolean("active", "Active", Emit::Method("active"), false),
       ],
       events: &[CLICK],
+      required: &[("label", "Set one in the Attributes inspector.")],
   ),
   comp!(
       "stepper", "Stepper", "Stepper", Navigation, "footprints",

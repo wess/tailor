@@ -1017,3 +1017,177 @@ fn the_manager_owns_the_theme_global(cx: &mut TestAppContext) {
     assert!(!theme(cx).scheme.is_dark());
   });
 }
+
+/// The build's state machine, driven by hand.
+///
+/// `tailor-build` tests the half that talks to cargo; this is the half that
+/// turns what cargo said into a status, a console and a row in Problems. Fed
+/// events directly so it costs a millisecond rather than a compile.
+#[gpui::test]
+fn a_build_moves_through_its_states_and_a_diagnostic_lands_on_its_component(
+  cx: &mut TestAppContext,
+) {
+  use crate::editor::run::Status;
+  use tailor_build::session::{Event, Intent, Outcome, Phase};
+  use tailor_build::Severity;
+
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+
+  // A button on the canvas, and the line map that says where it generated.
+  let button = workbench.update(cx, |this, cx| {
+    let root = this.doc().unwrap().root;
+    this.insert_kind("button", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+    this.selection[0]
+  });
+  settle(cx);
+
+  workbench.update(cx, |this, _| {
+    this.build.lines = tailor_build::line_map(&this.project);
+    let file = this
+      .build
+      .lines
+      .keys()
+      .find(|path| path.contains("main_screen"))
+      .cloned()
+      .expect("the screen generated a file");
+    let line = *this.build.lines[&file]
+      .iter()
+      .find(|(_, node)| **node == button)
+      .expect("the button is on a line")
+      .0;
+
+    // Cargo's progress, then the error it found on the button's line.
+    assert!(!this.apply_build_event(
+      Intent::Run,
+      Event::Line(Phase::Build, "Compiling demo v0.1.0".into())
+    ));
+    assert!(!this.apply_build_event(
+      Intent::Run,
+      Event::Diagnostic(tailor_build::Diagnostic {
+        file: file.clone(),
+        line,
+        col: 5,
+        col_end: 9,
+        severity: Severity::Error,
+        message: "mismatched types".into(),
+        rendered: "error[E0308]: mismatched types\n --> src/ui/main_screen.rs".into(),
+        code: Some("E0308".into()),
+      })
+    ));
+
+    // The error points at the component that generated the line — the whole
+    // reason the line map is captured.
+    let problem = this.build.problems.first().expect("one problem");
+    assert_eq!(problem.node, Some(button));
+    assert_eq!(problem.severity, tailor_model::Severity::Error);
+    assert!(
+      problem.message.starts_with("[E0308] "),
+      "{}",
+      problem.message
+    );
+    assert_eq!(problem.doc_id, "main");
+
+    // A warning-free build that is only half of a Run keeps going.
+    let finished = this.apply_build_event(
+      Intent::Run,
+      Event::Finished(Phase::Build, Outcome::Succeeded),
+    );
+    assert!(!finished, "a Run is not over when the build succeeds");
+    assert_eq!(this.build.status, Status::Running);
+
+    // The program ending ends the session.
+    let finished =
+      this.apply_build_event(Intent::Run, Event::Finished(Phase::Run, Outcome::Succeeded));
+    assert!(finished);
+    assert_eq!(this.build.status, Status::Built);
+
+    // The same build, asked only to compile, stops there.
+    let finished = this.apply_build_event(
+      Intent::Build,
+      Event::Finished(Phase::Build, Outcome::Succeeded),
+    );
+    assert!(finished);
+    assert_eq!(this.build.status, Status::Built);
+
+    // A failure carries its reason into the toolbar's label.
+    this.apply_build_event(
+      Intent::Run,
+      Event::Finished(Phase::Build, Outcome::Failed("2 errors".into())),
+    );
+    assert_eq!(this.build.status, Status::Failed("2 errors".into()));
+    assert!(this.build.status.label().contains("2 errors"));
+
+    // Stop reads as stopped, not as a failure.
+    this.apply_build_event(Intent::Run, Event::Finished(Phase::Run, Outcome::Cancelled));
+    assert_eq!(this.build.status, Status::Stopped);
+
+    // A rendered diagnostic is several lines and arrives as one event; the
+    // console has to split it or the carets land on one row.
+    let before = this.build.console.len();
+    this.apply_build_event(
+      Intent::Build,
+      Event::Line(Phase::Build, "one\ntwo\nthree".into()),
+    );
+    assert_eq!(this.build.console.len(), before + 3);
+  });
+}
+
+/// Problems shows both sources, compiler first.
+#[gpui::test]
+fn the_problem_list_carries_the_compiler_and_the_linter_together(cx: &mut TestAppContext) {
+  use tailor_build::session::{Event, Intent};
+  use tailor_build::Severity;
+
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  // A button with no label is a lint warning.
+  workbench.update(cx, |this, cx| {
+    let root = this.doc().unwrap().root;
+    this.insert_kind("button", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+  });
+  settle(cx);
+
+  workbench.update(cx, |this, _| {
+    let lints = this.problems.len();
+    assert!(lints > 0, "the empty button should lint");
+
+    this.apply_build_event(
+      Intent::Build,
+      Event::Diagnostic(tailor_build::Diagnostic {
+        file: "src/main.rs".into(),
+        line: 1,
+        col: 1,
+        col_end: 2,
+        severity: Severity::Error,
+        message: "cannot find function `nope`".into(),
+        rendered: String::new(),
+        code: None,
+      }),
+    );
+    // A note is already inside the rendering of the error above it, so it is
+    // not a second row.
+    this.apply_build_event(
+      Intent::Build,
+      Event::Diagnostic(tailor_build::Diagnostic {
+        file: "src/main.rs".into(),
+        line: 1,
+        col: 1,
+        col_end: 2,
+        severity: Severity::Note,
+        message: "consider importing it".into(),
+        rendered: String::new(),
+        code: None,
+      }),
+    );
+    assert_eq!(this.build.problems.len(), 1);
+
+    // A build with no line for that file still shows the message, with the
+    // location as the hint under it.
+    let problem = &this.build.problems[0];
+    assert_eq!(problem.node, None);
+    assert_eq!(problem.fix, "src/main.rs:1:1");
+
+    // Starting another build clears the last one's problems but not the lint.
+    this.build.problems.clear();
+    assert_eq!(this.problems.len(), lints);
+  });
+}

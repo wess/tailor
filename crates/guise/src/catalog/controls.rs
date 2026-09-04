@@ -32,6 +32,7 @@ pub static SPECS: &[ComponentSpec] = &[
       ],
       slots: BUTTON_SLOTS,
       events: CLICKS,
+      required: &[("label", "Set one in the Attributes inspector.")],
   ),
   comp!(
       "actionicon", "Icon button", "ActionIcon", Controls, "mouse-pointer-click",
@@ -47,6 +48,10 @@ pub static SPECS: &[ComponentSpec] = &[
           boolean("disabled", "Disabled", Emit::Method("disabled"), false),
       ],
       events: CLICKS,
+      required: &[
+        ("icon", "Pick one from the icon picker."),
+        ("label", "Name the action in the Attributes inspector."),
+      ],
   ),
   comp!(
       "closebutton", "Close button", "CloseButton", Controls, "x",
@@ -74,6 +79,7 @@ pub static SPECS: &[ComponentSpec] = &[
           color("color", "Color", Emit::Method("color"), ColorToken::Blue),
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
       ],
+      required: &[("label", "Set one in the Attributes inspector.")],
   ),
   comp!(
       "chip", "Chip", "Chip", Controls, "tag",
@@ -86,6 +92,7 @@ pub static SPECS: &[ComponentSpec] = &[
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
       ],
       events: &[tailor_model::node::CHANGE_BOOL],
+      required: &[("label", "Set one in the Attributes inspector.")],
   ),
   comp!(
       "icon", "Icon", "Icon", Controls, "shapes",
@@ -96,6 +103,7 @@ pub static SPECS: &[ComponentSpec] = &[
           size("size", "Size", Emit::Method("size"), SizeToken::Md),
           color_name("color", "Color", Emit::Method("color"), ColorToken::Gray),
       ],
+      required: &[("icon", "Pick one from the icon picker.")],
   ),
   comp!(
       "themeicon", "Theme icon", "ThemeIcon", Controls, "square-asterisk",

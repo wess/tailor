@@ -104,12 +104,76 @@ actions!(
   NudgeRightBig,
   NudgeUpBig,
   NudgeDownBig,
+  // Product
+  RunProject,
+  BuildProject,
+  StopProject,
+  CleanBuild,
+  RevealBuild,
   ToggleOrientation,
   OpenLiveWindow,
   ToggleDevTools,
   OpenInEditor,
   InstallEditorTask,
 );
+
+/// Compile a project and print what happened. The exit code is the answer: 0
+/// built, 1 did not, 2 could not try.
+fn build_headless(path: &std::path::Path) -> i32 {
+  use tailor_build::session::{Event, Intent, Outcome, Phase, Session};
+  use tailor_build::Workspace;
+
+  let project = match tailor_store::open(path) {
+    Ok(project) => project,
+    Err(err) => {
+      eprintln!("could not open {}: {err}", path.display());
+      return 2;
+    }
+  };
+
+  let workspace = Workspace::resolve(Some(path), &project);
+  let report = workspace.sync(&project);
+  for (file, err) in &report.failed {
+    eprintln!("{}: {err}", file.display());
+  }
+  if !report.ok() {
+    return 2;
+  }
+  eprintln!("{} → {}", project.name, workspace.root.display());
+
+  let session = match Session::start(&workspace, Intent::Build) {
+    Ok(session) => session,
+    Err(err) => {
+      eprintln!("{err}");
+      return 2;
+    }
+  };
+
+  // A blocking drain: there is no window to keep responsive here.
+  let mut errors = 0usize;
+  let mut warnings = 0usize;
+  loop {
+    for event in session.poll() {
+      match event {
+        Event::Line(Phase::Build, line) if !line.is_empty() => eprintln!("{line}"),
+        Event::Line(..) => {}
+        Event::Diagnostic(diagnostic) => match diagnostic.severity {
+          tailor_build::Severity::Error => errors += 1,
+          tailor_build::Severity::Warning => warnings += 1,
+          _ => {}
+        },
+        Event::Finished(_, outcome) => {
+          println!("{errors} error(s), {warnings} warning(s)");
+          return match outcome {
+            Outcome::Succeeded => 0,
+            _ => 1,
+          };
+        }
+      }
+    }
+    std::thread::sleep(std::time::Duration::from_millis(20));
+  }
+}
 
 fn menu(name: &'static str, items: Vec<MenuItem>) -> Menu {
   Menu {
@@ -197,6 +261,18 @@ fn menus() -> Vec<Menu> {
         MenuItem::action("New Frames Are Free Form", ToggleFreeForm),
       ],
     ),
+    // Where Xcode puts it, and for the same reason: building is not editing.
+    menu(
+      "Product",
+      vec![
+        MenuItem::action("Run", RunProject),
+        MenuItem::action("Build", BuildProject),
+        MenuItem::action("Stop", StopProject),
+        MenuItem::separator(),
+        MenuItem::action("Clean Build Folder", CleanBuild),
+        MenuItem::action("Reveal Build Folder", RevealBuild),
+      ],
+    ),
     menu(
       "View",
       vec![
@@ -232,6 +308,10 @@ fn keys() -> Vec<KeyBinding> {
     KeyBinding::new("cmd-s", Save, None),
     KeyBinding::new("cmd-shift-s", SaveAs, None),
     KeyBinding::new("cmd-e", ExportCode, None),
+    KeyBinding::new("cmd-r", RunProject, None),
+    KeyBinding::new("cmd-b", BuildProject, None),
+    KeyBinding::new("cmd-.", StopProject, None),
+    KeyBinding::new("cmd-shift-k", CleanBuild, None),
     KeyBinding::new("cmd-q", Quit, None),
     KeyBinding::new("cmd-h", Hide, None),
     KeyBinding::new("alt-cmd-h", HideOthers, None),
@@ -417,6 +497,20 @@ fn main() {
       _ => eprintln!("usage: tailor --export <project.tailor> <directory>"),
     }
     return;
+  }
+
+  // `tailor --build project.tailor` compiles the design and reports what the
+  // compiler said, without opening a window. The same path the Run button
+  // takes, which is what makes it worth having: a CI job asking "does this
+  // design still compile" gets the answer the app would have given.
+  if args.first().map(|arg| arg == "--build").unwrap_or(false) {
+    match args.get(1) {
+      Some(path) => std::process::exit(build_headless(std::path::Path::new(path))),
+      None => {
+        eprintln!("usage: tailor --build <project.tailor>");
+        std::process::exit(2);
+      }
+    }
   }
 
   // `tailor path/to/project.tailor` opens that project instead of the start
