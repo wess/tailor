@@ -155,6 +155,7 @@ impl Root {
         Save => save,
         SaveAs => save_as,
         ExportCode => export_code,
+        OpenQuickly => open_quickly,
         FindInCode => find_in_code,
         Dismiss => dismiss,
         AcceptSuggestion => accept_completion,

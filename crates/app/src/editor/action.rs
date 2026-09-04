@@ -609,14 +609,28 @@ impl Workbench {
   /// ⌃Space, and ⌃N / ⌃P beside it. Thin wrappers, because a `no_json` action
   /// carries nothing and the direction has to live in the name.
   pub fn accept_completion(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    if self.quickly.is_some() {
+      self.accept_quickly(window, cx);
+      return;
+    }
     self.accept_suggestion(window, cx);
   }
 
+  /// ⌃N and ⌃P walk whichever list is up — the completion popup, or Open
+  /// Quickly's results. Only one of them is ever on screen.
   pub fn next_completion(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    if self.quickly.is_some() {
+      self.step_quickly(true, cx);
+      return;
+    }
     self.step_suggestion(true, cx);
   }
 
   pub fn previous_completion(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    if self.quickly.is_some() {
+      self.step_quickly(false, cx);
+      return;
+    }
     self.step_suggestion(false, cx);
   }
 }

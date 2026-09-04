@@ -77,6 +77,17 @@ Every panel resizes and folds away, and the layout persists. ⌥⌘1 – ⌥⌘4
 the four panels. The [canvas page](canvas.md) covers the rest, including
 the full shortcut list.
 
+## Open Quickly
+
+⌘⇧O searches four things at once — screens and components, the files a build
+compiles, the actions you have written, and **the nodes in the open document**.
+Picking one navigates: a document opens its tab, a file pins the code pane, an
+action opens its editor, a node is selected on the canvas.
+
+That last one is the reason it is worth having. In a screen of two hundred nodes
+the outline is a tree you scroll, and "the submit button" is a name you already
+know. ⌃N and ⌃P walk the list, ⏎ opens, Escape puts it away.
+
 ## Right-click
 
 Every surface has a menu, and each acts on the row under the pointer rather than

@@ -68,6 +68,11 @@ which is design data and survives.
 
 ### Also
 
+- **Open Quickly** (⌘⇧O) searches documents, generated files, actions and the
+  nodes in the open document, all at once, and picking one navigates. The node
+  half is the reason it earns its keystroke: in a screen of two hundred nodes
+  the outline is a tree you scroll, and "the submit button" is a name you
+  already know.
 - A **Product** menu: Run, Build, Stop, Debug/Release, Clean Build Folder,
   Reveal Build Folder. Release is what you check before shipping — the manifest
   Tailor generates already asks for `lto = "fat"` and `strip`, which is a 4 MB

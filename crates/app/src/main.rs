@@ -104,6 +104,7 @@ actions!(
   NudgeRightBig,
   NudgeUpBig,
   NudgeDownBig,
+  OpenQuickly,
   FindInCode,
   Dismiss,
   FindNext,
@@ -239,6 +240,7 @@ fn menus() -> Vec<Menu> {
         MenuItem::action("Delete", Delete),
         MenuItem::separator(),
         MenuItem::separator(),
+        MenuItem::action("Open Quickly…", OpenQuickly),
         MenuItem::action("Find in Code…", FindInCode),
         MenuItem::action("Find Next", FindNext),
         MenuItem::action("Find Previous", FindPrevious),
@@ -326,6 +328,7 @@ fn keys() -> Vec<KeyBinding> {
     KeyBinding::new("cmd-s", Save, None),
     KeyBinding::new("cmd-shift-s", SaveAs, None),
     KeyBinding::new("cmd-e", ExportCode, None),
+    KeyBinding::new("cmd-shift-o", OpenQuickly, None),
     KeyBinding::new("cmd-f", FindInCode, None),
     // Global, not canvas-scoped: a field has focus when this matters, so the
     // canvas's own escape (Select Parent) never sees it. Dismissing nothing

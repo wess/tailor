@@ -23,6 +23,7 @@ pub mod outline;
 pub mod palette;
 pub mod panels;
 pub mod problems;
+pub mod quickly;
 pub mod run;
 pub mod toolbar;
 pub mod watch;
@@ -189,6 +190,8 @@ pub struct Workbench {
   pub code: code::CodePane,
   /// The action editor, while it is open.
   pub action_editor: Option<action::ActionEditor>,
+  /// Open Quickly, while it is up.
+  pub quickly: Option<quickly::Quickly>,
   /// Which half of the bottom pane is showing.
   pub bottom: run::Bottom,
   /// The canvas's focus. Not decoration: gpui builds the dispatch path from
@@ -290,6 +293,7 @@ impl Workbench {
       build: run::Build::default(),
       code: code::CodePane::default(),
       action_editor: None,
+      quickly: None,
       bottom: run::Bottom::default(),
       focus: cx.focus_handle(),
       focused: false,
@@ -615,6 +619,7 @@ impl Render for Workbench {
       .children(self.render_guides(cx))
       .children(self.render_readout(cx))
       .children(self.menu.clone())
+      .children(self.render_quickly(cx))
       .children(self.render_action_editor(cx))
       .children(self.render_settings_sheet(cx))
   }

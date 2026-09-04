@@ -274,6 +274,12 @@ impl Workbench {
   /// Escape. Puts away whatever is on top: the action sheet if it is open,
   /// otherwise the find bar. One key, one meaning, and never both at once.
   pub fn dismiss(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    // Topmost first: Open Quickly sits over the action sheet, which sits over
+    // the find bar.
+    if self.quickly.is_some() {
+      self.close_quickly(cx);
+      return;
+    }
     if self.action_editor.is_some() {
       self.close_action(cx);
       return;

@@ -1419,3 +1419,92 @@ fn a_completion_replaces_the_word_being_typed(cx: &mut TestAppContext) {
     assert!(this.action_editor.as_ref().unwrap().suggestions.is_empty());
   });
 }
+
+/// Open Quickly reaches four kinds of thing, and picking one navigates.
+#[gpui::test]
+fn open_quickly_finds_documents_files_actions_and_components(cx: &mut TestAppContext) {
+  use crate::editor::quickly::Go;
+
+  let (workbench, cx) = workbench(Project::new("Demo"), cx);
+  workbench.update(cx, |this, cx| {
+    let root = this.doc().unwrap().root;
+    this.insert_kind("button", DropSpot::at(root, DEFAULT_SLOT, 0), cx);
+    this.add_action(cx);
+    this.add_document(DocKind::Component, cx);
+  });
+  settle(cx);
+
+  let button = workbench.update(cx, |this, cx| {
+    let first = this.project.docs[0].id.clone();
+    this.open_document(&first, cx);
+    this.doc().unwrap().children_of(this.doc().unwrap().root)[0]
+  });
+  settle(cx);
+
+  workbench.update_in(cx, |this, window, cx| {
+    this.open_quickly(window, cx);
+    let field = this.quickly.as_ref().unwrap().field.clone();
+
+    let typed = |this: &mut Workbench, text: &str, cx: &mut gpui::Context<Workbench>| {
+      field.update(cx, |input, cx| input.set_text(text, cx));
+      this.refresh_quickly(cx);
+      this.quickly.as_ref().unwrap().results.clone()
+    };
+
+    // A screen.
+    let hits = typed(this, "MainScreen", cx);
+    assert!(
+      matches!(hits.first().map(|t| &t.go), Some(Go::Document(_))),
+      "{hits:#?}"
+    );
+
+    // A generated file, by an abbreviation of its name.
+    let hits = typed(this, "themers", cx);
+    assert!(
+      hits
+        .iter()
+        .any(|t| matches!(&t.go, Go::File(p) if p.ends_with("theme.rs"))),
+      "{hits:#?}"
+    );
+
+    // The action.
+    let hits = typed(this, "handle", cx);
+    assert!(
+      hits.iter().any(|t| matches!(t.go, Go::Action(_))),
+      "{hits:#?}"
+    );
+
+    // A component on the canvas — the one Xcode's version cannot reach.
+    let hits = typed(this, "Button", cx);
+    assert!(
+      hits
+        .iter()
+        .any(|t| t.go == Go::Node(this_doc(this), button)),
+      "{hits:#?}"
+    );
+
+    // Nothing matches nothing, rather than everything.
+    assert!(typed(this, "zzzznotathing", cx).is_empty());
+  });
+
+  // Picking a node selects it; picking a file pins the code pane.
+  workbench.update_in(cx, |this, window, cx| {
+    this.quickly.as_mut().unwrap().results = vec![crate::editor::quickly::Target {
+      label: "Button".into(),
+      detail: "button".into(),
+      go: Go::Node(this_doc(this), button),
+    }];
+    this.accept_quickly(window, cx);
+    assert!(this.quickly.is_none(), "picking closes the palette");
+    assert_eq!(this.selection, vec![button]);
+  });
+}
+
+/// The open document's id — the palette records it so a jump can open the tab
+/// before selecting.
+fn this_doc(workbench: &Workbench) -> String {
+  workbench
+    .doc()
+    .map(|doc| doc.id.clone())
+    .unwrap_or_default()
+}
