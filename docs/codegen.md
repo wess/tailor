@@ -160,8 +160,8 @@ div()
     )
 ```
 
-See [motion & transitions](transitions.md) for what `Motion` can do beyond the
-entrances Tailor exposes, and [macros](macros.md#motion--animation-as-a-declaration-block)
+See [motion & transitions](https://wess.io/guise/transitions.html) for what `Motion` can do beyond the
+entrances Tailor exposes, and [macros](https://wess.io/guise/macros.html#motion--animation-as-a-declaration-block)
 for the block's full grammar.
 
 ## What is left out
@@ -180,7 +180,7 @@ sloppy.
 - **plain** — builder calls and gpui `Styled` methods. Reads like the rest of an
   app.
 - **macros** — the same layout through `style! { … }` blocks and the `row!` /
-  `col!` [macros](macros.md), and animation through `motion! { … }`.
+  `col!` [macros](https://wess.io/guise/macros.html), and animation through `motion! { … }`.
 
 Switch in the code panel or the Generator section of the document inspector.
 Both compile; it is a house-style choice, and the project remembers yours.
@@ -272,7 +272,7 @@ that choice as code. There are three ways to set it, and they resolve in this
 order:
 
 1. **A theme file.** *Theme file → Load…* reads a guise
-   [JSON theme](theming.md#json-theme-files) and stores it **inline** in the
+   [JSON theme](https://wess.io/guise/theming.html#json-theme-files) and stores it **inline** in the
    `.tailor` file. A project is one file you can mail to someone; a path to a
    theme beside it would be a second file to lose, and one that only resolves
    on the machine that picked it. The file is parsed when you load it, so a bad

@@ -18,7 +18,7 @@ table takes a name, a type, and a starting value.
 | items | `Signal<Vec<String>>` | one per line |
 
 Each becomes a public `Signal<T>` field on the generated type. A
-[`Signal`](reactive.md) is guise's reactive cell: read it during `render` and
+[`Signal`](https://wess.io/guise/reactive.html) is guise's reactive cell: read it during `render` and
 the component redraws when it changes.
 
 The name becomes a Rust identifier, so `Email Address` becomes `email_address`

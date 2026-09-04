@@ -155,7 +155,7 @@ preview.
 
 ### Inspecting it
 
-⌥⌘I opens guise's own [DevTools](devtools.md) along the bottom of that window:
+⌥⌘I opens guise's own [DevTools](https://wess.io/guise/devtools.html) along the bottom of that window:
 the Elements tree, the box model, resolved styles with the source line each came
 from, plus Layers, Timelines and the rest.
 
