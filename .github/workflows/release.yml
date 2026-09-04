@@ -71,9 +71,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # An annotated tag rather than a lightweight one: it records who cut the
+      # release and when, which is the only place that is written down. It
+      # needs a committer identity, and a runner has none.
       - name: Tag this commit
         run: |
           TAG="${{ needs.check-version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Version ${{ needs.check-version.outputs.version }}"
           git push origin "$TAG"
 
