@@ -2808,9 +2808,9 @@ dependencies = [
 
 [[package]]
 name = "guise-ui"
-version = "1.6.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97efba67fe7002bc148c6253d419a41cccdcc00c7243c0966aab4cd52e70fe9c"
+checksum = "c1491c64a451d8c1edfb7410cc1880799ad223515e7f078affbce9e756c04ae3"
 dependencies = [
  "gpui",
  "tree-sitter",

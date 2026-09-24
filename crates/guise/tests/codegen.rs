@@ -48,7 +48,7 @@ mod app_tests {
     let manifest = cargo_toml(&project("My App"));
     assert!(manifest.source.contains("name = \"my_app\""));
     // The dependency is the library's, at the version the canvas draws with.
-    assert!(manifest.source.contains("guise-ui = \"1.6\""));
+    assert!(manifest.source.contains("guise-ui = \"1.7\""));
   }
 }
 

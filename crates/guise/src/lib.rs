@@ -79,7 +79,7 @@ impl Library for Guise {
     // export compiles against a library that is not the one you previewed.
     // `the_generated_dependency_matches_what_tailor_renders_with` holds this
     // to Cargo.lock.
-    "1.6"
+    "1.7"
   }
 
   fn prelude(&self) -> &'static [&'static str] {

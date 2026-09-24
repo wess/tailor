@@ -1,4 +1,4 @@
-# guise-ui 1.6.0 — the component surface Tailor catalogues against.
+# guise-ui 1.7.0 — the component surface Tailor catalogues against.
 #
 # Regenerate with `cargo run -p tailor-surface`, which reads the version
 # pinned in Cargo.lock. Do that in the same commit as a version bump: the
@@ -8,7 +8,7 @@
 # component <Type> <file>            a RenderOnce builder or a Render entity
 # preset    <id> <constructor> <scheme>
 
-version 1.6.0
+version 1.7.0
 
 component AIChatView ai/chatview.rs
 component AICitation ai/citation.rs

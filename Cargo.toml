@@ -33,7 +33,7 @@ gpui = "0.2.2"
 # guise like any other app, and the boundary is only real if it goes through
 # crates.io. `libraries/guise.surface` is regenerated against this version —
 # bumping one means regenerating the other, in the same commit.
-guise-ui = { version = "1.6.0", features = ["treesitter"] }
+guise-ui = { version = "1.7.0", features = ["treesitter"] }
 
 # The Rust grammar the code pane highlights with. guise ships no grammars —
 # a consumer passes the one language it actually needs, which keeps every
