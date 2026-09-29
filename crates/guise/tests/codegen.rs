@@ -22,7 +22,7 @@ fn project(name: &str) -> Project {
   Project::new(name)
 }
 
-// --- from crates/codegen/src/app.rs -------------------------------------
+// from crates/codegen/src/app.rs
 mod app_tests {
   use super::*;
   #[test]
@@ -48,11 +48,11 @@ mod app_tests {
     let manifest = cargo_toml(&project("My App"));
     assert!(manifest.source.contains("name = \"my_app\""));
     // The dependency is the library's, at the version the canvas draws with.
-    assert!(manifest.source.contains("guise-ui = \"1.7\""));
+    assert!(manifest.source.contains("guise-ui = \"1.9\""));
   }
 }
 
-// --- from crates/codegen/src/file.rs -------------------------------------
+// from crates/codegen/src/file.rs
 mod file_tests {
   use super::*;
   use tailor_model::node::DEFAULT_SLOT;
@@ -264,7 +264,7 @@ mod file_tests {
   }
 }
 
-// --- from crates/codegen/src/lib.rs -------------------------------------
+// from crates/codegen/src/lib.rs
 mod lib_tests {
   use super::*;
   use tailor_model::motion::MotionProps;
@@ -807,7 +807,7 @@ mod lib_tests {
   }
 }
 
-// --- from crates/codegen/src/lib.rs -------------------------------------
+// from crates/codegen/src/lib.rs
 mod lib_bench {
 
   use std::time::Instant;
@@ -916,7 +916,7 @@ mod lib_bench {
   }
 }
 
-// --- from crates/codegen/src/lib.rs -------------------------------------
+// from crates/codegen/src/lib.rs
 mod lib_dump {
 
   #[test]

@@ -8,6 +8,14 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
+## 0.3.1 — 2026-09-29
+
+Draws with guise-ui 1.9.1. The component surface is regenerated (151
+components) and generated code now asks for `guise-ui = "1.9"`. guise gained
+`Scrollbar` and `VideoView`; neither is catalogued — the first needs a
+host-owned scroll handle and the second a decoder feeding it — so both are on
+the exclusion list with the reason.
+
 ## 0.3.0 — 2026-09-04
 
 Somewhere to put the rest of the app, the menus a Mac app is expected to have,

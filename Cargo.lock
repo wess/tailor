@@ -2808,11 +2808,12 @@ dependencies = [
 
 [[package]]
 name = "guise-ui"
-version = "1.7.0"
+version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1491c64a451d8c1edfb7410cc1880799ad223515e7f078affbce9e756c04ae3"
+checksum = "33644c16291a33b56a228e0d0a3726b4521a16a115c07b60a4975801077354ac"
 dependencies = [
  "gpui",
+ "image",
  "tree-sitter",
  "tree-sitter-highlight",
  "wry",
@@ -6200,7 +6201,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-app"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6218,7 +6219,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-build"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dirs 6.0.0",
  "serde_json",
@@ -6230,7 +6231,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-codegen"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "tailor-guise",
  "tailor-model",
@@ -6238,7 +6239,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-guise"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "tailor-codegen",
  "tailor-model",
@@ -6246,7 +6247,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-guiserender"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6257,7 +6258,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-mcp"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6269,7 +6270,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-model"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6277,7 +6278,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-render"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6287,7 +6288,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-store"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dirs 6.0.0",
  "serde",
@@ -6299,7 +6300,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-surface"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde_json",
 ]

@@ -43,6 +43,19 @@ const EXCLUDED: &[(&str, &str)] = &[
     "flex/ primitive; the catalog uses layout/ tokens",
   ),
   ("Wrap", "flex/ primitive; the catalog uses layout/ tokens"),
+  // Bound to a `ScrollHandle` or `ListState` a host owns; `ScrollArea` draws
+  // its own, and there is nothing to bind on a canvas.
+  (
+    "Scrollbar",
+    "needs a host-owned ScrollHandle; ScrollArea draws its own",
+  ),
+  // The empty entity a scrollbar drag shows under the pointer. Not public.
+  ("Ghost", "internal drag ghost of Scrollbar"),
+  // Shows frames a host decodes and feeds in; there is no source to design.
+  (
+    "VideoView",
+    "shows frames a host decodes; nothing to draw on a canvas",
+  ),
   // Motion is a property of a node (`MotionProps`), not something you drop.
   (
     "Animated",

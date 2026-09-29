@@ -1,4 +1,4 @@
-# guise-ui 1.7.0 — the component surface Tailor catalogues against.
+# guise-ui 1.9.1 — the component surface Tailor catalogues against.
 #
 # Regenerate with `cargo run -p tailor-surface`, which reads the version
 # pinned in Cargo.lock. Do that in the same commit as a version bump: the
@@ -8,7 +8,7 @@
 # component <Type> <file>            a RenderOnce builder or a Render entity
 # preset    <id> <constructor> <scheme>
 
-version 1.7.0
+version 1.9.1
 
 component AIChatView ai/chatview.rs
 component AICitation ai/citation.rs
@@ -69,6 +69,7 @@ component Expanded flex/flexible.rs
 component Field input/field.rs
 component FileInput input/fileinput.rs
 component Flexible flex/flexible.rs
+component Ghost scrollbar.rs
 component Glyph icon/mod.rs
 component GpuView gpuview.rs
 component Group layout/group.rs
@@ -113,6 +114,7 @@ component RingProgress feedback/ringprogress.rs
 component Row flex/rowcolumn.rs
 component ScatterChart chart/scatter.rs
 component ScrollArea scrollarea.rs
+component Scrollbar scrollbar.rs
 component SegmentedControl input/segmented.rs
 component Select input/select.rs
 component SettingsRow settings/row.rs
@@ -154,6 +156,7 @@ component Transition transition.rs
 component TreeView data/tree.rs
 component UpdateNotice update/notice.rs
 component UpdatePrompt update/prompt.rs
+component VideoView video/view.rs
 component VirtualList data/virtuallist.rs
 component WebView webview.rs
 component WindowControls windowcontrols.rs
