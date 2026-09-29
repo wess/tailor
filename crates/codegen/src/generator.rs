@@ -30,7 +30,7 @@ pub trait Generator: Send + Sync + 'static {
   /// registry stores it under.
   fn library(&self) -> &'static dyn Library;
 
-  // -- Component shapes -----------------------------------------------------
+  // Component shapes
 
   /// The expression for a component whose shape is not `Type::new(..)`.
   /// `None` means the generic path handles it, which is the common case.
@@ -96,7 +96,7 @@ pub trait Generator: Send + Sync + 'static {
     Vec::new()
   }
 
-  // -- The app around them --------------------------------------------------
+  // The app around them
 
   /// `theme.rs` — the theme the design was laid out against, rebuilt in the
   /// library's own vocabulary.
@@ -107,8 +107,6 @@ pub trait Generator: Send + Sync + 'static {
     "theme::build().init(cx);"
   }
 }
-
-// ---------------------------------------------------------------------------
 
 static GENERATORS: RwLock<Vec<&'static dyn Generator>> = RwLock::new(Vec::new());
 

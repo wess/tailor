@@ -158,7 +158,7 @@ impl Session {
     tailor_store::save(path, project).map_err(|err| err.to_string())
   }
 
-  // --- reading -----------------------------------------------------------
+  // reading
 
   pub fn overview(&self) -> Answer {
     let project = self.project()?;
@@ -321,7 +321,7 @@ impl Session {
     }))
   }
 
-  // --- writing ------------------------------------------------------------
+  // writing
 
   pub fn add_document(&mut self, name: &str, kind: &str) -> Answer {
     let kind = match kind {

@@ -37,7 +37,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
   let id = || ElementId::Name(SharedString::from(node.id.element_id()));
 
   match node.kind.as_str() {
-    // --- layout -------------------------------------------------------
+    // layout
     "stack" => {
       let mut stack = Stack::new().gap(read.size("gap"));
       if let Some(align) = read
@@ -189,7 +189,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       .children(children(ctx, node, window, cx))
       .into_any_element(),
 
-    // --- typography ---------------------------------------------------
+    // typography
     "text" => {
       let mut text = Text::new(read.text("content")).size(read.size("size"));
       text = match read.choice("weight").as_str() {
@@ -259,7 +259,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       .children(children(ctx, node, window, cx))
       .into_any_element(),
 
-    // --- controls -----------------------------------------------------
+    // controls
     "button" => {
       let mut button = Button::new(id(), read.text("label"))
         .variant(read.variant("variant"))
@@ -349,7 +349,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       .readonly(read.bool("readonly") || ctx.mode != Mode::Preview)
       .into_any_element(),
 
-    // --- inputs that are not entities ---------------------------------
+    // inputs that are not entities
     "checkbox" => Checkbox::new(id())
       .checked(checked(ctx, node.id, read.bool("checked"), cx))
       .indeterminate(read.bool("indeterminate"))
@@ -434,7 +434,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       field.into_any_element()
     }
 
-    // --- data ----------------------------------------------------------
+    // data
     "avatar" => Avatar::new(read.text("initials"))
       .color(read.color_name("color"))
       .variant(read.variant("variant"))
@@ -490,7 +490,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
     "accordion" => accordion(ctx, node, &read, window, cx),
     "carousel" => carousel(ctx, node, window, cx),
 
-    // --- feedback ------------------------------------------------------
+    // feedback
     "alert" => {
       let mut alert = Alert::new(read.text("message"))
         .variant(read.variant("variant"))
@@ -585,7 +585,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       .visible(read.bool("visible"))
       .into_any_element(),
 
-    // --- navigation ----------------------------------------------------
+    // navigation
     "breadcrumbs" => {
       let mut crumbs = Breadcrumbs::new().items(read.items("items"));
       if !read.text("separator").is_empty() {
@@ -633,7 +633,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       bar.into_any_element()
     }
 
-    // --- charts ---------------------------------------------------------
+    // charts
     "sparkline" => {
       let mut chart = Sparkline::new(read.numbers("values"))
         .color(read.color("color", cx))
@@ -721,7 +721,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       chart.into_any_element()
     }
 
-    // --- media -----------------------------------------------------------
+    // media
     "image" => {
       let source = read.text("source");
       if source.is_empty() {
@@ -741,7 +741,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       }
     }
 
-    // --- ai ------------------------------------------------------------
+    // ai
     "aimessage" => {
       let role = match read.choice("role").as_str() {
         "user" => AIRole::User,
@@ -845,7 +845,7 @@ pub fn element(ctx: &RenderCtx, node: &Node, window: &mut Window, cx: &mut App) 
       sources.into_any_element()
     }
 
-    // --- settings screens and app chrome --------------------------------
+    // settings screens and app chrome
     "settingssection" => {
       let mut section = SettingsSection::new(read.text("title")).rule(read.bool("rule"));
       if !read.text("description").is_empty() {

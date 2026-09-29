@@ -197,7 +197,7 @@ pub struct ComponentSpec {
   /// components those are is a fact about the library.
   pub required: &'static [(&'static str, &'static str)],
 
-  // --- What an agent needs that a person reading the palette does not ---
+  // What an agent needs that a person reading the palette does not
   //
   // A person picks a component from a row of icons and a one-line blurb, and
   // finds out the rest by dropping one on the canvas and looking. An agent

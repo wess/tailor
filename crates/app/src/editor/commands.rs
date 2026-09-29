@@ -22,7 +22,7 @@ use tailor_store::{CanvasMode, Panel};
 use super::{Inspector, Workbench};
 
 impl Workbench {
-  // --- selection ------------------------------------------------------
+  // selection
 
   pub fn select(&mut self, id: NodeId, additive: bool, cx: &mut Context<Self>) {
     if additive {
@@ -103,7 +103,7 @@ impl Workbench {
     }
   }
 
-  // --- inserting and moving --------------------------------------------
+  // inserting and moving
 
   /// Handle a drop from the palette, the outline, or the canvas.
   pub fn accept_drop(&mut self, spot: DropSpot, payload: DragPayload, cx: &mut Context<Self>) {
@@ -231,7 +231,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- clipboard --------------------------------------------------------
+  // clipboard
 
   pub fn copy(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
     let Some(json) = self.selection_json() else {
@@ -349,7 +349,7 @@ impl Workbench {
       .flatten()
   }
 
-  // --- structure --------------------------------------------------------
+  // structure
 
   pub fn embed_frame(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
     self.embed("frame", cx);
@@ -434,7 +434,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- alignment --------------------------------------------------------
+  // alignment
 
   pub fn align_left(&mut self, _w: &mut Window, cx: &mut Context<Self>) {
     self.align(Edge::Left, cx);
@@ -568,7 +568,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- props and style ---------------------------------------------------
+  // props and style
 
   pub fn set_prop(&mut self, id: NodeId, key: &str, value: PropValue, cx: &mut Context<Self>) {
     let current = self
@@ -655,7 +655,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- history -----------------------------------------------------------
+  // history
 
   pub fn undo(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
     match self.history.undo(&mut self.project) {
@@ -710,7 +710,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- documents ----------------------------------------------------------
+  // documents
 
   pub fn new_screen(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
     self.add_document(DocKind::Screen, cx);
@@ -803,7 +803,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- view ----------------------------------------------------------------
+  // view
 
   pub fn mode_design(&mut self, _w: &mut Window, cx: &mut Context<Self>) {
     self.set_mode(CanvasMode::Design, cx);
@@ -979,7 +979,7 @@ impl Workbench {
     self.toggle_settings(cx);
   }
 
-  // --- renaming -------------------------------------------------------------
+  // renaming
 
   pub fn begin_rename(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
     let Some(id) = self.selection.first().copied() else {
@@ -1020,7 +1020,7 @@ impl Workbench {
     }
   }
 
-  // --- files ------------------------------------------------------------------
+  // files
 
   pub fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
     match self.path.clone() {

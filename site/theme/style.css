@@ -67,7 +67,7 @@ a:hover {
   border-radius: 8px;
 }
 
-/* ---------------------------------------------------------------- header */
+/* header */
 
 .bar {
   position: sticky;
@@ -122,7 +122,7 @@ a:hover {
   border: 1px solid var(--border);
 }
 
-/* --------------------------------------------------------------- landing */
+/* landing */
 
 .hero {
   max-width: var(--shell);
@@ -293,7 +293,7 @@ a:hover {
   border-radius: 8px;
 }
 
-/* --------------------------------------------------------------- sections */
+/* sections */
 
 /* Margin rather than padding between sections: adjacent margins collapse and
    adjacent paddings add up, and two 6rem paddings is a screen of nothing. */
@@ -399,7 +399,7 @@ a:hover {
   color: var(--text);
 }
 
-/* ------------------------------------------------------------------ docs */
+/* docs */
 
 .docs {
   display: grid;
@@ -602,7 +602,7 @@ kbd {
   font-size: 0.9rem;
 }
 
-/* ---------------------------------------------------------------- footer */
+/* footer */
 
 .foot {
   border-top: 1px solid var(--border);
@@ -644,7 +644,7 @@ kbd {
   color: var(--text);
 }
 
-/* -------------------------------------------------------------- syntax */
+/* syntax */
 
 .hljs-keyword,
 .hljs-meta {
@@ -681,7 +681,7 @@ kbd {
   color: #9aa3b2;
 }
 
-/* -------------------------------------------------------------- narrow */
+/* narrow */
 
 @media (max-width: 900px) {
   .seam-frame {

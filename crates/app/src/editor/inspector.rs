@@ -121,7 +121,7 @@ impl Workbench {
       )
   }
 
-  // --- attributes -------------------------------------------------------
+  // attributes
 
   fn render_attributes(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
     let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
@@ -562,7 +562,7 @@ impl Workbench {
       .into_any_element()
   }
 
-  // --- size -------------------------------------------------------------
+  // size
 
   fn render_size(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
     let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
@@ -929,7 +929,7 @@ impl Workbench {
     labelled(label, row.into_any_element(), cx)
   }
 
-  // --- style -------------------------------------------------------------
+  // style
 
   fn render_style(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
     let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
@@ -1034,7 +1034,7 @@ impl Workbench {
     self.section("style", "Style", blocks, cx)
   }
 
-  // --- motion -----------------------------------------------------------
+  // motion
 
   fn render_motion(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
     let Some(node) = self.doc().and_then(|doc| doc.node(id)).cloned() else {
@@ -1321,7 +1321,7 @@ impl Workbench {
     )
   }
 
-  // --- connections --------------------------------------------------------
+  // connections
 
   fn render_connections(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
     let chrome = theme::colors(cx);
@@ -1571,7 +1571,7 @@ impl Workbench {
     });
   }
 
-  // --- identity -------------------------------------------------------------
+  // identity
 
   fn render_identity(&mut self, id: NodeId, cx: &mut Context<Self>) -> AnyElement {
     let chrome = theme::colors(cx);
@@ -1630,7 +1630,7 @@ impl Workbench {
     )
   }
 
-  // --- the document, when nothing is selected --------------------------------
+  // the document, when nothing is selected
 
   fn render_document_inspector(&mut self, cx: &mut Context<Self>) -> AnyElement {
     let chrome = theme::colors(cx);
@@ -2041,7 +2041,7 @@ impl Workbench {
     self.refresh(cx);
   }
 
-  // --- field cache -----------------------------------------------------------
+  // field cache
 
   /// A cached single-line field. Cached by key so typing does not rebuild the
   /// entity — which would take the focus with it on the first keystroke.

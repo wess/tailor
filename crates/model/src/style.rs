@@ -284,7 +284,7 @@ fn is_default<T: Default + PartialEq>(v: &T) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StyleProps {
-  // --- how this node arranges its children ---
+  // how this node arranges its children
   #[serde(skip_serializing_if = "is_default")]
   pub layout: LayoutMode,
   #[serde(skip_serializing_if = "is_default")]
@@ -298,13 +298,13 @@ pub struct StyleProps {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub justify: Option<JustifyToken>,
 
-  // --- where this node sits, when its parent lays out absolutely ---
+  // where this node sits, when its parent lays out absolutely
   #[serde(skip_serializing_if = "is_zero")]
   pub x: f32,
   #[serde(skip_serializing_if = "is_zero")]
   pub y: f32,
 
-  // --- this node's own box ---
+  // this node's own box
   #[serde(skip_serializing_if = "is_default")]
   pub width: Dimension,
   #[serde(skip_serializing_if = "is_default")]
@@ -322,7 +322,7 @@ pub struct StyleProps {
   #[serde(skip_serializing_if = "Edges::is_zero")]
   pub margin: Edges,
 
-  // --- paint ---
+  // paint
   #[serde(skip_serializing_if = "Option::is_none")]
   pub background: Option<ColorSpec>,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -338,7 +338,7 @@ pub struct StyleProps {
   #[serde(skip_serializing_if = "is_one")]
   pub opacity: f32,
 
-  // --- text ---
+  // text
   #[serde(skip_serializing_if = "Option::is_none")]
   pub font_size: Option<f32>,
   #[serde(skip_serializing_if = "Option::is_none")]

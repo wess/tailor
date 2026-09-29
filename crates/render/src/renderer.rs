@@ -47,8 +47,6 @@ pub trait Renderer: Send + Sync + 'static {
   ) -> Option<Rc<dyn Any>>;
 }
 
-// ---------------------------------------------------------------------------
-
 static RENDERERS: RwLock<Vec<&'static dyn Renderer>> = RwLock::new(Vec::new());
 
 /// Make a renderer available to the canvas. Keyed by its library's id;

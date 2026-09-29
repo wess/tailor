@@ -101,10 +101,8 @@ pub trait Library: Send + Sync + 'static {
     &[]
   }
 
-  // ---------------------------------------------------------------------
   // Derived. Identical for every library — a provider supplies facts above
   // this line and nothing below it.
-  // ---------------------------------------------------------------------
 
   fn get(&self, kind: &str) -> Option<&'static ComponentSpec> {
     self.components().iter().copied().find(|s| s.kind == kind)
@@ -166,9 +164,7 @@ pub trait Library: Send + Sync + 'static {
   }
 }
 
-// ---------------------------------------------------------------------------
 // The registry
-// ---------------------------------------------------------------------------
 //
 // Providers are compiled in, but nothing below them may name one: `tailor-guise`
 // depends on `tailor-model`, so the arrow cannot also point the other way. So a
