@@ -262,7 +262,7 @@ impl Workbench {
       .collect();
     // The entity-backed nodes become struct fields, and they are the other
     // half of what a handler is for — reading a text field, opening a menu.
-    for (_, field) in tailor_codegen::node::entity_fields(self.library(), doc) {
+    for (_, field) in tailor_codegen::node::entity_fields(&self.project, doc) {
       scope.push((format!("self.{field}"), "field".to_string()));
     }
     scope

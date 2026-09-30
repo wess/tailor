@@ -109,6 +109,17 @@ impl<'a> Emitter<'a> {
     let Some(field) = self.fields.get(&id).cloned() else {
       return Vec::new();
     };
+    if let Some(target) = placed(self.project, node) {
+      // A placed component that is an entity: `cx.new` over its own `new`,
+      // handed the window when something inside it wants one.
+      let ty = tailor_model::pascal_case(&target.name);
+      self.imports.insert(format!("use super::{ty};"));
+      return vec![if needs_window(self.project, target) {
+        format!("let {field} = cx.new(|cx| {ty}::new(window, cx));")
+      } else {
+        format!("let {field} = cx.new({ty}::new);")
+      }];
+    }
     let Some(spec) = self.library.get(&node.kind) else {
       return Vec::new();
     };
@@ -136,14 +147,25 @@ impl<'a> Emitter<'a> {
       }
       // The state, not the element: the element is rebuilt over it each frame.
       Ctor::Stateful(state) => (format!("{state}::new(window, cx)"), true),
+      Ctor::StatefulCx(state) => (format!("{state}::new(cx)"), true),
       _ => (format!("{}::new(cx)", spec.rust), true),
     };
-    let param = if takes_cx { "cx" } else { "_cx" };
-    let mut body = vec![ctor];
+    let generator = self.generator;
+    let mut body = match generator.state(self, node).filter(|_| spec.ctor.is_split()) {
+      Some(lines) => lines,
+      None => vec![ctor],
+    };
     body.extend(indent(&self.prop_calls(node)));
-    if !spec.ctor.needs_window() {
+    if !spec.ctor.is_split() {
       body.extend(indent(&self.slot_calls(node)));
     }
+    // A state that takes no context (a slider's range) would leave `cx` unused,
+    // and a generated warning reads as a defect.
+    let param = if takes_cx && body.iter().any(|line| crate::file::mentions(line, "cx")) {
+      "cx"
+    } else {
+      "_cx"
+    };
 
     // Two-way binding is a call after construction, not a setter: the
     // entity and the signal both have to exist first.
@@ -178,6 +200,15 @@ impl<'a> Emitter<'a> {
     out
   }
 
+  /// The top-level items an entity-backed node needs beside its file's impls.
+  pub fn emit_support(&mut self, id: NodeId) -> Vec<String> {
+    let Some(node) = self.doc.node(id) else {
+      return Vec::new();
+    };
+    let generator = self.generator;
+    generator.support(self, node)
+  }
+
   /// Subscriptions for entity-backed nodes with a bound event. guise entities
   /// emit rather than take a handler, so this is where their events land.
   pub fn emit_subscriptions(&self) -> Vec<String> {
@@ -186,14 +217,46 @@ impl<'a> Emitter<'a> {
       let Some(node) = self.doc.node(*id) else {
         continue;
       };
-      for action in node.events.values() {
+      let spec = self.library.get(&node.kind);
+      // A kind the generator wires itself has handlers on its element, not
+      // events on its state; a subscription here would not typecheck.
+      if self.generator.writes(&node.kind) {
+        continue;
+      }
+      for (key, action) in &node.events {
         if action.is_empty() {
           continue;
         }
         let method = tailor_model::snake_case(action);
-        out.push(format!(
-          "cx.subscribe(&{field}, |this, _entity, _event, cx| this.{method}(cx)).detach();"
-        ));
+        // A state entity emits several events, and the handler is bound to one
+        // of them. The catalog names it as a path — `InputEvent::Change` — so
+        // the enum is the part before `::` and the whole thing is the pattern.
+        // An enum with a type parameter writes it as `SelectEvent<_>::Confirm`:
+        // the annotation needs the `<_>`, the pattern must not have it.
+        let filter = spec
+          .filter(|spec| spec.ctor.is_split())
+          .and_then(|spec| spec.events.iter().find(|event| event.key == key))
+          .and_then(|event| {
+            event
+              .method
+              .split_once("::")
+              .map(|(ty, _)| (ty, event.method))
+          });
+        match filter {
+          Some((ty, pattern)) => {
+            out.push(format!(
+              "cx.subscribe(&{field}, |this, _entity, event: &{ty}, cx| {{"
+            ));
+            let pattern = pattern.replace("<_>", "");
+            out.push(format!("    if matches!(event, {pattern}) {{"));
+            out.push(format!("        this.{method}(cx);"));
+            out.push("    }".into());
+            out.push("}).detach();".into());
+          }
+          None => out.push(format!(
+            "cx.subscribe(&{field}, |this, _entity, _event, cx| this.{method}(cx)).detach();"
+          )),
+        }
       }
     }
     out
@@ -242,7 +305,7 @@ impl<'a> Emitter<'a> {
       && !self
         .library
         .get(&node.kind)
-        .is_some_and(|spec| spec.ctor.needs_window());
+        .is_some_and(|spec| spec.ctor.is_split());
 
     if container {
       lines.extend(indent(&style::calls(
@@ -309,7 +372,10 @@ impl<'a> Emitter<'a> {
       // Generated documents are siblings in one module, so the placed
       // component is one `use super::` away.
       self.imports.insert(format!("use super::{ty};"));
-      return vec![format!("{ty}::new()")];
+      // A stateful one is an entity, built once and held in a field.
+      if !self.fields.contains_key(&node.id) {
+        return vec![format!("{ty}::new()")];
+      }
     }
     // An entity lives in a field. How it names itself depends on where the
     // expression sits: a field in `render`, a local in `new`, and a cloned
@@ -320,17 +386,26 @@ impl<'a> Emitter<'a> {
       let stateful = self
         .library
         .get(&node.kind)
-        .filter(|spec| spec.ctor.needs_window());
+        .filter(|spec| spec.ctor.is_split());
       if let Some(scope) = self.captures.last_mut() {
         scope.insert(field.clone());
-        return match stateful {
-          Some(spec) => vec![format!("{}::new(&{field})", spec.rust)],
-          None => vec![format!("{field}.clone()")],
+        if stateful.is_none() {
+          return vec![format!("{field}.clone()")];
+        }
+      }
+      if let Some(spec) = stateful {
+        let borrow = match (self.captures.is_empty(), self.phase) {
+          (false, _) | (true, Phase::Init) => format!("&{field}"),
+          (true, Phase::Render) => format!("&self.{field}"),
         };
+        let generator = self.generator;
+        if let Some(lines) = generator.element_over(self, node, &borrow) {
+          return lines;
+        }
+        return vec![format!("{}::new({borrow})", spec.rust)];
       }
       return match (stateful, self.phase) {
-        (Some(spec), Phase::Render) => vec![format!("{}::new(&self.{field})", spec.rust)],
-        (Some(spec), Phase::Init) => vec![format!("{}::new(&{field})", spec.rust)],
+        (Some(_), _) => unreachable!("handled above"),
         (None, Phase::Render) => vec![format!("self.{field}.clone()")],
         (None, Phase::Init) => vec![format!("{field}.clone()")],
       };
@@ -375,7 +450,11 @@ impl<'a> Emitter<'a> {
         vec![format!("{}::new({})", spec.rust, values.join(", "))]
       }
       // Entities are constructed in `new()`, never here.
-      Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) | Ctor::Stateful(_) => {
+      Ctor::Entity
+      | Ctor::EntityArg(_)
+      | Ctor::EntityValue(_)
+      | Ctor::Stateful(_)
+      | Ctor::StatefulCx(_) => {
         vec![format!("{}::new(cx)", spec.rust)]
       }
       Ctor::Special => vec!["div()".into()],
@@ -391,6 +470,32 @@ impl<'a> Emitter<'a> {
 
   pub fn pop_scope(&mut self) -> BTreeSet<String> {
     self.captures.pop().unwrap_or_default()
+  }
+
+  /// The innermost open closure's capture set, for a region that builds a
+  /// second closure inside the first and has to tell the first what the second
+  /// needs.
+  pub fn scope_mut(&mut self) -> Option<&mut BTreeSet<String>> {
+    self.captures.last_mut()
+  }
+
+  /// The weak handle a `'static` handler upgrades to reach the screen, spelled
+  /// for where the expression sits — or `None` when there is no screen, which
+  /// is a `RenderOnce` component with no `self` to call back into.
+  ///
+  /// Inside a closure region it is the `view` local the region cloned in, and
+  /// the region is told to clone it; elsewhere it is made from the context.
+  pub fn view_handle(&mut self) -> Option<String> {
+    if self.owner != Owner::Entity {
+      return None;
+    }
+    match self.captures.last_mut() {
+      Some(scope) => {
+        scope.insert(VIEW.to_string());
+        Some(format!("{VIEW}.clone()"))
+      }
+      None => Some("cx.entity().downgrade()".to_string()),
+    }
   }
 
   /// The value of a prop, falling back to the catalog default.
@@ -412,7 +517,7 @@ impl<'a> Emitter<'a> {
       return Vec::new();
     };
     let mut out = Vec::new();
-    let split = spec.ctor.needs_window();
+    let split = spec.ctor.is_split();
     for prop in spec.props {
       let Some(value) = node.prop(prop.key) else {
         continue;
@@ -496,6 +601,12 @@ impl<'a> Emitter<'a> {
     let absolute = node.style.layout == LayoutMode::Absolute;
     let placement = Placement { absolute };
 
+    // A kind the generator writes whole: its regions are not `.child(..)` calls.
+    if self.generator.writes(&node.kind) {
+      let generator = self.generator;
+      return generator.slots(self, node, placement).unwrap_or_default();
+    }
+
     // The regions that take a closure rather than an element.
     let deferred = self.generator.closure_slots(&node.kind);
 
@@ -562,13 +673,36 @@ impl<'a> Emitter<'a> {
   /// the closure reaches for. `head` is everything before the closure —
   /// `.header(56., ` or `.tab("Overview", `.
   pub fn closure_region(&mut self, head: String, id: Option<NodeId>) -> Vec<String> {
+    self.closure_region_with(head, "|_window, _cx|", id)
+  }
+
+  /// Run `build` as the inside of a `'static` closure and hand back what it
+  /// reached for, which the caller then clones in ahead of the closure with
+  /// [`Emitter::wrap_closure_with`]. For a closure whose body is not one
+  /// element — a `match` over the row index — where `closure_region` does not
+  /// fit.
+  pub fn scoped<T>(&mut self, build: impl FnOnce(&mut Self) -> T) -> (T, BTreeSet<String>) {
+    self.captures.push(BTreeSet::new());
+    let out = build(self);
+    let captured = self.captures.pop().unwrap_or_default();
+    (out, captured)
+  }
+
+  /// The same, for a region whose closure takes other parameters than a window
+  /// and a context — a settings item is handed its render options first.
+  pub fn closure_region_with(
+    &mut self,
+    head: String,
+    params: &str,
+    id: Option<NodeId>,
+  ) -> Vec<String> {
     self.captures.push(BTreeSet::new());
     let inner = match id {
       Some(id) => self.emit(id, Placement { absolute: false }),
       None => vec!["div()".into()],
     };
     let captured = self.captures.pop().unwrap_or_default();
-    self.wrap_closure(head, captured, inner)
+    self.wrap_closure_with(head, params, captured, inner)
   }
 
   pub fn wrap_closure(
@@ -598,8 +732,14 @@ impl<'a> Emitter<'a> {
       return out;
     }
     out.push(format!("{head}{{"));
+    // Inside another closure `self` and `cx` are not the method's, so what this
+    // one needs is cloned from a local the enclosing closure already holds —
+    // and the enclosing closure is told it needs it.
+    let nested = !self.captures.is_empty();
     for name in &captured {
-      let source = if name == VIEW {
+      let source = if nested {
+        format!("{name}.clone()")
+      } else if name == VIEW {
         // Weak, not strong: a closure held by a live component tree
         // must not own the view that renders it.
         "cx.entity().downgrade()".to_string()
@@ -610,6 +750,9 @@ impl<'a> Emitter<'a> {
         }
       };
       out.push(format!("    let {name} = {source};"));
+      if let Some(scope) = self.captures.last_mut() {
+        scope.insert(name.clone());
+      }
     }
     out.push(format!("    move {params} {{"));
     out.extend(indent(&indent(&inner)));
@@ -625,6 +768,10 @@ impl<'a> Emitter<'a> {
     // Entity components emit rather than take a handler; `emit_subscriptions`
     // wires those in `new`.
     if spec.ctor.is_entity() {
+      return Vec::new();
+    }
+    // The generator wires this kind's handlers with its own signatures.
+    if self.generator.writes(&node.kind) {
       return Vec::new();
     }
     let mut out = Vec::new();
@@ -687,7 +834,9 @@ pub fn child_call(inner: Vec<String>) -> Vec<String> {
   prefixed_call("child", inner)
 }
 
-fn prefixed_call(method: &str, inner: Vec<String>) -> Vec<String> {
+/// `.method(<expr>)`, inlined when the expression is short enough to read on
+/// one line. [`child_call`] for the common method.
+pub fn prefixed_call(method: &str, inner: Vec<String>) -> Vec<String> {
   // A node's tag rides in front of its expression. Take it off before
   // deciding whether that expression fits on one line, then put it back in
   // front of the call — the tag has to name the line the expression lands on,
@@ -727,14 +876,48 @@ fn split_mark(mut lines: Vec<String>) -> (Option<String>, Vec<String>) {
   (None, lines)
 }
 
+/// How far a chain of placed components is followed. A cycle is refused when
+/// it is created, so this only catches a hand-edited file.
+const DEPTH: usize = 8;
+
+/// The document a node places, when it places one.
+fn placed<'p>(project: &'p Project, node: &Node) -> Option<&'p Document> {
+  let name = node.component_ref()?;
+  project.docs.iter().find(|doc| doc.name == name)
+}
+
+/// Whether a document generates as a `Render` entity rather than a `RenderOnce`
+/// builder: a screen, or anything holding state, an action, or an entity.
+pub fn is_entity(project: &Project, doc: &Document) -> bool {
+  entity_of(project, doc, 0)
+}
+
+fn entity_of(project: &Project, doc: &Document, depth: usize) -> bool {
+  doc.kind == tailor_model::DocKind::Screen
+    || !doc.state.is_empty()
+    || !doc.actions.is_empty()
+    || !fields_at(project, doc, depth).is_empty()
+}
+
 /// Whether building this document's entities takes a window, which its `new`
-/// then has to be handed — and so does whoever constructs it.
-pub fn needs_window(library: &dyn Library, doc: &Document) -> bool {
-  entity_fields(library, doc).iter().any(|(id, _)| {
-    doc
-      .node(*id)
-      .and_then(|node| library.get(&node.kind))
-      .is_some_and(|spec| spec.ctor.needs_window())
+/// then has to be handed — and so does whoever constructs it. A placed
+/// component that needs one passes the need up to whatever places it.
+pub fn needs_window(project: &Project, doc: &Document) -> bool {
+  window_at(project, doc, 0)
+}
+
+fn window_at(project: &Project, doc: &Document, depth: usize) -> bool {
+  let library = project.library();
+  fields_at(project, doc, depth).iter().any(|(id, _)| {
+    let Some(node) = doc.node(*id) else {
+      return false;
+    };
+    match placed(project, node) {
+      Some(target) => depth < DEPTH && window_at(project, target, depth + 1),
+      None => library
+        .get(&node.kind)
+        .is_some_and(|spec| spec.ctor.needs_window()),
+    }
   })
 }
 
@@ -743,11 +926,19 @@ pub fn needs_window(library: &dyn Library, doc: &Document) -> bool {
 /// holds a `Slider` clones that slider into its content closure, so the slider
 /// has to be a local by the time the tabs are constructed.
 ///
+/// A placed component that is itself an entity counts: it is built once, in
+/// `new`, and held in a field like any other.
+///
 /// A `Vec`, not a map: the order is the whole point, and a map keyed by id
 /// would silently sort it back into creation order.
-pub fn entity_fields(library: &dyn Library, doc: &Document) -> Vec<(NodeId, String)> {
+pub fn entity_fields(project: &Project, doc: &Document) -> Vec<(NodeId, String)> {
+  fields_at(project, doc, 0)
+}
+
+fn fields_at(project: &Project, doc: &Document, depth: usize) -> Vec<(NodeId, String)> {
+  let library = project.library();
   let mut ordered = Vec::new();
-  collect(library, doc, doc.root, &mut ordered);
+  collect(project, doc, doc.root, &mut ordered, depth);
   // State variables get their names first: the user typed those, and a node
   // called "Email" beside a variable called `email` is a real thing to do.
   let mut used: BTreeSet<String> = doc
@@ -761,6 +952,7 @@ pub fn entity_fields(library: &dyn Library, doc: &Document) -> Vec<(NodeId, Stri
     let base = node
       .name
       .clone()
+      .or_else(|| node.component_ref().map(str::to_string))
       .or_else(|| library.get(&node.kind).map(|spec| spec.title.to_string()))
       .unwrap_or_else(|| node.kind.clone());
     let mut name = tailor_model::snake_case(&base);
@@ -777,15 +969,22 @@ pub fn entity_fields(library: &dyn Library, doc: &Document) -> Vec<(NodeId, Stri
 }
 
 /// Post-order so a parent entity is built after the children it may capture.
-fn collect(library: &dyn Library, doc: &Document, id: NodeId, out: &mut Vec<NodeId>) {
+fn collect(project: &Project, doc: &Document, id: NodeId, out: &mut Vec<NodeId>, depth: usize) {
   let Some(node) = doc.node(id) else { return };
   for child in node.all_children() {
-    collect(library, doc, child, out);
+    collect(project, doc, child, out, depth);
   }
-  if node.component_ref().is_none() {
-    if let Some(spec) = library.get(&node.kind) {
-      if spec.ctor.is_entity() {
+  match placed(project, node) {
+    Some(target) => {
+      if depth < DEPTH && entity_of(project, target, depth + 1) {
         out.push(id);
+      }
+    }
+    None => {
+      if let Some(spec) = project.library().get(&node.kind) {
+        if spec.ctor.is_entity() {
+          out.push(id);
+        }
       }
     }
   }

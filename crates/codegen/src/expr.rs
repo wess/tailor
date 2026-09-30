@@ -13,7 +13,7 @@
 //! three-way shape is still guise's, and is the next thing this file owes the
 //! provider seam; the token *names* it prints are already the library's.
 
-use tailor_model::library::TokenPaths;
+use tailor_model::library::{Library, StateStyle, TokenPaths};
 use tailor_model::props::{PropSpec, PropType, PropValue};
 use tailor_model::tokens::{ColorSpec, ColorToken};
 use tailor_model::{Document, SizeToken, VariantToken};
@@ -29,10 +29,12 @@ pub const SHADE: usize = 6;
 ///
 /// The two travel together because they are needed in the same places: every
 /// function that turns a prop into an expression already takes a `Hoist`.
-#[derive(Debug)]
 pub struct Hoist {
   entries: Vec<(String, String)>,
   tokens: TokenPaths,
+  state: StateStyle,
+  icon: &'static str,
+  library: Option<&'static dyn Library>,
 }
 
 impl Hoist {
@@ -40,6 +42,19 @@ impl Hoist {
     Hoist {
       entries: Vec::new(),
       tokens,
+      state: StateStyle::Signal,
+      icon: "IconName::Circle",
+      library: None,
+    }
+  }
+
+  /// Everything the library contributes to how a value is spelled.
+  pub fn for_library(library: &'static dyn Library) -> Self {
+    Hoist {
+      state: library.state_style(),
+      icon: library.fallback_icon(),
+      library: Some(library),
+      ..Hoist::new(library.token_paths())
     }
   }
 
@@ -142,7 +157,7 @@ fn value_in(
   prefix: &str,
 ) -> String {
   if let Some(var) = value.as_binding() {
-    return binding(spec, var, doc, prefix);
+    return binding(hoist, spec, var, doc, prefix);
   }
   match (spec.ty, value) {
     (PropType::Color, PropValue::Color(color)) => color_arg(hoist, spec.rust_enum, color),
@@ -150,6 +165,11 @@ fn value_in(
     (_, PropValue::Int(v)) => v.to_string(),
     (_, PropValue::Float(v)) => float(*v as f32),
     (_, PropValue::Text(v)) => string(v),
+    (_, PropValue::Icon(v)) if v.is_empty() => hoist.icon.to_string(),
+    // Lucide has more icons than any one library ships; the linter warns.
+    (_, PropValue::Icon(v)) if !hoist.library.is_none_or(|library| library.has_icon(v)) => {
+      hoist.icon.to_string()
+    }
     (_, PropValue::Icon(v)) => icon_path(v),
     (_, PropValue::Size(v)) => path(hoist.tokens.size, v.variant()),
     (_, PropValue::Variant(v)) => path(hoist.tokens.variant, v.variant()),
@@ -162,11 +182,23 @@ fn value_in(
 }
 
 /// A prop that reads a state variable. `Signal<T>` hands back an owned value,
-/// which is what every setter here wants. `prefix` is `self.` in `render` and
-/// empty in `new`, where the signal is a local.
-fn binding(spec: &PropSpec, var: &str, doc: &Document, prefix: &str) -> String {
-  let read = format!("{prefix}{}.get(cx)", tailor_model::snake_case(var));
+/// which is what every setter here wants; a plain field is cloned when it is
+/// not `Copy`. `prefix` is `self.` in `render` and empty in `new`, where the
+/// variable is a local.
+fn binding(hoist: &Hoist, spec: &PropSpec, var: &str, doc: &Document, prefix: &str) -> String {
+  let name = tailor_model::snake_case(var);
   let ty = doc.var(var).map(|v| v.ty);
+  let read = match hoist.state {
+    StateStyle::Signal => format!("{prefix}{name}.get(cx)"),
+    StateStyle::Field => match ty {
+      Some(
+        tailor_model::VarType::Bool | tailor_model::VarType::Int | tailor_model::VarType::Float,
+      ) => {
+        format!("{prefix}{name}")
+      }
+      _ => format!("{prefix}{name}.clone()"),
+    },
+  };
   match (spec.ty, ty) {
     // A text setter takes `impl Into<SharedString>`; a `String` qualifies.
     (PropType::Text | PropType::MultilineText, _) => read,

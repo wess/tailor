@@ -10,9 +10,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use tailor_model::{DocKind, Document, Project};
 
 use crate::expr::Hoist;
-use crate::node::{entity_fields, needs_window, Emitter, Owner};
+use crate::node::{entity_fields, is_entity, needs_window, Emitter, Owner};
 use crate::rust::{comment, Source};
 use crate::style::Placement;
+use tailor_model::library::StateStyle;
 
 /// One generated file.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,17 +40,16 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
   // `fields` is in build order; `lookup` is the same thing by id, for the
   // emitter to resolve a node to its field name.
   let library = project.library();
-  let fields = entity_fields(library, doc);
+  let fields = entity_fields(project, doc);
   let lookup: std::collections::BTreeMap<tailor_model::NodeId, String> =
     fields.iter().cloned().collect();
-  let stateful = !fields.is_empty() || !doc.state.is_empty() || !doc.actions.is_empty();
-  let owner = if doc.kind == DocKind::Screen || stateful {
+  let owner = if is_entity(project, doc) {
     Owner::Entity
   } else {
     Owner::Plain
   };
 
-  let mut hoist = Hoist::new(library.token_paths());
+  let mut hoist = Hoist::for_library(library);
   let mut emitter = Emitter::new(project, doc, &lookup, &mut hoist, owner);
 
   // The body first: it is what decides the imports and the hoisted colours.
@@ -58,12 +58,16 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
     .iter()
     .flat_map(|(id, _)| emitter.emit_init(*id))
     .collect();
+  let support: Vec<String> = fields
+    .iter()
+    .flat_map(|(id, _)| emitter.emit_support(*id))
+    .collect();
   let subscriptions = emitter.emit_subscriptions();
   let binds = emitter.binds.clone();
   let extra_imports = emitter.imports.clone();
   let mut notes = emitter.notes.clone();
 
-  if doc.kind == DocKind::Component && stateful {
+  if doc.kind == DocKind::Component && owner == Owner::Entity {
     notes.push(format!(
       "{} holds state, so it generates as a Render entity rather than a RenderOnce builder",
       doc.name
@@ -110,25 +114,35 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
   } else {
     source.open(format!("pub struct {type_name} {{"));
     for (id, field) in &fields {
-      let rust = doc
-        .node(*id)
+      let node = doc.node(*id);
+      let placed = node
+        .and_then(|node| node.component_ref())
+        .map(tailor_model::pascal_case);
+      let rust = node
         .and_then(|node| library.get(&node.kind))
-        .map(|spec| match spec.ctor {
+        .map(|spec| {
           // The field holds the state; the element is built over it.
-          tailor_model::Ctor::Stateful(state) => state,
-          _ => spec.rust,
+          spec.ctor.state_type().unwrap_or(spec.rust)
         })
+        .or(placed.as_deref())
         .unwrap_or("()");
       // Public like the state signals: these handles are how the host
       // reads a field's value or drives it later.
       source.line(format!("pub {field}: Entity<{rust}>,"));
     }
     for var in &doc.state {
-      source.line(format!(
-        "pub {}: Signal<{}>,",
-        tailor_model::snake_case(&var.name),
-        var.ty.rust()
-      ));
+      match library.state_style() {
+        StateStyle::Signal => source.line(format!(
+          "pub {}: Signal<{}>,",
+          tailor_model::snake_case(&var.name),
+          var.ty.rust()
+        )),
+        StateStyle::Field => source.line(format!(
+          "pub {}: {},",
+          tailor_model::snake_case(&var.name),
+          var.ty.rust()
+        )),
+      }
     }
     source.close("}");
   }
@@ -144,10 +158,15 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
         !inits.is_empty() || !subscriptions.is_empty() || !doc.state.is_empty();
       let param = if builds_something { "cx" } else { "_cx" };
       // State that needs a window is built here, so the screen takes one.
-      let window = if needs_window(library, doc) {
+      // Named only when something below reads it: a state that needs no window
+      // of its own (a tree's, a carousel's) still has the screen take one, so
+      // that a sibling that does can be built.
+      let window = if !needs_window(project, doc) {
+        ""
+      } else if inits.iter().any(|line| mentions(line, "window")) {
         "window: &mut Window, "
       } else {
-        ""
+        "_window: &mut Window, "
       };
       source.open(format!(
         "pub fn new({window}{param}: &mut Context<Self>) -> Self {{"
@@ -159,7 +178,10 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
         source.line(format!(
           "let {} = {};",
           tailor_model::snake_case(&var.name),
-          var.initializer()
+          match library.state_style() {
+            StateStyle::Signal => var.initializer(),
+            StateStyle::Field => var.value(),
+          }
         ));
       }
       source.block(inits.clone());
@@ -236,6 +258,10 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
   }
   source.close("}");
   source.close("}");
+  if !support.is_empty() {
+    source.blank();
+    source.block(support);
+  }
 
   let (source, lines) = strip_marks(source.finish());
 
@@ -278,7 +304,7 @@ fn strip_marks(source: String) -> (String, BTreeMap<tailor_model::NodeId, usize>
 
 /// Does the line use this identifier as a word, rather than inside a string or
 /// a longer name?
-fn mentions(line: &str, needle: &str) -> bool {
+pub(crate) fn mentions(line: &str, needle: &str) -> bool {
   let bytes = line.as_bytes();
   let mut start = 0;
   while let Some(found) = line[start..].find(needle) {

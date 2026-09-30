@@ -57,6 +57,15 @@ pub trait Generator: Send + Sync + 'static {
     Vec::new()
   }
 
+  /// Whether the generator writes this kind's slots and events itself, in
+  /// [`Generator::slots`]. The generic walk then skips both: an overlay's
+  /// regions are closures over a dialog or a menu model, and its handlers
+  /// return a `bool` or take a different argument list than a click does.
+  fn writes(&self, kind: &str) -> bool {
+    let _ = kind;
+    false
+  }
+
   /// Slot keys whose content is a `'static` closure rather than an element.
   fn closure_slots(&self, kind: &str) -> &'static [&'static str] {
     let _ = kind;
@@ -75,6 +84,31 @@ pub trait Generator: Send + Sync + 'static {
   fn slots(&self, em: &mut Emitter, node: &Node, placement: Placement) -> Option<Vec<String>> {
     let _ = (em, node, placement);
     None
+  }
+
+  /// The expression that builds a [`Ctor::Stateful`](tailor_model::Ctor)
+  /// component's state, when it is not `State::new(window, cx)` — a select
+  /// hands its state the items it lists, a slider its range. The first line is
+  /// the constructor and the rest are calls chained onto it; the props marked
+  /// [`Emit::State`](tailor_model::Emit) are appended after.
+  fn state(&self, em: &mut Emitter, node: &Node) -> Option<Vec<String>> {
+    let _ = (em, node);
+    None
+  }
+
+  /// The element drawn over a stateful component's state, when it is not
+  /// `Type::new(&state)`. `borrow` is the borrow of the field, already spelled
+  /// for where the expression sits: `&self.select` in `render`.
+  fn element_over(&self, em: &mut Emitter, node: &Node, borrow: &str) -> Option<Vec<String>> {
+    let _ = (em, node, borrow);
+    None
+  }
+
+  /// Items a component needs at the top level of its file — a table's delegate
+  /// type and its impl. Written once per node, after the screen's own impls.
+  fn support(&self, em: &mut Emitter, node: &Node) -> Vec<String> {
+    let _ = (em, node);
+    Vec::new()
   }
 
   /// The prop a two-way `X::bind(&entity, &signal, cx)` drives on an entity

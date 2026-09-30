@@ -21,9 +21,13 @@
 
 pub mod catalog;
 pub mod codegen;
+pub mod compounds;
+pub mod extras;
+pub mod overlays;
+pub mod stateful;
 
 use tailor_model::catalog::ComponentSpec;
-use tailor_model::library::{Library, TokenPaths};
+use tailor_model::library::{Library, StateStyle, TokenPaths};
 use tailor_model::project::ThemePreset;
 
 /// The library handle. Zero-sized: everything it answers is `static`.
@@ -66,17 +70,59 @@ impl Library for Gpuikit {
   fn prelude(&self) -> &'static [&'static str] {
     &[
       "use gpui::prelude::*;",
+      // Tables, lists and the multi-part containers, named for the same reason.
+      "#[allow(unused_imports)] use gpui::component::{accordion::Accordion, description_list::DescriptionList, status_bar::StatusBar, toolbar::{Toolbar, ToolbarGroup}};",
+      "#[allow(unused_imports)] use gpui::component::table::{Column, DataTable, TableDelegate, TableEvent, TableState};",
+      "#[allow(unused_imports)] use gpui::component::list::{List, ListDelegate, ListEvent, ListItem, ListState};",
+      "#[allow(unused_imports)] use gpui::component::tree::{Tree, TreeItem, TreeState};",
+      "#[allow(unused_imports)] use gpui::component::carousel::{Carousel, CarouselContent, CarouselEvent, CarouselItem, CarouselNext, CarouselPagination, CarouselPaginationItem, CarouselPrevious, CarouselState};",
+      "#[allow(unused_imports)] use gpui::component::sidebar::{Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarToggleButton};",
+      "#[allow(unused_imports)] use gpui::component::setting::{SettingGroup, SettingItem, SettingPage, Settings};",
+      "#[allow(unused_imports)] use gpui::component::marker::{Marker, MarkerAlignment, MarkerContent, MarkerIcon, MarkerLoadingStyle, MarkerVariant};",
+      "#[allow(unused_imports)] use gpui::component::message::{Message, MessageAlignment, MessageContent, MessageFooter, MessageGroup, MessageHeader};",
+      "#[allow(unused_imports)] use gpui::component::message_scroller::{MessageScroller, MessageScrollerState};",
+      "#[allow(unused_imports)] use gpui::component::bubble::{Bubble, BubbleGroup, BubbleReactionSide, BubbleReactions, BubbleVariant};",
+      "#[allow(unused_imports)] use gpui::component::attachment::{Attachment, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentGroup, AttachmentMedia, AttachmentStatus, AttachmentTitle};",
+      "#[allow(unused_imports)] use gpui::component::questionnaire::{Questionnaire, QuestionnaireActions, QuestionnaireChoice, QuestionnaireChoiceDefinition, QuestionnaireChoices, QuestionnaireError, QuestionnaireEvent, QuestionnaireInput, QuestionnaireInputDefinition, QuestionnaireItem, QuestionnaireItemDefinition, QuestionnaireNext, QuestionnairePrevious, QuestionnaireProgress, QuestionnaireSkip, QuestionnaireState, QuestionnaireSubmit, QuestionnaireTitle};",
+      "#[allow(unused_imports)] use gpui::component::table::{Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow};",
       // The root exports icons, `h_flex`/`v_flex`, the theme and the sizing
-      // traits; each component lives in its own module.
-      "use gpui::component::*;",
-      "use gpui::component::{alert::*, avatar::*, badge::*, breadcrumb::*, button::*, \
+      // traits; each component lives in its own module. Every line that a small
+      // file might not use carries an allow, or a component with one input in it
+      // warns about thirty imports.
+      "#[allow(unused_imports)] use gpui::component::*;",
+      "#[allow(unused_imports)] use gpui::component::{alert::*, avatar::*, badge::*, breadcrumb::*, button::*, \
        checkbox::*, empty::*, group_box::*, kbd::*, label::*, link::*, \
        pagination::*, progress::*, radio::*, rating::*, separator::*, skeleton::*, \
        spinner::*, stepper::*, switch::*, tab::*, tag::*};",
       // Named, because gpui-kit has a `Collapsible` trait at the root as well
       // and two globs that both offer a name make it ambiguous.
-      "use gpui::component::collapsible::Collapsible;",
-      "use gpui::component::input::{Input, InputState, Textarea, TextareaState};",
+      "#[allow(unused_imports)] use gpui::component::collapsible::Collapsible;",
+      // A popover's anchor corner is gpui's, not a component's, so nothing
+      // above brings it in.
+      "#[allow(unused_imports)] use gpui::Anchor;",
+      "#[allow(unused_imports)] use gpui::component::input::{InputGroup, InputGroupAddon, InputGroupAddonAlignment, InputGroupButton, InputGroupText};",
+      "#[allow(unused_imports)] use gpui::component::command::{Command, CommandGroup, CommandItem, CommandState};",
+      "#[allow(unused_imports)] use gpui::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};",
+      // The state-backed controls: each is a state, an element, and the events
+      // the state emits, all named because the generated code names them.
+      "#[allow(unused_imports)] use gpui::component::input::{EditorState, NumberInput, NumberInputEvent, OtpEvent, OtpInput, OtpState, Editor};",
+      "#[allow(unused_imports)] use gpui::component::select::{Select, SelectEvent, SelectState};",
+      "#[allow(unused_imports)] use gpui::component::combobox::{Combobox, ComboboxEvent, ComboboxState};",
+      "#[allow(unused_imports)] use gpui::component::searchable_list::SearchableVec;",
+      "#[allow(unused_imports)] use gpui::component::slider::{Slider, SliderEvent, SliderState};",
+      "#[allow(unused_imports)] use gpui::component::color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState};",
+      "#[allow(unused_imports)] use gpui::component::date_picker::{DatePicker, DatePickerEvent, DatePickerState};",
+      "#[allow(unused_imports)] use gpui::component::calendar::{Calendar, CalendarEvent, CalendarState};",
+      "#[allow(unused_imports)] use gpui::component::time_field::{HourCycle, TimeField, TimeFieldEvent, TimeFieldState, TimePrecision};",
+      "#[allow(unused_imports)] use gpui::component::clipboard::Clipboard;",
+      "#[allow(unused_imports)] use gpui::component::form::{Field, Form};",
+      // Overlays: named, because `menu::*` and `dialog::*` export a good deal that a
+      // small file does not want in scope.
+      "#[allow(unused_imports)] use gpui::component::dialog::{AlertDialog, Dialog, DialogAction, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogTitle};",
+      "#[allow(unused_imports)] use gpui::component::{hover_card::HoverCard, popover::Popover, sheet::Sheet, tooltip::Tooltip, WindowExt};",
+      "#[allow(unused_imports)] use gpui::component::notification::{Notification, NotificationType};",
+      "#[allow(unused_imports)] use gpui::component::menu::{ContextMenuExt, PopupMenuItem};",
+      "#[allow(unused_imports)] use gpui::component::button::DropdownButton;",
     ]
   }
 
@@ -102,10 +148,38 @@ impl Library for Gpuikit {
     }
   }
 
-  fn signals(&self) -> bool {
-    // `Signal<T>` is guise's. gpui-kit has no equivalent the generator knows
-    // how to write, so a document with state fails the lint, not the build.
-    false
+  fn state_style(&self) -> StateStyle {
+    // gpui-kit has no signal type. A variable is a plain field on the screen,
+    // which an action assigns and follows with `cx.notify()`.
+    StateStyle::Field
+  }
+
+  fn fallback_icon(&self) -> &'static str {
+    // guise's `Circle` is not in gpui-kit's icon set; `Info` is.
+    "IconName::Info"
+  }
+
+  fn has_icon(&self, name: &str) -> bool {
+    compounds::DEFAULT_ICONS.contains(&name)
+  }
+
+  fn parents(&self, kind: &str) -> &'static [&'static str] {
+    // The parts gpui-kit's generator writes inside a parent's own expression.
+    // Anywhere else they have nothing to be written by.
+    const MENU: &[&str] = &["dropdownbutton", "contextmenu", "submenu"];
+    match kind {
+      "menuitem" | "menuseparator" | "menulabel" | "submenu" => MENU,
+      "tableheader" | "tablebody" | "tablefooter" | "tablecaption" => &["table"],
+      "tablerow" => &["table", "tableheader", "tablebody", "tablefooter"],
+      "tablehead" | "tablecell" => &["tablerow"],
+      "commandgroup" | "commandseparator" => &["command"],
+      "commanditem" => &["command", "commandgroup"],
+      "inputgroupaddon" => &["inputgroup"],
+      "inputgrouptext" | "inputgroupbutton" => &["inputgroupaddon"],
+      "toolbargroup" => &["toolbar"],
+      "messageheader" | "messagecontent" | "messagefooter" => &["message"],
+      _ => &[],
+    }
   }
 
   fn boxes(&self) -> &'static [&'static str] {
@@ -115,8 +189,23 @@ impl Library for Gpuikit {
   fn reserved(&self) -> &'static [&'static str] {
     // What the two glob imports export besides components.
     &[
+      "Anchor",
+      "CommandEntry",
+      "InputGroupAddonAlignment",
       "InputState",
+      "TableRows",
+      "ListRows",
       "TextareaState",
+      "EditorState",
+      "OtpState",
+      "SelectState",
+      "ComboboxState",
+      "SliderState",
+      "ColorPickerState",
+      "DatePickerState",
+      "CalendarState",
+      "TimeFieldState",
+      "SearchableVec",
       "Theme",
       "ThemeMode",
       "ActiveTheme",

@@ -13,7 +13,7 @@ use tailor_model::catalog::{ComponentSpec, Ctor};
 use tailor_model::comp;
 use tailor_model::props::{boolean, int, text, Emit, PropValue};
 
-use super::SIZE;
+use super::{INPUT_EVENTS, SIZE};
 
 pub static SPECS: &[ComponentSpec] = &[
   comp!(
@@ -31,6 +31,7 @@ pub static SPECS: &[ComponentSpec] = &[
           boolean("bordered", "Bordered", Emit::Method("bordered"), true),
           SIZE,
       ],
+      events: INPUT_EVENTS,
       docs: "The text lives in an `InputState` field on the screen. Read it in an action \
              with `self.<field>.read(cx).value()`. For a password, set Masked and Show/hide \
              toggle. Use Textarea for more than one line.",
@@ -49,8 +50,9 @@ pub static SPECS: &[ComponentSpec] = &[
           boolean("bordered", "Bordered", Emit::Method("bordered"), true),
           SIZE,
       ],
+      events: INPUT_EVENTS,
       docs: "The text lives in a `TextareaState` field on the screen. Read it in an action \
              with `self.<field>.read(cx).value()`.",
-      aliases: &["multiline", "text area", "notes", "message"],
+      aliases: &["multiline", "text area", "notes"],
   ),
 ];

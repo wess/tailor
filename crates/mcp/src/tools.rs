@@ -105,7 +105,7 @@ pub fn list() -> Value {
               "kind": string("`screen` (a Render entity) or `component` (a RenderOnce builder)")
           }), &["name"]),
       tool("add_state",
-          "Add a state variable to a document. It becomes a Signal<T> field on the generated type.",
+          "Add a state variable to a document. It becomes a field on the generated type — a Signal<T> in guise, a plain field in gpui-kit.",
           json!({
               "document": doc(),
               "name": string("Variable name"),

@@ -262,8 +262,15 @@ What a provider on a different gpui needs, beyond the two traits:
 - `Generator::application_import`, `application` and `open_window` — gpui-kit
   moved `Application` behind a platform crate and wraps every window in its own
   root, which is what its dialogs mount on.
-- `Library::signals()` — `false` when the library has no signal type. A document
-  with state variables is then a lint error, not a failed export.
+- `Library::state_style()` — `Signal` (guise's `Signal<T>`, read with `.get(cx)`)
+  or `Field`. gpui-kit has no signal type, so a state variable is a plain field
+  on the screen; an action assigns it and calls `cx.notify()`.
+- `Library::fallback_icon()` and `has_icon()` — gpui-kit ships a subset of
+  Lucide, and the picker offers all of it. A name the library lacks lints as a
+  warning and generates the fallback rather than a name that does not compile.
+- `Library::parents(kind)` — the parts that only exist inside something (a table
+  cell in a row, a menu item in a menu). Elsewhere they generate code that does
+  not compile, so the linter says so where the design is.
 
 Every library must define a `frame` kind: a document's root is one.
 
@@ -275,12 +282,13 @@ on the start screen — the choice is remembered in settings — or through
 component kinds do not map across libraries, so there is no switching an open
 project.
 
-### Text fields
+### State entities
 
-gpui-kit's `Input` and `Textarea` are two types each: a state entity that owns
-the buffer and focus, built with a `Window`, and an element drawn over it. That
-is `Ctor::Stateful("InputState")`. The screen keeps the state as a field, builds
-it in `new`, and each frame builds the element over a borrow of it:
+gpui-kit's stateful components are two things each: a state entity that owns the
+buffer, selection or value, and an element drawn over it. That is
+`Ctor::Stateful("InputState")` (or `StatefulCx` when the state needs no window).
+The screen keeps the state as a field, builds it in `new`, and each frame builds
+the element over a borrow of it:
 
 ```rust
 let input = cx.new(|cx| InputState::new(window, cx).placeholder("Email"));
@@ -289,25 +297,47 @@ Input::new(&self.input).cleanable(true)
 ```
 
 A prop lands on whichever half owns it. `Emit::State("placeholder")` is the
-buffer's and goes on the state at construction; `Emit::Method` and `Emit::Flag`
-are the element's and go on it every frame. A screen that owns any such state
-takes a `window` in `new`, and `main` passes it in. Reading what was typed is an
-action's job — `self.input.read(cx).value()` — and completion in the action
-editor offers the field.
+state's and is applied when it is built; `Emit::Method` and `Emit::Flag` are the
+element's and are applied every frame. A screen that owns window-built state
+takes a `window` in `new`, and `main` passes it in — as does anything that places
+it, so the need passes up through every component that contains one.
 
-### What is missing
+Three generator hooks cover the components whose state is not `State::new(window,
+cx)`: `state` (a select's options, a slider's range), `element_over` and
+`support` (top-level items, such as the delegate a table needs). Events are
+bound to one variant of the state's event enum — `EventSpec::method` is the
+pattern, `InputEvent::Change` — so focus and blur do not run a change handler.
 
-- **Events on a field.** There is no "on change" yet: a state entity emits
-  several events (change, enter, focus, blur), and the emitter subscribes to
-  events without saying which. Read the value in an action instead.
-- **The rest of the state-backed set** — `Select`, `Slider`, `NumberInput`,
-  `DatePicker`, `Table` and their kin. They need a delegate or a model the host
-  owns, which is a different problem from needing a window.
-- **Overlays** (dialogs, popovers, menus, sheets).
-- **State variables** — see below.
+Reading a value is an action's job: `self.input.read(cx).value()`, and completion
+in the action editor offers the field.
 
-Every exclusion is a rule with a reason in `crates/gpuikit/tests/coverage.rs`,
-held against the surface.
+### Overlays
+
+Popovers, hover cards and dialogs take a trigger slot and content regions written
+as closures, the same way guise's tabs do. Sheets and notifications have no
+trigger API in gpui-kit, so they are a button that opens one from its click
+handler. Menus are an *Items* slot of `menuitem`, `menuseparator`, `menulabel`
+and `submenu` nodes on a dropdown button or context menu. On the canvas they are
+cards whose slots are drop targets; to see one open, Run.
+
+### What is still out
+
+Every exclusion is a rule with a written reason in
+`crates/gpuikit/tests/coverage.rs`, held against the surface, so the list cannot
+go stale quietly. What remains falls into three groups:
+
+- **Internals and parts** — test probes, drag and dock scaffolding, and the
+  sub-parts a parent's generator already writes (`TableCell` is written by
+  `Table`, `MenuItem` by a menu).
+- **Window chrome** — `TitleBar`, `WindowBorder`, `WindowControls`. They need a
+  borderless window, which is `main`'s to open, not a node's.
+- **Not layout** — `AppMenu` reads the menus an application registers with
+  `cx.set_menus` at start-up, and the editor's completion and hover popups are
+  fed by a language server.
+
+What Tailor cannot do is show any of it live on the canvas. That is the gpui
+snapshot mismatch above, and it is structural: closing it means rendering
+gpui-kit out of process and streaming its frames in.
 
 ### The surface
 

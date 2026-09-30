@@ -45,6 +45,7 @@ pub static SPECS: &[ComponentSpec] = &[
       "A title and description for a screen with nothing on it yet.",
       Ctor::Special,
       props: &[
+          icon("icon", "Icon", Emit::Custom),
           text("title", "Title", Emit::Custom),
           text("description", "Description", Emit::Custom),
       ],

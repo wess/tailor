@@ -71,7 +71,7 @@ const EXCLUDED: &[(&str, &str)] = &[
   ("EmptyDescription", "written inside Empty's expression"),
   (
     "EmptyMedia",
-    "not modelled: a media slot with its own variants",
+    "written inside Empty's expression, from its Icon prop",
   ),
   (
     "EmptyContent",
@@ -82,32 +82,48 @@ const EXCLUDED: &[(&str, &str)] = &[
   ("IconName", "an icon value, not a component (see Icon)"),
   // Kept out of the catalog until the pieces below have somewhere to live.
   (
-    "DescriptionList",
-    "items are (label, value) pairs with spans; no prop shape for them yet",
+    "AccordionItem",
+    "written inside Accordion's expression, one per section",
   ),
   (
-    "Accordion*",
-    "each item is built by a closure over the item, which a designer cannot drop into",
+    "CarouselContent",
+    "the track of slides, written inside Carousel's expression",
   ),
   (
-    "Carousel*",
-    "a compound of six parts sharing one state handle",
+    "CarouselItem",
+    "one slide, written inside Carousel's expression",
   ),
   (
-    "Sidebar*",
-    "a compound of header, groups and footer wired to a collapse state",
+    "CarouselNext",
+    "the next arrow, written inside Carousel's expression",
   ),
   (
-    "Toolbar*",
-    "a compound whose children must be toolbar items, not arbitrary nodes",
+    "CarouselPrevious",
+    "the previous arrow, written inside Carousel's expression",
   ),
   (
-    "StatusBar",
-    "app chrome; needs the window's own bottom edge",
+    "CarouselPagination",
+    "the dots, written inside Carousel's expression",
   ),
   (
-    "Marker*",
-    "conversation markers, assembled from message data",
+    "CarouselPaginationItem",
+    "one dot, written inside Carousel's expression",
+  ),
+  (
+    "SidebarHeader",
+    "Sidebar::header takes any element, so the wrapper adds nothing a frame does not",
+  ),
+  (
+    "SidebarFooter",
+    "Sidebar::footer takes any element, so the wrapper adds nothing a frame does not",
+  ),
+  (
+    "MarkerContent",
+    "written inside Marker's expression, from its Text prop",
+  ),
+  (
+    "MarkerIcon",
+    "written inside Marker's expression, from its Icon prop",
   ),
   (
     "StepperSeparator",
@@ -140,54 +156,124 @@ const EXCLUDED: &[(&str, &str)] = &[
   ("MediaLayout", "layout mode enum for Attachment"),
   // Conversation UI: built from message data at run time, not laid out by hand.
   (
-    "Attachment*",
-    "conversation attachments, built from message data",
+    "AttachmentContent",
+    "written inside Attachment's expression, from its Title and Description",
   ),
-  ("Bubble*", "conversation bubbles, built from message data"),
-  ("Message*", "conversation messages, built from message data"),
   (
-    "Questionnaire*",
-    "a multi-part form driven by a questions model",
+    "AttachmentDescription",
+    "written inside Attachment's expression, from its Description prop",
+  ),
+  (
+    "AttachmentMedia",
+    "written inside Attachment's expression, from its Icon prop",
+  ),
+  (
+    "AttachmentTitle",
+    "written inside Attachment's expression, from its Title prop",
+  ),
+  ("BubbleContent", "a Bubble's own children are its content"),
+  (
+    "MessageAvatar",
+    "Message::avatar wraps any element in one itself",
+  ),
+  (
+    "QuestionnaireInput",
+    "written by Questionnaire for a question whose line has a `+` freeform cell",
+  ),
+  (
+    "QuestionnaireActions",
+    "the previous / skip / next / submit row, written inside Questionnaire's expression",
+  ),
+  (
+    "QuestionnaireChoice",
+    "one choice, written inside Questionnaire's expression",
+  ),
+  (
+    "QuestionnaireChoiceDescription",
+    "the text a choice draws from its `::` description; the part is for hand-built choices",
+  ),
+  (
+    "QuestionnaireChoices",
+    "the choices of one question, written inside Questionnaire's expression",
+  ),
+  (
+    "QuestionnaireError",
+    "a question's error line, written inside Questionnaire's expression",
+  ),
+  (
+    "QuestionnaireItem",
+    "one question, written inside Questionnaire's expression",
+  ),
+  (
+    "QuestionnaireProgress",
+    "the progress line, written inside Questionnaire's expression",
   ),
   // Opened through the window's root at run time, not placed in a tree.
+  // Overlays. The kinds themselves are catalogued (`Dialog`, `AlertDialog`, `Sheet`,
+  // `Notification`, `Popover`, `HoverCard`, `Tooltip`, `DropdownButton`); what is
+  // left is the parts the generator writes inside them.
   (
-    "Dialog*",
-    "opened with WindowExt on the window's root, not placed in a layout",
+    "DialogAction",
+    "the confirm button of a Dialog, written inside its content by the generator",
   ),
   (
-    "AlertDialog",
-    "opened with WindowExt on the window's root, not placed in a layout",
+    "DialogClose",
+    "the cancel button of a Dialog, written inside its content by the generator",
   ),
   (
-    "Sheet",
-    "opened with WindowExt on the window's root, not placed in a layout",
+    "DialogButton",
+    "a button the dialog draws itself when it has no footer",
   ),
   (
-    "Notification*",
-    "pushed onto the window's root, not placed in a layout",
+    "DialogContent",
+    "the closure argument of Dialog::content, not a node",
   ),
-  ("Popover", "trigger and content are both element closures"),
-  ("HoverCard", "trigger and content are both element closures"),
+  (
+    "DialogHeader",
+    "written inside a Dialog's content from its title and description",
+  ),
+  (
+    "DialogTitle",
+    "written inside a Dialog's content from its title",
+  ),
+  (
+    "DialogDescription",
+    "written inside a Dialog's content from its description",
+  ),
+  (
+    "DialogFooter",
+    "written inside a Dialog's content from its footer region",
+  ),
+  ("DialogHost", "internal: the window root's dialog layer"),
+  (
+    "NotificationList",
+    "internal: the window root's stack of toasts, which Notification pushes onto",
+  ),
   (
     "HoverPopover",
-    "trigger and content are both element closures",
-  ),
-  (
-    "Tooltip",
-    "built inside a `.tooltip(|window, cx| ..)` closure on another element",
+    "an editor's hover popup, built from language-server data",
   ),
   (
     "PopupMenu",
-    "built inside a context-menu closure over a menu model",
+    "the menu itself, built inside the closure a Dropdown button or Context menu writes",
   ),
   (
     "DropdownMenuPopover",
-    "built inside a menu closure over a menu model",
+    "what `.dropdown_menu(..)` returns; a Dropdown button generates it",
   ),
-  ("DropdownButton", "a button plus a menu closure"),
-  ("MenuItem", "an entry of a menu model, not a layout node"),
-  ("AppMenu*", "the application menu bar, wired to actions"),
-  ("Command*", "a palette driven by a delegate the host owns"),
+  (
+    "MenuItem",
+    "the row a PopupMenu draws for an entry; entries are Menu item nodes",
+  ),
+  (
+    "AppMenu*",
+    "reads the menus the application registers with `cx.set_menus` at start-up, which are \
+     app-level actions rather than something placed in a layout",
+  ),
+  (
+    "CommandState",
+    "the state behind Command, held as its field",
+  ),
   ("Completion*", "editor completion popups"),
   ("CodeActionMenu", "editor popup"),
   ("DiagnosticPopover", "editor popup"),
@@ -195,60 +281,22 @@ const EXCLUDED: &[(&str, &str)] = &[
   // Stateful: an `Entity<State>` built with a Window, which the emitter's
   // entity seam (`cx.new(Type::new)`) has no way to pass.
   // Not `Input*`: that would swallow `Input` itself, which is catalogued.
-  ("InputGroup*", "the parts of a field with attached addons"),
   ("InputToken", "an inline token inside an editor"),
+  // Catalogued as a state field plus an element: the state types are the field's
+  // type, and the private trigger inside a picker is the picker's own.
   (
-    "NumberInput",
-    "needs an input state entity built with a Window",
+    "ColorPickerButton",
+    "private: the swatch inside ColorPicker",
   ),
   (
-    "OtpInput",
-    "needs an input state entity built with a Window",
-  ),
-  ("Editor", "needs Entity<EditorState> built with a Window"),
-  (
-    "Select",
-    "needs Entity<SelectState> with a delegate the host owns",
+    "DatePickerState",
+    "the state behind DatePicker, held as its field",
   ),
   (
-    "Combobox",
-    "needs Entity<ComboboxState> with a delegate the host owns",
+    "ListItem",
+    "a row of a list, written by the ListRows delegate the file defines",
   ),
-  ("Slider", "needs Entity<SliderState>"),
-  (
-    "ColorPicker*",
-    "needs Entity<ColorPickerState> built with a Window",
-  ),
-  (
-    "DatePicker*",
-    "needs Entity<DatePickerState> built with a Window",
-  ),
-  (
-    "Calendar",
-    "needs Entity<CalendarState> built with a Window",
-  ),
-  (
-    "TimeField",
-    "needs Entity<TimeFieldState> built with a Window",
-  ),
-  ("Form", "wraps Field rows over input entities"),
-  ("Field", "a row of a Form"),
-  ("Clipboard", "copies a value the host supplies"),
-  (
-    "Table*",
-    "delegate-driven; rows come from a TableDelegate the host owns",
-  ),
-  (
-    "DataTable",
-    "delegate-driven; rows come from a TableDelegate the host owns",
-  ),
-  (
-    "List",
-    "delegate-driven; rows come from a ListDelegate the host owns",
-  ),
-  ("ListItem", "a row of a delegate-driven List"),
-  ("Tree", "rows come from a host-owned tree state"),
-  ("Settings*", "a settings model the host builds page by page"),
+  ("SettingsHost", "internal test host"),
   (
     "SearchableListItemElement",
     "a row of a delegate-driven list",

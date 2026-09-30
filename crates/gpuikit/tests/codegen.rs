@@ -44,7 +44,10 @@ fn the_manifest_renames_gpui_kit_to_gpui() {
 #[test]
 fn main_opens_its_window_through_the_facade() {
   let main = main_rs(&project("Demo")).source;
-  assert!(main.contains("gpui::application().run("), "{main}");
+  assert!(
+    main.contains("gpui::application().with_assets(gpui::assets::Assets).run("),
+    "{main}"
+  );
   assert!(main.contains("gpui::open_window("), "{main}");
   assert!(main.contains("theme::init(cx);"), "{main}");
   assert!(!main.contains("Application::new()"), "{main}");
@@ -159,13 +162,48 @@ fn the_default_choice_prints_nothing() {
 /// A screen holding every kind twice over: once with its props all set, and
 /// once more per choice value, so every enum the catalog names is spelled at
 /// least once in code a compiler reads.
+/// Where a kind lives: the root, or a fresh parent (built the same way, so a
+/// cell gets a row gets a table) and the slot of it the part belongs in.
+fn home(
+  doc: &mut tailor_model::Document,
+  root: tailor_model::NodeId,
+  kind: &str,
+) -> (tailor_model::NodeId, String) {
+  let library = tailor_gpuikit::library();
+  let Some(parent_kind) = library.parents(kind).first().copied() else {
+    return (root, DEFAULT_SLOT.to_string());
+  };
+  let node = doc.create(parent_kind);
+  let (grand, grand_slot) = home(doc, root, parent_kind);
+  let id = doc.insert(grand, &grand_slot, usize::MAX, node);
+  let slots = library
+    .get(parent_kind)
+    .map(|spec| spec.slots)
+    .unwrap_or(&[]);
+  let slot = slots
+    .iter()
+    .find(|s| kind.contains(s.key.trim_end_matches('s')) && s.key != DEFAULT_SLOT)
+    .or_else(|| slots.iter().find(|s| s.key.contains("item")))
+    .map(|s| s.key.to_string())
+    .unwrap_or_else(|| DEFAULT_SLOT.to_string());
+  (id, slot)
+}
+
 fn everything() -> Project {
   let mut project = project("Kit Export");
   project.docs[0].kind = DocKind::Screen;
   let root = project.docs[0].root;
   let mut at = 0;
 
+  // `TAILOR_EXPORT_ONLY=table,list` narrows the export to those kinds, so one
+  // area can be compiled without waiting on another's work in progress.
+  let only = std::env::var("TAILOR_EXPORT_ONLY").ok();
   for spec in tailor_gpuikit::library().components() {
+    if let Some(only) = &only {
+      if !only.split(',').any(|kind| kind == spec.kind) {
+        continue;
+      }
+    }
     let mut variants: Vec<Vec<(&str, PropValue)>> = Vec::new();
 
     let mut loaded = Vec::new();
@@ -201,13 +239,25 @@ fn everything() -> Project {
       for event in spec.events {
         node.events.insert(event.key.into(), "handle".into());
       }
-      doc.insert(root, DEFAULT_SLOT, at, node);
+      // A part goes inside the thing it is a part of, as it would in a design.
+      let (parent, slot) = home(doc, root, spec.kind);
+      let index = if parent == root { at } else { usize::MAX };
+      doc.insert(parent, &slot, index, node);
       at += 1;
     }
   }
-  project.docs[0]
-    .actions
-    .push(tailor_model::ActionDef::new("handle"));
+  let doc = &mut project.docs[0];
+  doc.actions.push(tailor_model::ActionDef::new("handle"));
+  // State goes through the compiler too: plain fields, in every type.
+  for (name, ty) in [
+    ("note", tailor_model::VarType::Text),
+    ("done", tailor_model::VarType::Bool),
+    ("count", tailor_model::VarType::Int),
+    ("ratio", tailor_model::VarType::Float),
+    ("tags", tailor_model::VarType::Items),
+  ] {
+    doc.state.push(tailor_model::StateVar::new(name, ty));
+  }
   project
 }
 
@@ -216,7 +266,18 @@ fn export_for_compilation() {
   let Ok(dir) = std::env::var("TAILOR_EXPORT_DIR") else {
     return;
   };
-  let project = everything();
+  let mut project = everything();
+  // A placed stateful component, so the nested shape is compiled too.
+  let nested = nested();
+  project.docs.push(nested.docs[1].clone());
+  let root = project.docs[0].root;
+  let id = project.docs[0].ids.next();
+  project.docs[0].insert(
+    root,
+    DEFAULT_SLOT,
+    usize::MAX,
+    tailor_model::Node::new(id, "@EmailField"),
+  );
   let dir = std::path::Path::new(&dir);
   let mut files = project_files(&project);
   let mut manifest = cargo_toml(&project);
@@ -230,16 +291,59 @@ fn export_for_compilation() {
 }
 
 #[test]
-fn state_variables_are_a_lint_error_not_a_failed_export() {
+fn a_state_variable_is_a_plain_field_not_a_signal() {
   use tailor_model::{StateVar, VarType};
   let mut project = project("Stateful");
-  project.docs[0]
-    .state
-    .push(StateVar::new("email", VarType::Text));
-  let problems = tailor_model::lint::check(&project);
-  assert!(problems
+  let doc = &mut project.docs[0];
+  doc.state.push(StateVar::new("email", VarType::Text));
+  let mut count = StateVar::new("count", VarType::Int);
+  count.initial = "3".into();
+  doc.state.push(count);
+  // gpui-kit has no signal type, so nothing here may name one.
+  let file = document(&project, &project.docs[0]).source;
+  assert!(!file.contains("Signal"), "{file}");
+  assert!(file.contains("pub email: String,"), "{file}");
+  assert!(file.contains("let email = \"\".to_string();"), "{file}");
+  assert!(file.contains("pub count: i64,"), "{file}");
+  assert!(file.contains("let count = 3;"), "{file}");
+  // And it lints clean: state is supported, not refused.
+  assert!(!tailor_model::lint::check(&project)
     .iter()
-    .any(|p| p.severity == tailor_model::lint::Severity::Error && p.message.contains("state")));
+    .any(|p| p.severity == tailor_model::lint::Severity::Error));
+}
+
+#[test]
+fn a_bound_prop_reads_the_field_directly() {
+  use tailor_model::{StateVar, VarType};
+  let mut project = project("Bound");
+  let doc = &mut project.docs[0];
+  doc.state.push(StateVar::new("title", VarType::Text));
+  let root = doc.root;
+  let mut node = tailor_gpuikit::library()
+    .get("label")
+    .unwrap()
+    .build(doc.ids.next());
+  node.set_prop("text", PropValue::Binding("title".into()));
+  doc.insert(root, DEFAULT_SLOT, usize::MAX, node);
+  let file = document(&project, &project.docs[0]).source;
+  assert!(file.contains("self.title.clone()"), "{file}");
+  assert!(!file.contains(".get(cx)"), "{file}");
+}
+
+#[test]
+fn an_empty_icon_falls_back_to_one_gpui_kit_has() {
+  let project = project("Icons");
+  let mut project = project;
+  let doc = &mut project.docs[0];
+  let root = doc.root;
+  let node = tailor_gpuikit::library()
+    .get("icon")
+    .unwrap()
+    .build(doc.ids.next());
+  doc.insert(root, DEFAULT_SLOT, usize::MAX, node);
+  let file = document(&project, &project.docs[0]).source;
+  assert!(file.contains("IconName::Info"), "{file}");
+  assert!(!file.contains("IconName::Circle"), "{file}");
 }
 
 /// A screen with one text field on it, as the emitter sees it.
@@ -296,4 +400,144 @@ fn a_screen_without_window_state_keeps_the_plain_shape() {
   let file = document(&project, &project.docs[0]).source;
   assert!(!file.contains("pub fn new(window"), "{file}");
   assert!(main_rs(&project).source.contains("|_, cx| cx.new("));
+}
+
+#[test]
+fn a_field_event_matches_only_the_event_it_was_bound_to() {
+  let mut project = form();
+  let doc = &mut project.docs[0];
+  doc.actions.push(tailor_model::ActionDef::new("validate"));
+  let id = doc.descendants(doc.root)[0];
+  doc
+    .node_mut(id)
+    .unwrap()
+    .events
+    .insert("change".into(), "validate".into());
+  let file = document(&project, &project.docs[0]).source;
+  // One subscription, filtered: focus and blur must not run the handler too.
+  assert!(file.contains("event: &InputEvent"), "{file}");
+  assert!(
+    file.contains("if matches!(event, InputEvent::Change) {"),
+    "{file}"
+  );
+  assert!(file.contains("this.validate(cx);"), "{file}");
+}
+
+/// A screen that places a component which owns a text field.
+fn nested() -> Project {
+  use tailor_model::{Document, Node};
+  let mut project = project("Nested");
+  let mut field = Document::new("field", "EmailField", DocKind::Component);
+  let root = field.root;
+  let input = tailor_gpuikit::library()
+    .get("input")
+    .unwrap()
+    .build(field.ids.next());
+  field.insert(root, DEFAULT_SLOT, usize::MAX, input);
+  project.docs.push(field);
+
+  let screen = &mut project.docs[0];
+  let root = screen.root;
+  let id = screen.ids.next();
+  screen.insert(root, DEFAULT_SLOT, usize::MAX, Node::new(id, "@EmailField"));
+  project
+}
+
+#[test]
+fn a_placed_component_that_holds_a_field_is_built_once_in_new() {
+  let project = nested();
+  let parent = document(&project, &project.docs[0]).source;
+  // The component owns window state, so it is an entity, held in a field,
+  // and the window is passed up through whoever places it.
+  assert!(
+    parent.contains("pub email_field: Entity<EmailField>,"),
+    "{parent}"
+  );
+  assert!(
+    parent.contains("cx.new(|cx| EmailField::new(window, cx))"),
+    "{parent}"
+  );
+  assert!(parent.contains("self.email_field.clone()"), "{parent}");
+  assert!(
+    parent.contains("pub fn new(window: &mut Window, cx"),
+    "{parent}"
+  );
+  assert!(!parent.contains("EmailField::new()"), "{parent}");
+  let child = document(&project, &project.docs[1]).source;
+  assert!(child.contains("impl Render for EmailField"), "{child}");
+  // main hands the screen its window too.
+  assert!(main_rs(&project).source.contains("::new(window, cx)"));
+}
+
+fn placed(project: &mut Project, kind: &str, into: Option<&str>) -> tailor_model::NodeId {
+  let doc = &mut project.docs[0];
+  let root = doc.root;
+  let mut parent = root;
+  if let Some(into) = into {
+    let node = doc.create(into);
+    parent = doc.insert(root, DEFAULT_SLOT, usize::MAX, node);
+  }
+  let node = doc.create(kind);
+  doc.insert(parent, DEFAULT_SLOT, usize::MAX, node)
+}
+
+#[test]
+fn a_part_outside_its_parent_is_a_lint_error() {
+  let mut project = project("Parts");
+  let cell = placed(&mut project, "tablecell", None);
+  let problems = tailor_model::lint::check(&project);
+  assert!(
+    problems.iter().any(|p| p.node == Some(cell)
+      && p.severity == tailor_model::lint::Severity::Error
+      && p.message.contains("only works inside")),
+    "{problems:?}"
+  );
+
+  // The same cell in a row is fine.
+  let project = project_with_row();
+  let row = tailor_model::lint::check(&project);
+  assert!(
+    !row.iter().any(|p| p.message.contains("only works inside")),
+    "{row:?}"
+  );
+}
+
+fn project_with_row() -> Project {
+  let mut project = project("Row");
+  let doc = &mut project.docs[0];
+  let root = doc.root;
+  let mut parent = root;
+  for kind in ["table", "tablerow", "tablecell"] {
+    let node = doc.create(kind);
+    parent = doc.insert(parent, DEFAULT_SLOT, usize::MAX, node);
+  }
+  project
+}
+
+#[test]
+fn an_icon_gpui_kit_lacks_warns_and_falls_back() {
+  let mut project = project("Icons");
+  let id = placed(&mut project, "button", None);
+  project.docs[0]
+    .node_mut(id)
+    .unwrap()
+    .set_prop("icon", PropValue::Icon("zzz-not-an-icon".into()));
+  let problems = tailor_model::lint::check(&project);
+  assert!(
+    problems
+      .iter()
+      .any(|p| p.node == Some(id) && p.message.contains("no icon")),
+    "{problems:?}"
+  );
+  let file = document(&project, &project.docs[0]).source;
+  assert!(!file.contains("ZzzNotAnIcon"), "{file}");
+  assert!(file.contains(".icon(IconName::Info)"), "{file}");
+
+  // One it has is kept.
+  project.docs[0]
+    .node_mut(id)
+    .unwrap()
+    .set_prop("icon", PropValue::Icon("arrow-up".into()));
+  let file = document(&project, &project.docs[0]).source;
+  assert!(file.contains(".icon(IconName::ArrowUp)"), "{file}");
 }

@@ -275,6 +275,7 @@ impl Session {
             Ctor::Args(_) => "new(value, ..)",
             Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) => "cx.new(..)",
             Ctor::Stateful(_) => "cx.new(|cx| State::new(window, cx)), then Type::new(&state)",
+            Ctor::StatefulCx(_) => "cx.new(|cx| State::new(cx)), then Type::new(&state)",
             Ctor::Special => "special",
         },
         "props": props,

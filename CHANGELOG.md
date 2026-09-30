@@ -11,22 +11,40 @@ Tailor became its own project.
 ## 0.4.0 — 2026-09-30
 
 A second component library: [gpui-kit](https://github.com/longbridge/gpui-kit).
-Pick it on the start screen, or pass `library` to `create_project` over MCP.
-34 components, generating code that compiles against gpui-kit 0.7.
+Pick it on the start screen, or pass `library` to `create_project` over MCP. 104
+components, and generated code for every one of them, with every choice value,
+event and state variable, compiles against gpui-kit 0.7.
+
+It covers text fields, selects, sliders, pickers, tables, lists, trees, menus,
+dialogs, popovers, sheets, the command palette, sidebars, carousels and the
+chat components. What is left out is internals, window chrome, and the two
+things that are not layout: the application menu bar and the editor's
+language-server popups. Each exclusion has a written reason in the tests.
 
 gpui-kit is on a different gpui snapshot than Tailor, so it is described and
-generated but not drawn: the canvas shows its components as labelled cards with
-real drop targets, and Run builds the real thing.
+generated but not drawn: the canvas shows its components as labelled cards
+whose slots are real drop targets, and **Run** builds the real thing. That is
+structural, not a gap in the catalog.
 
-Text fields work: `Input` and `Textarea` generate as a state field built with
-the window plus an element over it, and a screen that owns one takes a `window`
-in `new`. Overlays, the delegate-backed controls (`Select`, `Table`, …) and
-events on a field are not supported yet. Document state variables are not
-either — that is a lint error rather than an export that will not compile.
+How a library is described grew to fit it:
 
-Under it: `Ctor::Stateful` and `Emit::State`, `Library::dependencies` and
-`signals`, generator hooks for the app entry point, a schematic renderer for any
-library without one, and `tailor-surface -- gpuikit`.
+- Stateful components — an element over a state entity built with the window
+  (`Ctor::Stateful`, `Emit::State`). A screen that owns one takes a `window`
+  in `new`, and so does anything that places it. Events bind to one variant of
+  the state's event enum, so focus and blur do not run a change handler.
+- A placed component that holds state is built once and held in a field. This
+  never compiled before, in any library.
+- State variables are plain fields where a library has no signal type
+  (`Library::state_style`), a library names its own fallback icon and which
+  icons it has (`fallback_icon`, `has_icon`), and parts that only work inside
+  something say so (`parents`) — a lint error in Tailor rather than a compile
+  error in the export.
+- Generator hooks for the app entry point, for building a state, for the
+  element over it, and for top-level items such as a table's delegate.
+- Any library without a renderer is drawn as a schematic
+  (`tailor_render::schematic`) rather than refused.
+- `tailor-surface -- gpuikit` fetches `gpui-component` at an exact version from
+  crates.io instead of putting a second gpui in `Cargo.lock`.
 
 ## 0.3.1 — 2026-09-29
 

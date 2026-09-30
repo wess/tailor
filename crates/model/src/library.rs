@@ -44,6 +44,16 @@ pub struct TokenPaths {
   pub justify: &'static str,
 }
 
+/// What a state variable becomes in generated code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StateStyle {
+  /// `pub email: Signal<String>`, read with `.get(cx)`.
+  #[default]
+  Signal,
+  /// `pub email: String`, read straight off `self`.
+  Field,
+}
+
 pub trait Library: Send + Sync + 'static {
   /// The id a `.tailor` file stores to say which library it targets.
   fn id(&self) -> &'static str;
@@ -70,12 +80,35 @@ pub trait Library: Send + Sync + 'static {
     ]
   }
 
-  /// Whether the generator can write a document's state variables. The
-  /// signal type they become is the library's own; one that has none says so,
-  /// and the linter refuses state there rather than letting the export fail
-  /// to compile.
-  fn signals(&self) -> bool {
+  /// How a document's state variables are held. guise has its own reactive
+  /// `Signal<T>`; a library without one gets a plain field, which an action
+  /// assigns and follows with `cx.notify()`.
+  fn state_style(&self) -> StateStyle {
+    StateStyle::Signal
+  }
+
+  /// The icon a prop prints when none is chosen. It has to exist in the
+  /// library's own icon set, and no two libraries agree on one.
+  fn fallback_icon(&self) -> &'static str {
+    "IconName::Circle"
+  }
+
+  /// Whether an icon name (kebab-case, as a document stores it) exists in the
+  /// library's icon set. The picker offers all of Lucide; a library that ships
+  /// a subset says so, and generated code uses its fallback for the rest
+  /// rather than a name that does not compile.
+  fn has_icon(&self, name: &str) -> bool {
+    let _ = name;
     true
+  }
+
+  /// The kinds a component may sit directly inside, when it is only a part of
+  /// something — a table cell in a row, a menu item in a menu. Empty means it
+  /// goes anywhere. A part dropped elsewhere generates code that does not
+  /// compile, so the linter says so where the design is, not where rustc is.
+  fn parents(&self, kind: &str) -> &'static [&'static str] {
+    let _ = kind;
+    &[]
   }
 
   /// The `use` lines every generated file opens with.

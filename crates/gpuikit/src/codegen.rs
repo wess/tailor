@@ -38,15 +38,15 @@ impl Generator for GpuikitGenerator {
       // `flex_1`, not `flex_grow`: gpui-kit's styling extension shadows gpui's
       // no-argument `flex_grow()` with one that wants a factor.
       "spacer" => vec!["div()".into(), "    .flex_1()".into()],
-      // An empty icon prop would print the library-agnostic fallback name,
-      // which gpui-kit's icon set does not have.
+      // The bare icon is a constructor over a name, not a chained call.
       "icon" => {
         let name = text(em, "icon");
-        let name = if name.is_empty() { "info" } else { &name };
-        vec![format!(
-          "Icon::new({})",
-          tailor_codegen::expr::icon_path(name)
-        )]
+        let name = if name.is_empty() {
+          crate::library().fallback_icon().to_string()
+        } else {
+          tailor_codegen::expr::icon_path(&name)
+        };
+        vec![format!("Icon::new({name})")]
       }
       "separator" => {
         let vertical = em.prop_value(node, "orientation").as_str() == Some("vertical");
@@ -82,7 +82,15 @@ impl Generator for GpuikitGenerator {
       }
       "empty" => {
         let (title, description) = (text(em, "title"), text(em, "description"));
+        let icon = text(em, "icon");
         let mut header = Vec::new();
+        // The framed icon variant is what an empty state's picture usually is.
+        if !icon.is_empty() {
+          header.push(format!(
+            "        .media(EmptyMedia::new().with_variant(EmptyMediaVariant::Icon).child(Icon::new({})))",
+            crate::compounds::icon(em, &icon)
+          ));
+        }
         if !title.is_empty() {
           header.push(format!(
             "        .title(EmptyTitle::new().child({}))",
@@ -104,9 +112,47 @@ impl Generator for GpuikitGenerator {
         }
         lines
       }
-      _ => return None,
+      // The state-backed controls that are a plain builder (`Form`).
+      _ => {
+        return crate::overlays::special(em, node)
+          .or_else(|| crate::stateful::special(em, node))
+          .or_else(|| crate::compounds::special(em, node))
+          .or_else(|| crate::extras::special(em, node))
+      }
     };
     Some(lines)
+  }
+
+  // Each area of the catalog answers for its own kinds in its own module —
+  // `compounds` for tables, lists and the multi-part containers — and returns
+  // `None` (or nothing) for a kind that is not its. Another area adds its module
+  // to the `.or_else` chain rather than a second method.
+
+  fn state(&self, em: &mut Emitter, node: &Node) -> Option<Vec<String>> {
+    crate::compounds::state(em, node).or_else(|| crate::stateful::state(em, node))
+  }
+
+  fn element_over(&self, em: &mut Emitter, node: &Node, borrow: &str) -> Option<Vec<String>> {
+    crate::compounds::element_over(em, node, borrow)
+  }
+
+  fn support(&self, em: &mut Emitter, node: &Node) -> Vec<String> {
+    crate::compounds::support(em, node)
+  }
+
+  fn slots(
+    &self,
+    em: &mut Emitter,
+    node: &Node,
+    placement: tailor_codegen::style::Placement,
+  ) -> Option<Vec<String>> {
+    crate::overlays::slots(em, node, placement)
+      .or_else(|| crate::compounds::slots(em, node, placement))
+      .or_else(|| crate::extras::slots(em, node, placement))
+  }
+
+  fn writes(&self, kind: &str) -> bool {
+    crate::overlays::writes(kind) || crate::extras::writes(kind)
   }
 
   fn custom_props(&self, em: &mut Emitter, node: &Node) -> Vec<String> {
@@ -144,7 +190,14 @@ impl Generator for GpuikitGenerator {
         }
         out
       }
-      _ => Vec::new(),
+      _ => {
+        let calls = crate::compounds::custom_props(em, node);
+        if calls.is_empty() {
+          crate::extras::custom_props(em, node)
+        } else {
+          calls
+        }
+      }
     }
   }
 
@@ -155,7 +208,9 @@ impl Generator for GpuikitGenerator {
   }
 
   fn application(&self) -> &'static str {
-    "gpui::application()"
+    // The icon set is an asset source the application has to be given: without
+    // it every icon — a button's, a chevron, a carousel arrow — draws blank.
+    "gpui::application().with_assets(gpui::assets::Assets)"
   }
 
   fn open_window(&self) -> OpenWindow {

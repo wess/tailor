@@ -2,7 +2,7 @@
 //!
 //! A screen you can only look at is a mockup. These two tables are what make
 //! the generated file a component you can wire up: every variable becomes a
-//! `Signal<T>` field, every action becomes a method, and the inspector's
+//! field (a `Signal<T>` where the library has one), every action becomes a method, and the inspector's
 //! Events tab is how a button finds one.
 
 use serde::{Deserialize, Serialize};
@@ -108,6 +108,11 @@ impl StateVar {
   /// The `Signal::new(cx, ..)` initializer for this variable.
   pub fn initializer(&self) -> String {
     format!("Signal::new(cx, {})", self.ty.literal(&self.initial))
+  }
+
+  /// The starting value alone, for a library that holds state in a plain field.
+  pub fn value(&self) -> String {
+    self.ty.literal(&self.initial)
   }
 }
 

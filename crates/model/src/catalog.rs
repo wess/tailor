@@ -111,6 +111,9 @@ pub enum Ctor {
   /// Props that configure the state say so with [`Emit::State`]; the rest go on
   /// the element.
   Stateful(&'static str),
+  /// The same split as [`Ctor::Stateful`] for state that needs no window:
+  /// `cx.new(|cx| State::new(cx))`. A slider's state is a range, not a buffer.
+  StatefulCx(&'static str),
   /// Not one call — the renderer and the generator special-case it by kind.
   Special,
 }
@@ -119,8 +122,26 @@ impl Ctor {
   pub fn is_entity(self) -> bool {
     matches!(
       self,
-      Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) | Ctor::Stateful(_)
+      Ctor::Entity
+        | Ctor::EntityArg(_)
+        | Ctor::EntityValue(_)
+        | Ctor::Stateful(_)
+        | Ctor::StatefulCx(_)
     )
+  }
+
+  /// Whether the component is a state entity plus an element over it, with its
+  /// props divided between the two.
+  pub fn is_split(self) -> bool {
+    matches!(self, Ctor::Stateful(_) | Ctor::StatefulCx(_))
+  }
+
+  /// The state's type, for the split kinds.
+  pub fn state_type(self) -> Option<&'static str> {
+    match self {
+      Ctor::Stateful(state) | Ctor::StatefulCx(state) => Some(state),
+      _ => None,
+    }
   }
 
   /// Whether building it takes a `&mut Window`, which the screen that owns it

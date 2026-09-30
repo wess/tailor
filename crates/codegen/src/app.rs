@@ -80,7 +80,7 @@ pub fn main_rs(project: &Project) -> Generated {
   }
   if type_name.is_empty() {
     source.line("|_, cx| cx.new(|_| gpui::Empty),");
-  } else if entry.is_some_and(|doc| needs_window(project.library(), doc)) {
+  } else if entry.is_some_and(|doc| needs_window(project, doc)) {
     // The screen builds state that wants a window, so `new` is handed one.
     source.line(format!(
       "|window, cx| cx.new(|cx| {module}::{type_name}::new(window, cx)),"

@@ -100,20 +100,6 @@ pub fn check(project: &Project) -> Vec<Problem> {
       });
     }
 
-    if !library.signals() && !doc.state.is_empty() {
-      out.push(Problem {
-        severity: Severity::Error,
-        doc_id: doc.id.clone(),
-        node: None,
-        message: format!(
-          "{} has state variables, which {} cannot generate",
-          doc.name,
-          library.label()
-        ),
-        fix: "Remove them — this library has no signal type for the export to use yet.".into(),
-      });
-    }
-
     check_document(project, library, doc, &mut out);
   }
 
@@ -220,6 +206,46 @@ fn check_document(
           format!("{label}'s {event} calls {action}, which is not an action"),
           "Add the action, or clear the connection.",
         );
+      }
+    }
+
+    // An icon the library's set does not have.
+    if let Some(spec) = library.get(&node.kind) {
+      for prop in spec
+        .props
+        .iter()
+        .filter(|p| p.ty == crate::props::PropType::Icon)
+      {
+        if let Some(crate::props::PropValue::Icon(name)) = node.prop(prop.key) {
+          if !name.is_empty() && !library.has_icon(name) {
+            report(
+              Severity::Warning,
+              Some(id),
+              format!("{label}: {} has no icon `{name}`", library.label()),
+              "Pick another — the export draws the fallback icon in its place.",
+            );
+          }
+        }
+      }
+    }
+
+    // A part outside the thing it is a part of.
+    let parents = library.parents(&node.kind);
+    if !parents.is_empty() {
+      if let Some((parent, _, _)) = doc.parent_of(id) {
+        let parent_kind = doc.node(parent).map(|p| p.kind.as_str()).unwrap_or("");
+        if !parents.contains(&parent_kind) {
+          let names: Vec<&str> = parents
+            .iter()
+            .map(|kind| library.get(kind).map(|spec| spec.title).unwrap_or(kind))
+            .collect();
+          report(
+            Severity::Error,
+            Some(id),
+            format!("{label} only works inside {}", names.join(", ")),
+            "Move it into one — anywhere else it generates code that does not compile.",
+          );
+        }
       }
     }
 
