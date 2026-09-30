@@ -59,10 +59,7 @@ pub fn render_in(
     return div().into_any_element();
   }
 
-  let is_container = matches!(
-    node.kind.as_str(),
-    "frame" | "canvas" | "surface" | "spacer"
-  );
+  let is_container = ctx.library().boxes().contains(&node.kind.as_str());
   let mut root = wrapper(ctx, node, absolute, cx);
 
   if is_container {

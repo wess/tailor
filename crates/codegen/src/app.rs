@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 use tailor_model::{DocKind, Project};
 
 use crate::file::Generated;
+use crate::generator::OpenWindow;
+use crate::node::needs_window;
 use crate::rust::{comment, Source};
 
 /// `main.rs` — a window on the project's first screen.
@@ -46,19 +48,25 @@ pub fn main_rs(project: &Project) -> Generated {
   }
   source.line("");
   source.line("use gpui::prelude::*;");
-  source.line(
-    "use gpui::{px, size, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions};",
-  );
+  source.line(generator.application_import());
   source.line("");
   source.open("fn main() {");
-  source.open("Application::new().run(|cx: &mut gpui::App| {");
+  source.open(format!(
+    "{}.run(|cx: &mut gpui::App| {{",
+    generator.application()
+  ));
   source.line(generator.theme_init());
   source.line("");
   source.line(format!(
     "let bounds = Bounds::centered(None, size(px({:.1}), px({:.1})), cx);",
     width, height
   ));
-  source.open("cx.open_window(");
+  let facade = generator.open_window() == OpenWindow::Facade;
+  source.open(if facade {
+    "gpui::open_window("
+  } else {
+    "cx.open_window("
+  });
   source.open("WindowOptions {");
   source.line("window_bounds: Some(WindowBounds::Windowed(bounds)),");
   source.open("titlebar: Some(TitlebarOptions {");
@@ -67,8 +75,16 @@ pub fn main_rs(project: &Project) -> Generated {
   source.close("}),");
   source.line("..Default::default()");
   source.close("},");
+  if facade {
+    source.line("cx,");
+  }
   if type_name.is_empty() {
     source.line("|_, cx| cx.new(|_| gpui::Empty),");
+  } else if entry.is_some_and(|doc| needs_window(project.library(), doc)) {
+    // The screen builds state that wants a window, so `new` is handed one.
+    source.line(format!(
+      "|window, cx| cx.new(|cx| {module}::{type_name}::new(window, cx)),"
+    ));
   } else {
     source.line(format!("|_, cx| cx.new({module}::{type_name}::new),"));
   }
@@ -93,8 +109,7 @@ pub fn cargo_toml(project: &Project) -> Generated {
   let library = project.library();
   // The same requirement Tailor renders with. An export that asked for a
   // wider range could resolve to a version the canvas never drew.
-  let krate = library.krate();
-  let req = library.version_req();
+  let dependencies = library.dependencies().join("\n");
   let source = format!(
     "[package]\n\
          name = {name:?}\n\
@@ -102,8 +117,7 @@ pub fn cargo_toml(project: &Project) -> Generated {
          edition = \"2021\"\n\
          \n\
          [dependencies]\n\
-         gpui = \"0.2.2\"\n\
-         {krate} = \"{req}\"\n\
+         {dependencies}\n\
          \n\
          # A smaller binary, and the recipe guise's own gallery uses.\n\
          [profile.release]\n\

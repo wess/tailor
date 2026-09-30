@@ -562,6 +562,9 @@ fn main() {
   // project. Adding one is one more line here plus its two crates — the whole
   // of what "Tailor supports library X" means.
   tailor_guiserender::register();
+  // Described and generated, not drawn: it is on a different gpui snapshot, so
+  // the canvas shows it as schematics. Second, so guise stays the default.
+  tailor_gpuikit::register();
 
   let args: Vec<String> = std::env::args().skip(1).collect();
 

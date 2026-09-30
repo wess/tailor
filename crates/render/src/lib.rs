@@ -27,6 +27,7 @@ pub mod chrome;
 pub mod hooks;
 pub mod nodes;
 pub mod renderer;
+pub mod schematic;
 pub mod store;
 pub mod theme;
 

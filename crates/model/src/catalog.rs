@@ -102,6 +102,15 @@ pub enum Ctor {
   /// An entity whose constructor does not take a context:
   /// `cx.new(|_| Type::new(<prop>))`.
   EntityValue(&'static str),
+  /// A stateless element over a state entity that needs a window to exist.
+  ///
+  /// gpui-kit's text field is two things: an `InputState` owning the buffer
+  /// and focus, built with `cx.new(|cx| InputState::new(window, cx))`, and an
+  /// `Input::new(&state)` element drawn from it. The host gets a field for the
+  /// state; the element is rebuilt each frame. The string is the state's type.
+  /// Props that configure the state say so with [`Emit::State`]; the rest go on
+  /// the element.
+  Stateful(&'static str),
   /// Not one call — the renderer and the generator special-case it by kind.
   Special,
 }
@@ -110,8 +119,14 @@ impl Ctor {
   pub fn is_entity(self) -> bool {
     matches!(
       self,
-      Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_)
+      Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) | Ctor::Stateful(_)
     )
+  }
+
+  /// Whether building it takes a `&mut Window`, which the screen that owns it
+  /// then has to be given.
+  pub fn needs_window(self) -> bool {
+    matches!(self, Ctor::Stateful(_))
   }
 }
 

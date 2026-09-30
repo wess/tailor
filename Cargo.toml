@@ -8,6 +8,7 @@ members = [
     "crates/render",
     "crates/guise",
     "crates/guiserender",
+    "crates/gpuikit",
     "crates/app",
     "crates/mcp",
     "crates/surface",
@@ -16,7 +17,7 @@ members = [
 [workspace.package]
 # Tailor rode guise's version line to 1.6.0 inside that repository. Out on its
 # own it starts its own, at the number the work is actually at.
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 authors = ["Wess Cope <opensource@wess.io>"]
@@ -50,6 +51,10 @@ tailor-render = { path = "crates/render" }
 # behind the same two traits a second library would implement.
 tailor-guise = { path = "crates/guise" }
 tailor-guiserender = { path = "crates/guiserender" }
+
+# gpui-kit: the second library, catalog and generator only. It builds on a
+# different gpui snapshot than the canvas, so it has no renderer.
+tailor-gpuikit = { path = "crates/gpuikit" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

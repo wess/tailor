@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use tailor_model::{DocKind, Document, Project};
 
 use crate::expr::Hoist;
-use crate::node::{entity_fields, Emitter, Owner};
+use crate::node::{entity_fields, needs_window, Emitter, Owner};
 use crate::rust::{comment, Source};
 use crate::style::Placement;
 
@@ -113,7 +113,11 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
       let rust = doc
         .node(*id)
         .and_then(|node| library.get(&node.kind))
-        .map(|spec| spec.rust)
+        .map(|spec| match spec.ctor {
+          // The field holds the state; the element is built over it.
+          tailor_model::Ctor::Stateful(state) => state,
+          _ => spec.rust,
+        })
         .unwrap_or("()");
       // Public like the state signals: these handles are how the host
       // reads a field's value or drives it later.
@@ -139,8 +143,14 @@ pub fn document(project: &Project, doc: &Document) -> Generated {
       let builds_something =
         !inits.is_empty() || !subscriptions.is_empty() || !doc.state.is_empty();
       let param = if builds_something { "cx" } else { "_cx" };
+      // State that needs a window is built here, so the screen takes one.
+      let window = if needs_window(library, doc) {
+        "window: &mut Window, "
+      } else {
+        ""
+      };
       source.open(format!(
-        "pub fn new({param}: &mut Context<Self>) -> Self {{"
+        "pub fn new({window}{param}: &mut Context<Self>) -> Self {{"
       ));
       // State first, as locals. A field that reads a signal reads it
       // while building — there is no `self` yet — and a two-way binding

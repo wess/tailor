@@ -100,6 +100,20 @@ pub fn check(project: &Project) -> Vec<Problem> {
       });
     }
 
+    if !library.signals() && !doc.state.is_empty() {
+      out.push(Problem {
+        severity: Severity::Error,
+        doc_id: doc.id.clone(),
+        node: None,
+        message: format!(
+          "{} has state variables, which {} cannot generate",
+          doc.name,
+          library.label()
+        ),
+        fix: "Remove them — this library has no signal type for the export to use yet.".into(),
+      });
+    }
+
     check_document(project, library, doc, &mut out);
   }
 

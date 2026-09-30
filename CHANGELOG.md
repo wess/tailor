@@ -8,6 +8,26 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
+## 0.4.0 — 2026-09-30
+
+A second component library: [gpui-kit](https://github.com/longbridge/gpui-kit).
+Pick it on the start screen, or pass `library` to `create_project` over MCP.
+34 components, generating code that compiles against gpui-kit 0.7.
+
+gpui-kit is on a different gpui snapshot than Tailor, so it is described and
+generated but not drawn: the canvas shows its components as labelled cards with
+real drop targets, and Run builds the real thing.
+
+Text fields work: `Input` and `Textarea` generate as a state field built with
+the window plus an element over it, and a screen that owns one takes a `window`
+in `new`. Overlays, the delegate-backed controls (`Select`, `Table`, …) and
+events on a field are not supported yet. Document state variables are not
+either — that is a lint error rather than an export that will not compile.
+
+Under it: `Ctor::Stateful` and `Emit::State`, `Library::dependencies` and
+`signals`, generator hooks for the app entry point, a schematic renderer for any
+library without one, and `tailor-surface -- gpuikit`.
+
 ## 0.3.1 — 2026-09-29
 
 Draws with guise-ui 1.9.1. The component surface is regenerated (151

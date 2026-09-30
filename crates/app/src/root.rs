@@ -160,7 +160,8 @@ impl Root {
         }
 
     root = root.on_action(cx.listener(|this, _: &NewProject, _, cx| {
-      this.open_project(Project::new("Untitled"), None, cx);
+      let project = this.new_project(Project::new("Untitled"));
+      this.open_project(project, None, cx);
     }));
     root = root.on_action(cx.listener(|this, _: &OpenProject, _, cx| {
       this.browse_and_open(cx);
@@ -325,7 +326,25 @@ impl Render for Root {
 /// of its own, so it can reach the project it is about to open.
 impl Root {
   pub(crate) fn start_project(&mut self, project: Project, cx: &mut Context<Self>) {
+    let project = self.new_project(project);
     self.open_project(project, None, cx);
+  }
+
+  /// The library a new project targets: the one chosen on the start screen if
+  /// this build still ships it, else the default.
+  pub(crate) fn library_id(&self) -> &'static str {
+    tailor_model::library::get(&self.settings.library)
+      .unwrap_or_else(tailor_model::library::default)
+      .id()
+  }
+
+  /// A fresh project, pointed at the chosen library. Left empty for the
+  /// default so a project that never chose one stays what it always was.
+  fn new_project(&self, mut project: Project) -> Project {
+    if self.library_id() != tailor_model::library::default().id() {
+      project.library = self.library_id().to_string();
+    }
+    project
   }
 
   pub(crate) fn start_open(&mut self, path: PathBuf, cx: &mut Context<Self>) {

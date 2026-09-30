@@ -80,9 +80,25 @@ impl Session {
     self.overview()
   }
 
-  pub fn create(&mut self, path: &Path, name: &str) -> Answer {
+  pub fn create(&mut self, path: &Path, name: &str, library: Option<&str>) -> Answer {
     let mut project = Project::new(name);
     project.name = name.to_string();
+    // An id this build does not ship is refused here, where the caller can act
+    // on it. Opening a file that names one falls back instead, because a
+    // project you cannot look at is worse than one drawn with the wrong catalog.
+    if let Some(id) = library.filter(|id| !id.is_empty()) {
+      let known = tailor_model::library::all();
+      let Some(found) = known.iter().find(|l| l.id() == id) else {
+        let ids: Vec<&str> = known.iter().map(|l| l.id()).collect();
+        return Err(format!(
+          "unknown library `{id}`; this build ships: {}",
+          ids.join(", ")
+        ));
+      };
+      if found.id() != tailor_model::library::default().id() {
+        project.library = id.to_string();
+      }
+    }
     let path = tailor_store::with_extension(path.to_path_buf());
     // Creating over somebody's project would lose it with no undo anywhere.
     if path.exists() {
@@ -166,6 +182,7 @@ impl Session {
     let (errors, warnings, _) = tailor_model::lint::counts(&problems);
     Ok(json!({
         "name": project.name,
+        "library": { "id": project.library().id(), "label": project.library().label() },
         "path": self.path.as_ref().map(|p| p.display().to_string()),
         "current": self.current,
         "theme": {
@@ -257,6 +274,7 @@ impl Session {
             Ctor::Arg(_) => "new(value)",
             Ctor::Args(_) => "new(value, ..)",
             Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) => "cx.new(..)",
+            Ctor::Stateful(_) => "cx.new(|cx| State::new(window, cx)), then Type::new(&state)",
             Ctor::Special => "special",
         },
         "props": props,

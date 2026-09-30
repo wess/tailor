@@ -14,17 +14,55 @@
 //! and the tests say so.
 //!
 //! Usage:
-//!   cargo run -p tailor-surface                 # the pinned crates.io source
-//!   cargo run -p tailor-surface -- <path>       # a checkout, for a dry run
+//!   cargo run -p tailor-surface                       # guise, the pinned crates.io source
+//!   cargo run -p tailor-surface -- <path>             # guise, a checkout, for a dry run
+//!   cargo run -p tailor-surface -- gpuikit            # gpui-component, downloaded at its pin
+//!   cargo run -p tailor-surface -- gpuikit <path>     # gpui-component, a checkout
+//!
+//! guise is a dependency of this workspace, so cargo already unpacked it.
+//! gpui-kit is not, and cannot be: it builds on a different gpui snapshot than
+//! Tailor does, and putting it in `Cargo.lock` would drag that snapshot in
+//! beside ours. Its source is fetched from crates.io by exact version instead
+//! — the pin lives here, next to the file it regenerates.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const CRATE: &str = "guise-ui";
+/// A library the tool can describe: where its components are, and what to
+/// call the file.
+struct Target {
+  file: &'static str,
+  krate: &'static str,
+  presets: bool,
+}
+
+const GUISE: Target = Target {
+  file: "guise.surface",
+  krate: "guise-ui",
+  presets: true,
+};
+
+/// gpui-kit's styled components live in `gpui-component`; `gpui-kit` itself is
+/// a facade over it. The version is exact because a surface is a record of one
+/// release, and bumping it is a deliberate act — the same two steps as guise.
+const GPUIKIT: Target = Target {
+  file: "gpuikit.surface",
+  krate: "gpui-component",
+  presets: false,
+};
+const GPUIKIT_VERSION: &str = "0.7.0";
 
 fn main() {
-  let arg = std::env::args().nth(1);
+  let mut args: Vec<String> = std::env::args().skip(1).collect();
+  let target = if args.first().is_some_and(|a| a == "gpuikit") {
+    args.remove(0);
+    GPUIKIT
+  } else {
+    GUISE
+  };
+  let krate = target.krate;
+  let arg = args.into_iter().next();
   let (src, version) = match arg {
     Some(path) => {
       let root = PathBuf::from(&path);
@@ -35,27 +73,45 @@ fn main() {
       };
       (src, "(checkout)".to_string())
     }
-    None => locate(),
+    None if target.krate == GPUIKIT.krate => fetch(GPUIKIT.krate, GPUIKIT_VERSION),
+    None => locate(krate),
   };
 
   eprintln!("[surface] reading {}", src.display());
   let components = components(&src);
-  let presets = presets(&src);
+  let presets = if target.presets {
+    presets(&src)
+  } else {
+    Vec::new()
+  };
+  // guise defines a hundred and some; gpui-component about half that.
+  let floor = if target.presets { 100 } else { 40 };
   assert!(
-    components.len() > 100,
+    components.len() > floor,
     "found only {} components — did the layout move?",
     components.len()
   );
-  assert!(!presets.is_empty(), "found no theme presets");
+  assert!(
+    !target.presets || !presets.is_empty(),
+    "found no theme presets"
+  );
 
-  let mut out = String::new();
-  out.push_str(&format!(
-    "# {CRATE} {version} — the component surface Tailor catalogues against.\n\
-     #\n\
-     # Regenerate with `cargo run -p tailor-surface`, which reads the version\n\
+  let how = if target.presets {
+    "Regenerate with `cargo run -p tailor-surface`, which reads the version\n\
      # pinned in Cargo.lock. Do that in the same commit as a version bump: the\n\
      # `version` line below is checked against the lockfile, so a stale file\n\
-     # fails the tests rather than going unnoticed.\n\
+     # fails the tests rather than going unnoticed."
+  } else {
+    "Regenerate with `cargo run -p tailor-surface -- gpuikit`, which fetches the\n\
+     # version pinned in the tool. Do that in the same commit as a version bump:\n\
+     # the `version` line below is checked against what the provider asks for,\n\
+     # so a stale file fails the tests rather than going unnoticed."
+  };
+  let mut out = String::new();
+  out.push_str(&format!(
+    "# {krate} {version} — the component surface Tailor catalogues against.\n\
+     #\n\
+     # {how}\n\
      #\n\
      # component <Type> <file>            a RenderOnce builder or a Render entity\n\
      # preset    <id> <constructor> <scheme>\n\n"
@@ -69,7 +125,9 @@ fn main() {
     out.push_str(&format!("preset {id} {ctor} {scheme}\n"));
   }
 
-  let dest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libraries/guise.surface");
+  let dest = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .join("../../libraries")
+    .join(target.file);
   std::fs::create_dir_all(dest.parent().unwrap()).expect("create libraries/");
   std::fs::write(&dest, out).expect("write surface");
   eprintln!(
@@ -84,7 +142,7 @@ fn main() {
 ///
 /// `cargo metadata` is how you ask Cargo where a dependency actually lives
 /// without guessing at the registry's directory layout.
-fn locate() -> (PathBuf, String) {
+fn locate(krate: &str) -> (PathBuf, String) {
   let out = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
     .args(["metadata", "--format-version", "1", "--locked"])
     .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
@@ -101,12 +159,44 @@ fn locate() -> (PathBuf, String) {
     .as_array()
     .expect("packages")
     .iter()
-    .find(|p| p["name"] == CRATE)
-    .unwrap_or_else(|| panic!("{CRATE} is not in the dependency graph"));
+    .find(|p| p["name"] == krate)
+    .unwrap_or_else(|| panic!("{krate} is not in the dependency graph"));
 
   let manifest = PathBuf::from(package["manifest_path"].as_str().expect("manifest_path"));
   let version = package["version"].as_str().expect("version").to_string();
   (manifest.parent().expect("crate dir").join("src"), version)
+}
+
+/// A crate's source at an exact version, straight from the registry's tarball.
+///
+/// Not `cargo metadata`: that would need the crate in this workspace's
+/// lockfile, and its whole dependency tree with it. Cached under the target
+/// directory so a rerun is offline.
+fn fetch(krate: &str, version: &str) -> (PathBuf, String) {
+  let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/surface");
+  let dir = root.join(format!("{krate}-{version}"));
+  if !dir.join("src").is_dir() {
+    std::fs::create_dir_all(&root).expect("create target/surface");
+    let url = format!("https://static.crates.io/crates/{krate}/{krate}-{version}.crate");
+    eprintln!("[surface] fetching {url}");
+    let tarball = root.join(format!("{krate}-{version}.crate"));
+    let status = Command::new("curl")
+      .args(["-fsSL", "-o"])
+      .arg(&tarball)
+      .arg(&url)
+      .status()
+      .expect("run curl");
+    assert!(status.success(), "could not download {url}");
+    let status = Command::new("tar")
+      .arg("-xzf")
+      .arg(&tarball)
+      .arg("-C")
+      .arg(&root)
+      .status()
+      .expect("run tar");
+    assert!(status.success(), "could not unpack {}", tarball.display());
+  }
+  (dir.join("src"), version.to_string())
 }
 
 /// Every component type the library defines, by name and the file it is in.
@@ -127,6 +217,10 @@ fn components(src: &Path) -> BTreeMap<String, String> {
       .display()
       .to_string();
     for name in derived(&source).chain(rendered(&source)) {
+      // Test harnesses that live beside the component they exercise.
+      if name.ends_with("Harness") || name.ends_with("Test") || name.ends_with("Tests") {
+        continue;
+      }
       found.insert(name, where_.clone());
     }
   }

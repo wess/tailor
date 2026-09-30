@@ -25,6 +25,16 @@ use crate::file::Generated;
 use crate::node::Emitter;
 use crate::style::Placement;
 
+/// The two shapes a window is opened in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWindow {
+  /// `cx.open_window(options, build)` — plain gpui.
+  Method,
+  /// `gpui::open_window(options, cx, build)` — a facade that wraps the view in
+  /// its own root, which is what a library's dialogs and sheets mount on.
+  Facade,
+}
+
 pub trait Generator: Send + Sync + 'static {
   /// The library this generates for. Its [`Library::id`] is the key the
   /// registry stores it under.
@@ -101,6 +111,23 @@ pub trait Generator: Send + Sync + 'static {
   /// `theme.rs` — the theme the design was laid out against, rebuilt in the
   /// library's own vocabulary.
   fn theme_rs(&self, project: &Project) -> Generated;
+
+  /// The `use` line for what `main` opens a window with. gpui 0.2 has
+  /// `Application` in the crate root; the snapshot gpui-kit ships moved it
+  /// behind a platform crate, so a library says where its own is.
+  fn application_import(&self) -> &'static str {
+    "use gpui::{px, size, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions};"
+  }
+
+  /// The expression `main` calls `.run(..)` on.
+  fn application(&self) -> &'static str {
+    "Application::new()"
+  }
+
+  /// How `main` opens its window.
+  fn open_window(&self) -> OpenWindow {
+    OpenWindow::Method
+  }
 
   /// The line `main` calls to install that theme before opening a window.
   fn theme_init(&self) -> &'static str {

@@ -57,6 +57,27 @@ pub trait Library: Send + Sync + 'static {
   fn krate(&self) -> &'static str;
   fn version_req(&self) -> &'static str;
 
+  /// The `[dependencies]` lines a generated `Cargo.toml` carries.
+  ///
+  /// The default is what guise needs: gpui itself, then the library. A library
+  /// that ships its own gpui — gpui-kit re-exports a snapshot of it — renames
+  /// that dependency to `gpui` instead, so generated `gpui::` paths keep
+  /// resolving against the copy the library was built with.
+  fn dependencies(&self) -> Vec<String> {
+    vec![
+      "gpui = \"0.2.2\"".into(),
+      format!("{} = \"{}\"", self.krate(), self.version_req()),
+    ]
+  }
+
+  /// Whether the generator can write a document's state variables. The
+  /// signal type they become is the library's own; one that has none says so,
+  /// and the linter refuses state there rather than letting the export fail
+  /// to compile.
+  fn signals(&self) -> bool {
+    true
+  }
+
   /// The `use` lines every generated file opens with.
   fn prelude(&self) -> &'static [&'static str];
 

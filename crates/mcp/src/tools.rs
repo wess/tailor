@@ -39,7 +39,8 @@ pub fn list() -> Value {
           "Create an empty .tailor project at a path and open it.",
           json!({
               "path": string("Where to write it"),
-              "name": string("Project name; defaults to the file name")
+              "name": string("Project name; defaults to the file name"),
+              "library": string("Component library id, such as `guise` or `gpuikit`; defaults to guise. Fixed at creation: the catalog tool lists what that library offers.")
           }), &["path"]),
       tool("overview",
           "What is in the open project: documents, state, actions, theme, problem counts.",
@@ -183,7 +184,7 @@ pub fn call(session: &mut Session, name: &str, args: &Value) -> Value {
           .map(|stem| stem.to_string_lossy().to_string())
           .unwrap_or_else(|| "Untitled".into());
         let name = text("name").map(|n| n.to_string()).unwrap_or(fallback);
-        session.create(std::path::Path::new(path), &name)
+        session.create(std::path::Path::new(path), &name, text("library"))
       }
       None => Err("`path` is required".into()),
     },

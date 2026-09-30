@@ -146,6 +146,10 @@ pub struct Settings {
   pub show_outlines: bool,
   /// The flavour new projects generate in.
   pub flavor: Flavor,
+  /// The component library new projects target, by `Library::id`. Empty is
+  /// whichever registered first, which is what every config written before
+  /// Tailor could target more than one library meant.
+  pub library: String,
   /// Save the open project whenever it changes.
   pub autosave: bool,
   /// Open the live window with the inspector already showing. Off by
@@ -227,6 +231,7 @@ impl Default for Settings {
       show_grid: true,
       show_outlines: false,
       flavor: Flavor::Plain,
+      library: String::new(),
       autosave: false,
       live_devtools: false,
       editor: default_editor(),

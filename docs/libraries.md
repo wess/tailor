@@ -234,6 +234,90 @@ cannot: a patch release that added a component.
 A second provider wants the same thing and gets it the same way. Point
 `tailor-surface` at the crate, check the result in, read it from your tests.
 
+## gpui-kit: a library that is described but not drawn
+
+[gpui-kit](https://github.com/longbridge/gpui-kit) is the second provider, and
+it exists partly to show where the seams are. `tailor-gpuikit` is a catalog and
+a generator; there is no renderer crate.
+
+The reason is gpui. gpui-kit is built on the `gpui-pre` snapshots of Zed's
+crates, and Tailor is built on crates.io `gpui 0.2.2`. They are two unrelated
+sets of types, so an element built by one cannot be handed to the other's
+window, and linking both into one binary is not an option. A library on a
+different gpui than Tailor's can be catalogued and generated for — neither
+touches gpui — but not instantiated.
+
+Tailor does not stub that with an error. `tailor_render::schematic` draws any
+library that has no `Renderer` as labelled cards: containers keep their slots as
+real drop targets, so laying a screen out works the same way. What it cannot show
+is how a component looks. **Run** and **Export** build the real thing, against
+gpui-kit's own gpui, and that is where to check a design.
+
+What a provider on a different gpui needs, beyond the two traits:
+
+- `Library::dependencies()` — the `[dependencies]` lines of the generated
+  `Cargo.toml`. gpui-kit re-exports gpui, so it renames itself
+  (`gpui = { package = "gpui-kit", version = "0.7" }`) and generated `gpui::`
+  paths resolve against the copy it was built with.
+- `Generator::application_import`, `application` and `open_window` — gpui-kit
+  moved `Application` behind a platform crate and wraps every window in its own
+  root, which is what its dialogs mount on.
+- `Library::signals()` — `false` when the library has no signal type. A document
+  with state variables is then a lint error, not a failed export.
+
+Every library must define a `frame` kind: a document's root is one.
+
+### Choosing one
+
+A project stores its library id (`"library": "gpuikit"`). New projects pick one
+on the start screen — the choice is remembered in settings — or through
+`create_project`'s `library` argument over MCP. It is fixed at creation:
+component kinds do not map across libraries, so there is no switching an open
+project.
+
+### Text fields
+
+gpui-kit's `Input` and `Textarea` are two types each: a state entity that owns
+the buffer and focus, built with a `Window`, and an element drawn over it. That
+is `Ctor::Stateful("InputState")`. The screen keeps the state as a field, builds
+it in `new`, and each frame builds the element over a borrow of it:
+
+```rust
+let input = cx.new(|cx| InputState::new(window, cx).placeholder("Email"));
+// ... in render:
+Input::new(&self.input).cleanable(true)
+```
+
+A prop lands on whichever half owns it. `Emit::State("placeholder")` is the
+buffer's and goes on the state at construction; `Emit::Method` and `Emit::Flag`
+are the element's and go on it every frame. A screen that owns any such state
+takes a `window` in `new`, and `main` passes it in. Reading what was typed is an
+action's job — `self.input.read(cx).value()` — and completion in the action
+editor offers the field.
+
+### What is missing
+
+- **Events on a field.** There is no "on change" yet: a state entity emits
+  several events (change, enter, focus, blur), and the emitter subscribes to
+  events without saying which. Read the value in an action instead.
+- **The rest of the state-backed set** — `Select`, `Slider`, `NumberInput`,
+  `DatePicker`, `Table` and their kin. They need a delegate or a model the host
+  owns, which is a different problem from needing a window.
+- **Overlays** (dialogs, popovers, menus, sheets).
+- **State variables** — see below.
+
+Every exclusion is a rule with a reason in `crates/gpuikit/tests/coverage.rs`,
+held against the surface.
+
+### The surface
+
+`libraries/gpuikit.surface` is regenerated with
+`cargo run -p tailor-surface -- gpuikit`. Unlike guise, gpui-kit is not in
+`Cargo.lock` and cannot be — that would pull its gpui snapshot in beside ours —
+so the tool fetches `gpui-component` at an exact version from crates.io. The pin
+is in `crates/surface/src/main.rs`; bump it, regenerate, and change the
+provider's `version_req` in the same commit.
+
 ## What is still guise-shaped
 
 Two things, and they are worth naming rather than glossing:
@@ -241,6 +325,9 @@ Two things, and they are worth naming rather than glossing:
 - **`tailor-render`'s own chrome** is drawn in guise. That is Tailor's UI, not
   what Tailor draws *with* — but it does mean a provider's components sit inside
   boxes styled by guise's theme.
+- **Icon fallback and state.** An empty icon prop generates guise's
+  `IconName::Circle`, which gpui-kit does not have (its `icon` kind works around
+  it), and document state generates guise's `Signal<T>` — hence `signals()`.
 - **`tailor-codegen`'s colour expressions** (`expr.rs`) still assume guise's
   three-way colour vocabulary: `impl Into<ColorValue>`, a bare `ColorName`, and
   guise's own `Color`, two of which resolve out of the theme and get hoisted

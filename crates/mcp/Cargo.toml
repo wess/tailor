@@ -16,5 +16,6 @@ tailor-model = { workspace = true }
 tailor-codegen = { workspace = true }
 tailor-store = { workspace = true }
 tailor-guise = { workspace = true }
+tailor-gpuikit = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

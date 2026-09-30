@@ -17,6 +17,9 @@ pub struct Template {
   pub blurb: &'static str,
   pub icon: &'static str,
   pub build: fn() -> Project,
+  /// Written in no library's vocabulary but the default's. Only the ones that
+  /// place nothing can start a project on another library.
+  pub portable: bool,
 }
 
 pub const TEMPLATES: &[Template] = &[
@@ -25,24 +28,28 @@ pub const TEMPLATES: &[Template] = &[
     blurb: "One screen, nothing on it.",
     icon: "square-dashed",
     build: empty,
+    portable: true,
   },
   Template {
     name: "Sign in",
     blurb: "A centred form with fields, a button, and an action wired up.",
     icon: "log-in",
     build: sign_in,
+    portable: false,
   },
   Template {
     name: "Dashboard",
     blurb: "App shell, sidebar, stat cards, and a chart.",
     icon: "layout-dashboard",
     build: dashboard,
+    portable: false,
   },
   Template {
     name: "Settings",
     blurb: "A tabbed settings screen with rows of controls.",
     icon: "settings",
     build: settings,
+    portable: false,
   },
 ];
 

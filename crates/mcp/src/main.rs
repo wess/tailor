@@ -26,6 +26,7 @@ fn main() {
   // window, and linking one would drag gpui in for a process that only ever
   // reads and writes JSON.
   tailor_guise::register();
+  tailor_gpuikit::register();
 
   let stdin = std::io::stdin();
   let mut stdout = std::io::stdout();
@@ -104,6 +105,7 @@ mod tests {
   /// reads a line. Idempotent, so every test may ask.
   fn session() -> Session {
     tailor_guise::register();
+    tailor_gpuikit::register();
     Session::default()
   }
   fn request(text: &str) -> Request {

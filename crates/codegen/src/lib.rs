@@ -21,7 +21,7 @@ pub mod rust;
 pub mod style;
 
 pub use file::{document, module, Generated};
-pub use generator::{register, Generator};
+pub use generator::{register, Generator, OpenWindow};
 
 use tailor_model::{Document, Project};
 

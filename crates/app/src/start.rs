@@ -16,6 +16,12 @@ impl Root {
   pub(crate) fn render_start(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
     let chrome = theme::colors(cx);
     let recents = self.recents.entries.clone();
+    let libraries = tailor_model::library::all();
+    let library = self.library_id();
+    let default = tailor_model::library::default().id();
+    // A library with no renderer is drawn as schematics, and the person
+    // choosing it should hear that here rather than find out on the canvas.
+    let schematic = tailor_render::renderer::get(library).is_none();
 
     div()
       .size_full()
@@ -38,42 +44,45 @@ impl Root {
               .child(Title::new("Tailor").order(1))
               .child(Text::new("Lay out a gpui interface, and take the Rust with you.").dimmed()),
           )
+          .child(self.library_picker(&libraries, library, schematic, cx))
           .child(
-            div()
-              .flex()
-              .flex_col()
-              .gap(px(10.))
-              .children(TEMPLATES.iter().enumerate().map(|(index, template)| {
-                let build = template.build;
-                div()
-                  .id(ElementId::Integer(index as u64))
-                  .flex()
-                  .flex_row()
-                  .items_center()
-                  .gap(px(14.))
-                  .p(px(14.))
-                  .rounded(px(8.))
-                  .border(px(1.))
-                  .border_color(chrome.border)
-                  .bg(chrome.surface)
-                  .hover(move |style| style.border_color(chrome.accent))
-                  .child(
-                    ThemeIcon::new(crate::editor::icon(template.icon))
-                      .variant(Variant::Light)
-                      .size(Size::Lg),
-                  )
-                  .child(
-                    div()
-                      .flex()
-                      .flex_col()
-                      .gap(px(2.))
-                      .child(Text::new(template.name).medium())
-                      .child(Text::new(template.blurb).size(Size::Sm).dimmed()),
-                  )
-                  .on_click(cx.listener(move |this, _, _window, cx| {
-                    this.start_project(build(), cx);
-                  }))
-              })),
+            div().flex().flex_col().gap(px(10.)).children(
+              TEMPLATES
+                .iter()
+                .enumerate()
+                .filter(|(_, template)| template.portable || library == default)
+                .map(|(index, template)| {
+                  let build = template.build;
+                  div()
+                    .id(ElementId::Integer(index as u64))
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(14.))
+                    .p(px(14.))
+                    .rounded(px(8.))
+                    .border(px(1.))
+                    .border_color(chrome.border)
+                    .bg(chrome.surface)
+                    .hover(move |style| style.border_color(chrome.accent))
+                    .child(
+                      ThemeIcon::new(crate::editor::icon(template.icon))
+                        .variant(Variant::Light)
+                        .size(Size::Lg),
+                    )
+                    .child(
+                      div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.))
+                        .child(Text::new(template.name).medium())
+                        .child(Text::new(template.blurb).size(Size::Sm).dimmed()),
+                    )
+                    .on_click(cx.listener(move |this, _, _window, cx| {
+                      this.start_project(build(), cx);
+                    }))
+                }),
+            ),
           )
           .child(
             div().flex().gap(px(10.)).child(
@@ -140,5 +149,60 @@ impl Root {
               .into_any_element()
           }),
       )
+  }
+}
+
+impl Root {
+  /// Which component library a new project targets. Only shown when there is a
+  /// choice: a build with one library has nothing to pick.
+  fn library_picker(
+    &self,
+    libraries: &[&'static dyn tailor_model::Library],
+    selected: &'static str,
+    schematic: bool,
+    cx: &mut Context<Self>,
+  ) -> gpui::AnyElement {
+    if libraries.len() < 2 {
+      return div().into_any_element();
+    }
+    div()
+      .flex()
+      .flex_col()
+      .gap(px(8.))
+      .child(Text::new("Component library").size(Size::Sm).dimmed())
+      .child(
+        div()
+          .flex()
+          .flex_row()
+          .gap(px(8.))
+          .children(libraries.iter().map(|library| {
+            let id = library.id();
+            Button::new(
+              ElementId::Name(SharedString::from(format!("library-{id}"))),
+              library.label(),
+            )
+            .size(Size::Sm)
+            .variant(if id == selected {
+              Variant::Filled
+            } else {
+              Variant::Default
+            })
+            .on_click(cx.listener(move |this, _, _window, cx| {
+              this.settings.library = id.to_string();
+              this.settings.save();
+              cx.notify();
+            }))
+          })),
+      )
+      .when(schematic, |el| {
+        el.child(
+          Text::new(
+            "This library draws as labelled boxes on the canvas. Run and Export build the real components.",
+          )
+          .size(Size::Xs)
+          .dimmed(),
+        )
+      })
+      .into_any_element()
   }
 }

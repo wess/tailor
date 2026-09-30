@@ -134,12 +134,16 @@ impl<'a> Emitter<'a> {
         let arg = expr::value(self.hoist, prop, &value, self.doc);
         (format!("{}::new({arg})", spec.rust), false)
       }
+      // The state, not the element: the element is rebuilt over it each frame.
+      Ctor::Stateful(state) => (format!("{state}::new(window, cx)"), true),
       _ => (format!("{}::new(cx)", spec.rust), true),
     };
     let param = if takes_cx { "cx" } else { "_cx" };
     let mut body = vec![ctor];
     body.extend(indent(&self.prop_calls(node)));
-    body.extend(indent(&self.slot_calls(node)));
+    if !spec.ctor.needs_window() {
+      body.extend(indent(&self.slot_calls(node)));
+    }
 
     // Two-way binding is a call after construction, not a setter: the
     // entity and the signal both have to exist first.
@@ -232,7 +236,13 @@ impl<'a> Emitter<'a> {
     // A pinned child needs a box to pin, even if nothing else styles it.
     let styled = container || node.style.needs_wrapper() || placement.absolute || motion.is_some();
     // An entity was configured when it was built; here it is only a handle.
-    let configured_elsewhere = self.fields.contains_key(&node.id);
+    // A stateful component is only half built there: its state was configured
+    // in `new`, but the element over it still takes its own props.
+    let configured_elsewhere = self.fields.contains_key(&node.id)
+      && !self
+        .library
+        .get(&node.kind)
+        .is_some_and(|spec| spec.ctor.needs_window());
 
     if container {
       lines.extend(indent(&style::calls(
@@ -305,13 +315,24 @@ impl<'a> Emitter<'a> {
     // expression sits: a field in `render`, a local in `new`, and a cloned
     // local anywhere inside a closure.
     if let Some(field) = self.fields.get(&node.id).cloned() {
+      // A stateful component's field is its state; what goes in the tree is
+      // an element built over a borrow of it.
+      let stateful = self
+        .library
+        .get(&node.kind)
+        .filter(|spec| spec.ctor.needs_window());
       if let Some(scope) = self.captures.last_mut() {
         scope.insert(field.clone());
-        return vec![format!("{field}.clone()")];
+        return match stateful {
+          Some(spec) => vec![format!("{}::new(&{field})", spec.rust)],
+          None => vec![format!("{field}.clone()")],
+        };
       }
-      return match self.phase {
-        Phase::Render => vec![format!("self.{field}.clone()")],
-        Phase::Init => vec![format!("{field}.clone()")],
+      return match (stateful, self.phase) {
+        (Some(spec), Phase::Render) => vec![format!("{}::new(&self.{field})", spec.rust)],
+        (Some(spec), Phase::Init) => vec![format!("{}::new(&{field})", spec.rust)],
+        (None, Phase::Render) => vec![format!("self.{field}.clone()")],
+        (None, Phase::Init) => vec![format!("{field}.clone()")],
       };
     }
     let Some(spec) = self.library.get(&node.kind) else {
@@ -354,7 +375,7 @@ impl<'a> Emitter<'a> {
         vec![format!("{}::new({})", spec.rust, values.join(", "))]
       }
       // Entities are constructed in `new()`, never here.
-      Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) => {
+      Ctor::Entity | Ctor::EntityArg(_) | Ctor::EntityValue(_) | Ctor::Stateful(_) => {
         vec![format!("{}::new(cx)", spec.rust)]
       }
       Ctor::Special => vec!["div()".into()],
@@ -391,10 +412,15 @@ impl<'a> Emitter<'a> {
       return Vec::new();
     };
     let mut out = Vec::new();
+    let split = spec.ctor.needs_window();
     for prop in spec.props {
       let Some(value) = node.prop(prop.key) else {
         continue;
       };
+      // The element's props wait for `render`, the state's for `new`.
+      if split && self.phase == Phase::Init && !matches!(prop.emit, Emit::State(_)) {
+        continue;
+      }
       // A binding is never "the default" — it is a live read.
       let bound = value.as_binding().is_some();
       // The prop a two-way `X::bind` drives is set by that call, not by a
@@ -429,6 +455,14 @@ impl<'a> Emitter<'a> {
         Emit::Flag(method) => {
           if value.as_bool() == Some(true) {
             out.push(format!(".{method}()"));
+          }
+        }
+        Emit::State(method) => {
+          if self.phase == Phase::Init
+            && (bound || (!expr::is_default(prop, value) && !value.is_empty()))
+          {
+            let arg = expr::value_with(self.hoist, prop, value, self.doc, prefix);
+            out.push(format!(".{method}({arg})"));
           }
         }
         Emit::Custom | Emit::None => {}
@@ -691,6 +725,17 @@ fn split_mark(mut lines: Vec<String>) -> (Option<String>, Vec<String>) {
     return (Some(mark), lines);
   }
   (None, lines)
+}
+
+/// Whether building this document's entities takes a window, which its `new`
+/// then has to be handed — and so does whoever constructs it.
+pub fn needs_window(library: &dyn Library, doc: &Document) -> bool {
+  entity_fields(library, doc).iter().any(|(id, _)| {
+    doc
+      .node(*id)
+      .and_then(|node| library.get(&node.kind))
+      .is_some_and(|spec| spec.ctor.needs_window())
+  })
 }
 
 /// Every entity-backed node in the document, **in the order they must be

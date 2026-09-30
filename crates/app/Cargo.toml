@@ -24,6 +24,7 @@ tailor-build = { workspace = true }
 tailor-render = { workspace = true }
 tailor-guise = { workspace = true }
 tailor-guiserender = { workspace = true }
+tailor-gpuikit = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

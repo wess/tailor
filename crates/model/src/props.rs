@@ -158,6 +158,10 @@ pub enum Emit {
   Method(&'static str),
   /// `.method()` when the bool is true, nothing when it is false.
   Flag(&'static str),
+  /// `.method(value)` on the *state* a [`Ctor::Stateful`](crate::catalog::Ctor)
+  /// component owns, at the moment it is built — a placeholder is the buffer's,
+  /// not the element's.
+  State(&'static str),
   /// Consumed by the renderer and the generator by hand — slot counts, chart
   /// series, anything whose shape is not one chained call.
   Custom,

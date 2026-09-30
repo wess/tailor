@@ -69,17 +69,11 @@ pub fn get(library_id: &str) -> Option<&'static dyn Renderer> {
     .find(|r| r.library().id() == library_id)
 }
 
-/// The renderer for a project, falling back to the first registered when the
-/// project names a library this build does not ship. A file always opens, and
-/// the lint pass is where the substitution is reported.
+/// The renderer for a project. A library with no renderer of its own is drawn
+/// as a [`schematic`](crate::schematic) rather than refused, and one this
+/// build does not ship at all falls back with the library — a file always opens,
+/// and the lint pass is where the substitution is reported.
 pub fn for_project(project: &tailor_model::Project) -> &'static dyn Renderer {
-  get(project.library().id())
-    .or_else(|| {
-      RENDERERS
-        .read()
-        .expect("renderer registry")
-        .first()
-        .copied()
-    })
-    .expect("no renderer is registered — call tailor_guiserender::register() from main")
+  let library = project.library();
+  get(library.id()).unwrap_or_else(|| crate::schematic::for_library(library))
 }
