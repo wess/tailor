@@ -8,6 +8,12 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
+## 0.4.1 — 2026-11-03
+
+- Refresh compatible locked dependencies for the desktop and Zed extension.
+- Pin every GitHub Action to an immutable commit and add weekly dependency
+  tracking for future action updates.
+
 ## 0.4.0 — 2026-09-30
 
 A second component library: [gpui-kit](https://github.com/longbridge/gpui-kit).
