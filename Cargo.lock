@@ -3478,9 +3478,9 @@ checksum = "7a79a3332a6609480d7d0c9eab957bca6b455b91bb84e66d19f5ff66294b85b8"
 
 [[package]]
 name = "libc"
-version = "0.2.191"
+version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
+checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -6225,7 +6225,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-app"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6244,7 +6244,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-build"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "dirs 6.0.0",
  "serde_json",
@@ -6256,7 +6256,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-codegen"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "tailor-guise",
  "tailor-model",
@@ -6264,7 +6264,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-gpuikit"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "tailor-codegen",
  "tailor-model",
@@ -6272,7 +6272,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-guise"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "tailor-codegen",
  "tailor-model",
@@ -6280,7 +6280,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-guiserender"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6291,7 +6291,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-mcp"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6304,7 +6304,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-model"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6312,7 +6312,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-render"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "gpui",
  "guise-ui",
@@ -6322,7 +6322,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-store"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "dirs 6.0.0",
  "serde",
@@ -6334,7 +6334,7 @@ dependencies = [
 
 [[package]]
 name = "tailor-surface"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "serde_json",
 ]

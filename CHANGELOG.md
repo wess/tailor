@@ -8,6 +8,11 @@ through 1.6.0, on that project's version line and in
 from 1.1.0 (Tailor's first release) to 1.6.0 are there. This file starts where
 Tailor became its own project.
 
+## 0.4.2 — 2026-11-03
+
+- Pin `libc` below 0.2.191 until GPUI's transitive `xattr` dependency is
+  compatible with the removed Linux `ENOATTR` alias.
+
 ## 0.4.1 — 2026-11-03
 
 - Refresh compatible locked dependencies for the desktop and Zed extension.
